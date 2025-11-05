@@ -11,12 +11,36 @@
 
   <ItemGroup>
     <None Remove="Resources\fast-forward.png" />
+    <None Remove="Resources\gold_16.png" />
+    <None Remove="Resources\gold_31.png" />
+    <None Remove="Resources\oil_16.png" />
+    <None Remove="Resources\oil_32.png" />
+    <None Remove="Resources\steel_16.png" />
+    <None Remove="Resources\steel_32.png" />
     <None Remove="Resources\unavailable.png" />
     <None Remove="Resources\white-flag.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Resources\fast-forward.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\gold_16.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\gold_31.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\oil_16.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\oil_32.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\steel_16.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\steel_32.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\unavailable.png">

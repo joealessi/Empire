@@ -154,11 +154,47 @@ namespace EmpireGame
                     pixel[3] = 255;
                 }
             }
+
+            if (visibility == VisibilityLevel.Visible && tile.Resource != ResourceType.None)
+            {
+                RenderResourceIcon(pBackBuffer, stride, tileX, tileY, tile.Resource);
+            }
             
             // Draw border
             DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
         }
         
+        private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
+        {
+            // For now, draw a simple colored square in the corner
+            // You'll replace this with actual icon loading later
+    
+            Color iconColor = resource == ResourceType.Oil ? Color.FromRgb(0, 0, 0) : Color.FromRgb(128, 128, 128);
+    
+            int iconX = tileX * tileSize + tileSize - 6; // Top right corner
+            int iconY = tileY * tileSize + 2;
+            int iconSize = 4;
+    
+            for (int py = 0; py < iconSize; py++)
+            {
+                for (int px = 0; px < iconSize; px++)
+                {
+                    int screenX = iconX + px;
+                    int screenY = iconY + py;
+            
+                    if (screenX >= 0 && screenX < bitmap.PixelWidth &&
+                        screenY >= 0 && screenY < bitmap.PixelHeight)
+                    {
+                        byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                        pixel[0] = iconColor.B;
+                        pixel[1] = iconColor.G;
+                        pixel[2] = iconColor.R;
+                        pixel[3] = 255;
+                    }
+                }
+            }
+        }
+
         private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, int tileY, Structure structure)
         {
             Color color = GetPlayerColor(structure.OwnerId);

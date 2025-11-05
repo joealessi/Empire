@@ -1,14 +1,4 @@
-﻿// Structures (non-mobile)
-
-
-// Tile
-
-// Map
-
-// Helper class for pathfinding
-
-// Player
-public class Player
+﻿public class Player
 {
     public int PlayerId { get; set; }
     public string Name { get; set; }
@@ -16,6 +6,10 @@ public class Player
     public List<Unit> Units { get; set; }
     public List<Structure> Structures { get; set; }
     public Dictionary<TilePosition, VisibilityLevel> FogOfWar { get; set; }
+    
+    public int Gold { get; set; }
+    public int Steel { get; set; }
+    public int Oil { get; set; }
     
     public Player(int id, string name, bool isAI)
     {
@@ -25,8 +19,13 @@ public class Player
         Units = new List<Unit>();
         Structures = new List<Structure>();
         FogOfWar = new Dictionary<TilePosition, VisibilityLevel>();
-    }
-    
+        
+        // Starting resources
+        Gold = 10;
+        Steel = 2;
+        Oil = 2;
+    }    
+
     public void UpdateVision(Map map)
     {
         // Reset all tiles to explored (if previously visible)
@@ -81,6 +80,98 @@ public class Player
             Army => 1,
             _ => 2
         };
-    }}
-
-// Game
+    }
+     public void CalculateResourceIncome(Map map)
+    {
+        int goldIncome = 0;
+        int steelIncome = 0;
+        int oilIncome = 0;
+        
+        // Cities generate 3 gold, bases generate 1 gold
+        foreach (var structure in Structures)
+        {
+            if (structure is City)
+                goldIncome += 3;
+            else if (structure is Base)
+                goldIncome += 1;
+            
+            // Structures control 8 adjacent tiles
+            goldIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.None);
+            steelIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Steel);
+            oilIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Oil);
+        }
+        
+        // Units standing on resource tiles
+        foreach (var unit in Units)
+        {
+            var tile = map.GetTile(unit.Position);
+            if (tile != null)
+            {
+                if (tile.Resource == ResourceType.Steel)
+                    steelIncome += 1;
+                else if (tile.Resource == ResourceType.Oil)
+                    oilIncome += 1;
+            }
+        }
+        
+        // Apply income
+        Gold += goldIncome;
+        Steel += steelIncome;
+        Oil += oilIncome;
+    }
+    
+    private int CountAdjacentResourceIncome(Map map, TilePosition center, ResourceType resourceType)
+    {
+        int count = 0;
+        int[] dx = { -1, 0, 1, 0, -1, 1, -1, 1 };
+        int[] dy = { 0, 1, 0, -1, -1, -1, 1, 1 };
+        
+        for (int i = 0; i < 8; i++)
+        {
+            var pos = new TilePosition(center.X + dx[i], center.Y + dy[i]);
+            if (map.IsValidPosition(pos))
+            {
+                var tile = map.GetTile(pos);
+                if (tile.Resource == resourceType)
+                    count += 1;
+            }
+        }
+        
+        return count;
+    }
+    
+    public (int goldIncome, int steelIncome, int oilIncome) GetResourceIncome(Map map)
+    {
+        int goldIncome = 0;
+        int steelIncome = 0;
+        int oilIncome = 0;
+        
+        // Cities generate 3 gold, bases generate 1 gold
+        foreach (var structure in Structures)
+        {
+            if (structure is City)
+                goldIncome += 3;
+            else if (structure is Base)
+                goldIncome += 1;
+            
+            // Structures control 8 adjacent tiles
+            steelIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Steel);
+            oilIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Oil);
+        }
+        
+        // Units standing on resource tiles
+        foreach (var unit in Units)
+        {
+            var tile = map.GetTile(unit.Position);
+            if (tile != null)
+            {
+                if (tile.Resource == ResourceType.Steel)
+                    steelIncome += 1;
+                else if (tile.Resource == ResourceType.Oil)
+                    oilIncome += 1;
+            }
+        }
+        
+        return (goldIncome, steelIncome, oilIncome);
+    }
+}

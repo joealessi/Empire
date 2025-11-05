@@ -1,7 +1,15 @@
-﻿public class Tile
+﻿public enum ResourceType
+{
+    None,
+    Oil,
+    Steel
+}
+
+public class Tile
 {
     public TilePosition Position { get; set; }
     public TerrainType Terrain { get; set; }
+    public ResourceType Resource { get; set; }  // <-- ADD THIS
     public int OwnerId { get; set; }
     public Structure Structure { get; set; }
     public List<Unit> Units { get; set; }
@@ -51,7 +59,8 @@
     {
         Position = position;
         Terrain = terrain;
-        OwnerId = -1; // Neutral
+        Resource = ResourceType.None;  
+        OwnerId = -1;
         Units = new List<Unit>();
     }
     

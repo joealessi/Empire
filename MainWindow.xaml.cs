@@ -66,6 +66,7 @@ namespace EmpireGame
             UpdateGameInfo();
             UpdateNextButton();
             UpdateEndTurnButtonImage();
+            UpdateResourceDisplay();
         }
 
         private void UpdateNextButton()
@@ -238,8 +239,86 @@ namespace EmpireGame
             // Step 5: Mark coastal water
             MarkCoastalWater();
 
-            // Step 6: Place player starting positions on large continents
+            // NEW STEP 6: Place resource tiles
+            PlaceResourceTiles(rand);
+
+            // Step 7 (was 6): Place player starting positions
             PlacePlayerStartingPositions(continentCenters, rand);
+        }
+
+        private void PlaceResourceTiles(Random rand)
+        {
+            // Place 10-15 oil tiles
+            int oilTiles = rand.Next(10, 16);
+            PlaceResourceType(ResourceType.Oil, oilTiles, rand);
+
+            // Place 10-15 steel tiles
+            int steelTiles = rand.Next(10, 16);
+            PlaceResourceType(ResourceType.Steel, steelTiles, rand);
+        }
+
+        private void PlaceResourceType(ResourceType resourceType, int count, Random rand)
+        {
+            int placed = 0;
+            int attempts = 0;
+            int maxAttempts = count * 100;
+
+            // Preferred terrain for each resource
+            List<TerrainType> preferredTerrain;
+            if (resourceType == ResourceType.Oil)
+            {
+                preferredTerrain = new List<TerrainType> { TerrainType.Plains, TerrainType.Land };
+            }
+            else // Steel
+            {
+                preferredTerrain = new List<TerrainType> { TerrainType.Hills, TerrainType.Mountain };
+            }
+
+            while (placed < count && attempts < maxAttempts)
+            {
+                attempts++;
+
+                // Random position, but not at edges (10 tiles from border)
+                int x = rand.Next(10, game.Map.Width - 10);
+                int y = rand.Next(10, game.Map.Height - 10);
+                var pos = new TilePosition(x, y);
+                var tile = game.Map.GetTile(pos);
+
+                // Check if tile is suitable
+                if (tile.Resource != ResourceType.None)
+                    continue; // Already has a resource
+
+                if (!preferredTerrain.Contains(tile.Terrain))
+                    continue; // Wrong terrain type
+
+                // Check distance from other resource tiles (spread them out)
+                if (!IsWellSpacedFromOtherResources(pos, 8))
+                    continue;
+
+                // Place the resource
+                tile.Resource = resourceType;
+                placed++;
+            }
+        }
+
+        private bool IsWellSpacedFromOtherResources(TilePosition pos, int minDistance)
+        {
+            for (int dx = -minDistance; dx <= minDistance; dx++)
+            {
+                for (int dy = -minDistance; dy <= minDistance; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+
+                    var checkPos = new TilePosition(pos.X + dx, pos.Y + dy);
+                    if (game.Map.IsValidPosition(checkPos))
+                    {
+                        var tile = game.Map.GetTile(checkPos);
+                        if (tile.Resource != ResourceType.None)
+                            return false; // Too close to another resource
+                    }
+                }
+            }
+            return true;
         }
 
         private bool IsTooCloseToOtherContinents(TilePosition pos, List<TilePosition> centers, int minDistance)
@@ -738,7 +817,7 @@ namespace EmpireGame
         {
             if (game.HasSurrendered)
                 return;
-            
+
             var clickPos = e.GetPosition(MapCanvas);
             var tilePos = new TilePosition((int)(clickPos.X / TILE_SIZE), (int)(clickPos.Y / TILE_SIZE));
 
@@ -1573,78 +1652,87 @@ namespace EmpireGame
 
             var baseStructure = structure as Base;
             var city = structure as City;
+            var player = game.CurrentPlayer;
 
-            // Helper to add unit if capacity allows
-            void AddUnitIfCapacityAllows(string name, Type type, int cost)
+            void AddUnit(string name, Type type, int gold, int steel, int oil)
             {
                 bool canBuild = false;
                 string capacityNote = "";
 
+                // Check capacity
                 if (baseStructure != null)
                 {
                     canBuild = baseStructure.CanBuildUnit(type);
-
-                    if (!canBuild)
-                    {
-                        if (type == typeof(Fighter) || type == typeof(Bomber) || type == typeof(Tanker))
-                        {
-                            capacityNote = " [Airport Full]";
-                        }
-                        else if (type == typeof(Carrier) || type == typeof(Battleship) ||
-                                 type == typeof(Destroyer) || type == typeof(Submarine) ||
-                                 type == typeof(PatrolBoat) || type == typeof(Transport))
-                        {
-                            capacityNote = " [Shipyard Full]";
-                        }
-                        else if (type == typeof(Army))
-                        {
-                            capacityNote = " [Barracks Full]";
-                        }
-                    }
+                    // ... capacity check code
                 }
                 else if (city != null)
                 {
                     canBuild = city.CanBuildUnit(type);
-
-                    if (!canBuild)
-                    {
-                        if (type == typeof(Fighter) || type == typeof(Bomber) || type == typeof(Tanker))
-                        {
-                            capacityNote = " [Airport Full]";
-                        }
-                        else if (type == typeof(Army))
-                        {
-                            capacityNote = " [Barracks Full]";
-                        }
-                    }
+                    // ... capacity check code
                 }
+
+                // Check resources
+                bool canAfford = player.Gold >= gold &&
+                                player.Steel >= steel &&
+                                player.Oil >= oil;
+
+                // Build cost string with color indicators
+                string costString = $"{name} (";
+
+                // Gold
+                costString += player.Gold >= gold ? $"💰{gold}" : $"💰{gold}[!]";
+
+                // Steel
+                if (steel > 0)
+                    costString += player.Steel >= steel ? $" ⚙️{steel}" : $" ⚙️{steel}[!]";
+
+                // Oil
+                if (oil > 0)
+                    costString += player.Oil >= oil ? $" 🛢️{oil}" : $" 🛢️{oil}[!]";
+
+                costString += ")";
+
+                if (!canAfford)
+                    costString += " [Need Resources]";
+                else if (canBuild)
+                    costString += " ✓";
+
+                costString += capacityNote;
 
                 var item = new ComboBoxItem
                 {
-                    Content = $"{name} ({cost}){capacityNote}",
-                    Tag = new { Type = type, Cost = cost },
-                    IsEnabled = canBuild
+                    Content = costString,
+                    Tag = new UnitProductionOrder(type, gold, steel, oil, name),
+                    IsEnabled = canBuild && canAfford
                 };
+
+                // Color coding
+                if (!canAfford)
+                    item.Foreground = System.Windows.Media.Brushes.Red;
+                else if (canBuild)
+                    item.Foreground = System.Windows.Media.Brushes.DarkGreen;
+
                 UnitTypesCombo.Items.Add(item);
             }
 
-            // Add available unit types
-            AddUnitIfCapacityAllows("Army", typeof(Army), 30);
-            AddUnitIfCapacityAllows("Tank", typeof(Tank), 60);
-            AddUnitIfCapacityAllows("Artillery", typeof(Artillery), 50);
-            AddUnitIfCapacityAllows("Anti-Aircraft", typeof(AntiAircraft), 40);
-            AddUnitIfCapacityAllows("Fighter", typeof(Fighter), 70);
-            AddUnitIfCapacityAllows("Bomber", typeof(Bomber), 100);
-            AddUnitIfCapacityAllows("Tanker", typeof(Tanker), 80);
+            // Add all units with resource costs
+            AddUnit("Army", typeof(Army), 2, 0, 0);
+            AddUnit("Tank", typeof(Tank), 2, 1, 0);
+            AddUnit("Artillery", typeof(Artillery), 2, 1, 0);
+            AddUnit("Anti-Aircraft", typeof(AntiAircraft), 2, 1, 0);
+            AddUnit("Spy", typeof(Spy), 3, 0, 0);
+            AddUnit("Fighter", typeof(Fighter), 3, 1, 1);
+            AddUnit("Bomber", typeof(Bomber), 4, 2, 1);
+            AddUnit("Tanker", typeof(Tanker), 3, 1, 1);
 
             if (baseStructure != null && baseStructure.HasShipyard)
             {
-                AddUnitIfCapacityAllows("Patrol Boat", typeof(PatrolBoat), 40);
-                AddUnitIfCapacityAllows("Destroyer", typeof(Destroyer), 80);
-                AddUnitIfCapacityAllows("Submarine", typeof(Submarine), 90);
-                AddUnitIfCapacityAllows("Carrier", typeof(Carrier), 120);
-                AddUnitIfCapacityAllows("Battleship", typeof(Battleship), 150);
-                AddUnitIfCapacityAllows("Transport", typeof(Transport), 60);
+                AddUnit("Patrol Boat", typeof(PatrolBoat), 2, 1, 0);
+                AddUnit("Destroyer", typeof(Destroyer), 3, 2, 1);
+                AddUnit("Submarine", typeof(Submarine), 3, 1, 1);
+                AddUnit("Carrier", typeof(Carrier), 5, 3, 2);
+                AddUnit("Battleship", typeof(Battleship), 5, 3, 2);
+                AddUnit("Transport", typeof(Transport), 2, 1, 1);
             }
         }
 
@@ -2066,17 +2154,18 @@ namespace EmpireGame
                 return;
             }
 
-            dynamic tag = selectedItem.Tag;
+            // The tag already contains a properly constructed UnitProductionOrder
+            var order = (UnitProductionOrder)selectedItem.Tag;
 
             // Check capacity one more time before adding to queue
             bool canBuild = false;
             if (selectedStructure is Base baseStructure)
             {
-                canBuild = baseStructure.CanBuildUnit(tag.Type);
+                canBuild = baseStructure.CanBuildUnit(order.UnitType);
             }
             else if (selectedStructure is City city)
             {
-                canBuild = city.CanBuildUnit(tag.Type);
+                canBuild = city.CanBuildUnit(order.UnitType);
             }
 
             if (!canBuild)
@@ -2085,14 +2174,13 @@ namespace EmpireGame
                 return;
             }
 
-            var order = new UnitProductionOrder(tag.Type, tag.Cost, selectedItem.Content.ToString().Split('(')[0].Trim());
-
             if (selectedStructure is Base baseStruct)
             {
                 baseStruct.ProductionQueue.Enqueue(order);
                 UpdateProductionQueue(baseStruct);
                 UpdateStructureLists(baseStruct);
                 PopulateAvailableUnits(baseStruct);
+                UpdateResourceDisplay();
             }
             else if (selectedStructure is City cityStruct)
             {
@@ -2100,6 +2188,7 @@ namespace EmpireGame
                 UpdateProductionQueue(cityStruct);
                 UpdateStructureLists(cityStruct);
                 PopulateAvailableUnits(cityStruct);
+                UpdateResourceDisplay();
             }
         }
 
@@ -2119,7 +2208,7 @@ namespace EmpireGame
         {
             if (game.HasSurrendered)
                 return;
-            
+
             // Reset unit/structure indices for next turn
             currentUnitIndex = 0;
             currentStructureIndex = 0;
@@ -2155,6 +2244,7 @@ namespace EmpireGame
             RenderMap();
             ClearSelection();
             UpdateNextButton();
+            UpdateResourceDisplay();
         }
 
         private async Task ExecuteAITurnWithUpdates(Player aiPlayer)
@@ -2565,8 +2655,6 @@ namespace EmpireGame
                 EnableGameControls();
             }
         }
-
-
         private void UpdateEndTurnButtonImage()
         {
             if (endTurnImage != null)
@@ -2585,5 +2673,23 @@ namespace EmpireGame
                 }
             }
         }
+        private void UpdateResourceDisplay()
+        {
+            var player = game.CurrentPlayer;
+
+            // Get income
+            var (goldIncome, steelIncome, oilIncome) = player.GetResourceIncome(game.Map);
+
+            // Update display
+            GoldText.Text = player.Gold.ToString();
+            GoldIncomeText.Text = $"(+{goldIncome})";
+
+            SteelText.Text = player.Steel.ToString();
+            SteelIncomeText.Text = $"(+{steelIncome})";
+
+            OilText.Text = player.Oil.ToString();
+            OilIncomeText.Text = $"(+{oilIncome})";
+        }
+
     }
 }

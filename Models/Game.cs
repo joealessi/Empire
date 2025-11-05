@@ -49,6 +49,9 @@
             // Check sentry units BEFORE processing their turn
             CheckSentryUnits(player);
 
+            // NEW: Calculate and apply resource income
+            player.CalculateResourceIncome(Map);
+
             // Consume fuel for air units
             foreach (var unit in player.Units)
             {
@@ -63,7 +66,7 @@
                 // Clear skip flag for new turn
                 unit.IsSkippedThisTurn = false;
 
-                // Process automated orders (patrol, bombing runs, etc.)
+                // Process automated orders
                 ProcessUnitOrders(unit);
             }
 
@@ -81,6 +84,7 @@
             }
         }
     }
+
     private void CheckSentryUnits(Player player)
     {
         foreach (var unit in player.Units)
@@ -156,63 +160,76 @@
 
         if (baseStructure.CurrentProductionProgress >= currentOrder.TotalCost)
         {
-            // Production complete, create unit
-            var unit = CreateUnit(currentOrder.UnitType, baseStructure.Position, player.PlayerId);
-            player.Units.Add(unit);
-
-            // Place unit in appropriate storage (check capacity)
-            bool placed = false;
-
-            if (unit is AirUnit airUnit)
+            // Check if player has sufficient resources
+            if (player.Gold >= currentOrder.GoldCost &&
+                player.Steel >= currentOrder.SteelCost &&
+                player.Oil >= currentOrder.OilCost)
             {
-                if (baseStructure.Airport.Count < Base.MAX_AIRPORT_CAPACITY)
+                // Deduct resources
+                player.Gold -= currentOrder.GoldCost;
+                player.Steel -= currentOrder.SteelCost;
+                player.Oil -= currentOrder.OilCost;
+
+                // Production complete, create unit
+                var unit = CreateUnit(currentOrder.UnitType, baseStructure.Position, player.PlayerId);
+                player.Units.Add(unit);
+
+                // Place unit in appropriate storage (check capacity)
+                bool placed = false;
+
+                if (unit is AirUnit airUnit)
                 {
-                    baseStructure.Airport.Add(airUnit);
-                    airUnit.HomeBaseId = baseStructure.StructureId;
+                    if (baseStructure.Airport.Count < Base.MAX_AIRPORT_CAPACITY)
+                    {
+                        baseStructure.Airport.Add(airUnit);
+                        airUnit.HomeBaseId = baseStructure.StructureId;
+                        placed = true;
+                    }
+                }
+                else if (unit is SeaUnit seaUnit)
+                {
+                    if (baseStructure.Shipyard.Count < Base.MAX_SHIPYARD_CAPACITY)
+                    {
+                        baseStructure.Shipyard.Add(seaUnit);
+                        placed = true;
+                    }
+                }
+                else if (unit is Tank || unit is Artillery || unit is AntiAircraft)
+                {
+                    baseStructure.MotorPool.Add(unit);
                     placed = true;
                 }
-            }
-            else if (unit is SeaUnit seaUnit)
-            {
-                if (baseStructure.Shipyard.Count < Base.MAX_SHIPYARD_CAPACITY)
+                else if (unit is Army army)
                 {
-                    baseStructure.Shipyard.Add(seaUnit);
-                    placed = true;
+                    if (baseStructure.Barracks.Count < Base.MAX_BARRACKS_CAPACITY)
+                    {
+                        baseStructure.Barracks.Add(army);
+                        placed = true;
+                    }
                 }
-            }
-            else if (unit is Tank || unit is Artillery || unit is AntiAircraft)
-            {
-                baseStructure.MotorPool.Add(unit);
-                placed = true;
-            }
-            else if (unit is Army army)
-            {
-                if (baseStructure.Barracks.Count < Base.MAX_BARRACKS_CAPACITY)
-                {
-                    baseStructure.Barracks.Add(army);
-                    placed = true;
-                }
-            }
 
-            // If couldn't place in storage, put on adjacent tile
-            if (!placed)
-            {
-                var adjacentPos = FindAdjacentEmptyTile(baseStructure.Position);
-                if (adjacentPos.X != -1)
+                // If couldn't place in storage, put on adjacent tile
+                if (!placed)
                 {
-                    unit.Position = adjacentPos;
-                    var tile = Map.GetTile(adjacentPos);
-                    tile.Units.Add(unit);
+                    var adjacentPos = FindAdjacentEmptyTile(baseStructure.Position);
+                    if (adjacentPos.X != -1)
+                    {
+                        unit.Position = adjacentPos;
+                        var tile = Map.GetTile(adjacentPos);
+                        tile.Units.Add(unit);
+                    }
+                    else
+                    {
+                        // No space at all - unit is lost
+                        player.Units.Remove(unit);
+                    }
                 }
-                else
-                {
-                    // No space at all - unit is lost
-                    player.Units.Remove(unit);
-                }
-            }
 
-            baseStructure.ProductionQueue.Dequeue();
-            baseStructure.CurrentProductionProgress = 0;
+                // Remove from queue only after successful production
+                baseStructure.ProductionQueue.Dequeue();
+                baseStructure.CurrentProductionProgress = 0;
+            }
+            // If insufficient resources, production progress stays at max until resources are available
         }
 
         // Process repairs
@@ -230,55 +247,68 @@
 
         if (city.CurrentProductionProgress >= currentOrder.TotalCost)
         {
-            // Production complete, create unit
-            var unit = CreateUnit(currentOrder.UnitType, city.Position, player.PlayerId);
-            player.Units.Add(unit);
-
-            // Place unit in appropriate storage (check capacity)
-            bool placed = false;
-
-            if (unit is AirUnit airUnit)
+            // Check if player has sufficient resources
+            if (player.Gold >= currentOrder.GoldCost &&
+                player.Steel >= currentOrder.SteelCost &&
+                player.Oil >= currentOrder.OilCost)
             {
-                if (city.Airport.Count < City.MAX_AIRPORT_CAPACITY)
+                // Deduct resources
+                player.Gold -= currentOrder.GoldCost;
+                player.Steel -= currentOrder.SteelCost;
+                player.Oil -= currentOrder.OilCost;
+
+                // Production complete, create unit
+                var unit = CreateUnit(currentOrder.UnitType, city.Position, player.PlayerId);
+                player.Units.Add(unit);
+
+                // Place unit in appropriate storage (check capacity)
+                bool placed = false;
+
+                if (unit is AirUnit airUnit)
                 {
-                    city.Airport.Add(airUnit);
-                    airUnit.HomeBaseId = city.StructureId;
+                    if (city.Airport.Count < City.MAX_AIRPORT_CAPACITY)
+                    {
+                        city.Airport.Add(airUnit);
+                        airUnit.HomeBaseId = city.StructureId;
+                        placed = true;
+                    }
+                }
+                else if (unit is Tank || unit is Artillery || unit is AntiAircraft)
+                {
+                    city.MotorPool.Add(unit);
                     placed = true;
                 }
-            }
-            else if (unit is Tank || unit is Artillery || unit is AntiAircraft)
-            {
-                city.MotorPool.Add(unit);
-                placed = true;
-            }
-            else if (unit is Army army)
-            {
-                if (city.Barracks.Count < City.MAX_BARRACKS_CAPACITY)
+                else if (unit is Army army)
                 {
-                    city.Barracks.Add(army);
-                    placed = true;
+                    if (city.Barracks.Count < City.MAX_BARRACKS_CAPACITY)
+                    {
+                        city.Barracks.Add(army);
+                        placed = true;
+                    }
                 }
-            }
 
-            // If couldn't place in storage, put on adjacent tile
-            if (!placed)
-            {
-                var adjacentPos = FindAdjacentEmptyTile(city.Position);
-                if (adjacentPos.X != -1)
+                // If couldn't place in storage, put on adjacent tile
+                if (!placed)
                 {
-                    unit.Position = adjacentPos;
-                    var tile = Map.GetTile(adjacentPos);
-                    tile.Units.Add(unit);
+                    var adjacentPos = FindAdjacentEmptyTile(city.Position);
+                    if (adjacentPos.X != -1)
+                    {
+                        unit.Position = adjacentPos;
+                        var tile = Map.GetTile(adjacentPos);
+                        tile.Units.Add(unit);
+                    }
+                    else
+                    {
+                        // No space at all - unit is lost
+                        player.Units.Remove(unit);
+                    }
                 }
-                else
-                {
-                    // No space at all - unit is lost
-                    player.Units.Remove(unit);
-                }
-            }
 
-            city.ProductionQueue.Dequeue();
-            city.CurrentProductionProgress = 0;
+                // Remove from queue only after successful production
+                city.ProductionQueue.Dequeue();
+                city.CurrentProductionProgress = 0;
+            }
+            // If insufficient resources, production progress stays at max until resources are available
         }
 
         // Process repairs
@@ -383,7 +413,7 @@
     public void RevealEntireMap()
     {
         HasSurrendered = true;
-    
+
         foreach (var player in Players)
         {
             for (int x = 0; x < Map.Width; x++)
