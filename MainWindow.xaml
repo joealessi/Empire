@@ -1,626 +1,447 @@
 ﻿<Window x:Class="EmpireGame.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        Title="Empire" Height="800" Width="1200"
-        WindowState="Maximized">
+        Title="Empire" Height="900" Width="1600"
+        WindowState="Maximized"
+        KeyDown="Window_KeyDown">
     <Grid>
-        <!-- ADD THIS: Define rows for resource bar and content -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="150"/>
         </Grid.RowDefinitions>
-        
-        <!-- Resource Bar - Row 0 -->
-        <Border Grid.Row="0" 
-                Background="#E0E0E0" 
-                BorderBrush="#BDBDBD" 
-                BorderThickness="0,0,0,1"
-                Padding="10,8">
-            <Grid>
-                
-                <!-- Turn/Player Info -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,30,0">
-                    <TextBlock x:Name="TurnNumberText" 
-                               Text="Turn: 1" 
-                               FontSize="14" 
-                               FontWeight="Bold"
-                               VerticalAlignment="Center"
-                               Margin="0,0,20,0"/>
-                    <TextBlock x:Name="CurrentPlayerText" 
-                               Text="Player: Blue" 
-                               FontSize="14" 
-                               FontWeight="Bold"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-                
-                <!-- Resources -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left">
-                    
-                    <!-- Gold -->
-                    <Border Background="White" 
-                            BorderBrush="#BDBDBD" 
-                            BorderThickness="1" 
-                            CornerRadius="4"
-                            Padding="8,4"
-                            Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="/Resources/gold_31.png" 
-                                   Width="24" 
-                                   Height="24" 
-                                   Margin="0,0,6,0"
-                                   VerticalAlignment="Center"/>
-                            <TextBlock x:Name="GoldText" 
-                                       Text="10" 
-                                       FontSize="16" 
-                                       FontWeight="Bold" 
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,4,0"/>
-                            <TextBlock x:Name="GoldIncomeText" 
-                                       Text="(+4)" 
-                                       FontSize="13" 
-                                       Foreground="#4CAF50" 
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-                    
-                    <!-- Steel -->
-                    <Border Background="White" 
-                            BorderBrush="#BDBDBD" 
-                            BorderThickness="1" 
-                            CornerRadius="4"
-                            Padding="8,4"
-                            Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="/Resources/steel_32.png" 
-                                   Width="24" 
-                                   Height="24" 
-                                   Margin="0,0,6,0"
-                                   VerticalAlignment="Center"/>
-                            <TextBlock x:Name="SteelText" 
-                                       Text="2" 
-                                       FontSize="16" 
-                                       FontWeight="Bold" 
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,4,0"/>
-                            <TextBlock x:Name="SteelIncomeText" 
-                                       Text="(+2)" 
-                                       FontSize="13" 
-                                       Foreground="#4CAF50" 
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-                    
-                    <!-- Oil -->
-                    <Border Background="White" 
-                            BorderBrush="#BDBDBD" 
-                            BorderThickness="1" 
-                            CornerRadius="4"
-                            Padding="8,4">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="/Resources/oil_32.png" 
-                                   Width="24" 
-                                   Height="24" 
-                                   Margin="0,0,6,0"
-                                   VerticalAlignment="Center"/>
-                            <TextBlock x:Name="OilText" 
-                                       Text="2" 
-                                       FontSize="16" 
-                                       FontWeight="Bold" 
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,4,0"/>
-                            <TextBlock x:Name="OilIncomeText" 
-                                       Text="(+1)" 
-                                       FontSize="13" 
-                                       Foreground="#4CAF50" 
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- CHANGED: Wrapped everything in Grid.Row="1" -->
-        <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Top Bar with Resources and Turn Info -->
+        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#E0E0E0">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="350"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Map Canvas -->
-            <Border Grid.Column="0" BorderBrush="Black" BorderThickness="1">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Canvas x:Name="MapCanvas" 
-                            Background="Black"
-                            MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
-                            MouseRightButtonDown="MapCanvas_MouseRightButtonDown"
-                            MouseMove="MapCanvas_MouseMove"/>
-                </ScrollViewer>
-            </Border>
+            <!-- Resource Display -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10,5" Panel.ZIndex="50">
+                <!-- Gold -->
+                <Image Source="/Resources/gold_16.png" Width="16" Height="16" Margin="5,0,2,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="GoldText" Text="10" FontSize="16" FontWeight="Bold" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="GoldIncomeText" Text="(+0)" FontSize="14" Foreground="Green" Margin="0,0,15,0" VerticalAlignment="Center"/>
 
-            <!-- Control Panel -->
-            <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Background="#F0F0F0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <!-- Steel/Iron -->
+                <Image Source="/Resources/steel_16.png" Width="16" Height="16" Margin="5,0,2,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="SteelText" Text="2" FontSize="16" FontWeight="Bold" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="SteelIncomeText" Text="(+0)" FontSize="14" Foreground="Green" Margin="0,0,15,0" VerticalAlignment="Center"/>
 
-                    <StackPanel x:Name="ControlPanel" Margin="10">
-                        <!-- Game Info -->
-                        <GroupBox Header="Game Info" Margin="0,0,0,10">
-                            <StackPanel>
-                                <Button x:Name="NextUnitButton" Content="Next Unit" Margin="0,5,0,0" Click="NextUnitButton_Click"/>
-                            </StackPanel>
-                        </GroupBox>
+                <!-- Oil -->
+                <Image Source="/Resources/oil_16.png" Width="16" Height="16" Margin="5,0,2,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="OilText" Text="2" FontSize="16" FontWeight="Bold" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="OilIncomeText" Text="(+0)" FontSize="14" Foreground="Green" Margin="0,0,15,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <!-- Zoom Controls -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="10,5">
+                <Button x:Name="ZoomOutButton" Content="-" Width="30" Height="30" FontSize="18" FontWeight="Bold" Margin="2,0" Click="ZoomOutButton_Click" ToolTip="Zoom Out (-)"/>
+                <TextBlock x:Name="ZoomLevelText" Text="32x32" FontSize="12" VerticalAlignment="Center" Margin="5,0" MinWidth="50" TextAlignment="Center"/>
+                <Button x:Name="ZoomInButton" Content="+" Width="30" Height="30" FontSize="18" FontWeight="Bold" Margin="2,0" Click="ZoomInButton_Click" ToolTip="Zoom In (+)"/>
+            </StackPanel>
 
-                        <!-- AI Thinking Panel -->
-                        <GroupBox x:Name="AIThinkingPanel" Header="AI Turn" Margin="0,0,0,10" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock x:Name="AIStatusText" Text="AI is thinking..." FontWeight="Bold" Foreground="DarkBlue"/>
-                            </StackPanel>
-                        </GroupBox>
+            <!-- Turn and Player Info -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" Panel.ZIndex="100">
+                <TextBlock x:Name="TurnNumberText" Text="Turn: 1" FontSize="16" FontWeight="Bold" Margin="10,0"/>
+                <TextBlock x:Name="CurrentPlayerText" Text="Player: Player 1" FontSize="16" FontWeight="Bold" Margin="10,0"/>
+            </StackPanel>
 
-                        <!-- Selected Unit Info -->
-                        <GroupBox Header="Selected Unit" Margin="0,0,0,10" x:Name="UnitInfoPanel" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock x:Name="UnitNameText" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
-                                <TextBlock x:Name="UnitStatsText" Margin="0,0,0,5"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,5">
+            </StackPanel>
+        </Grid>
 
-                                <!-- Life Bar -->
-                                <TextBlock Text="Life:" FontWeight="Bold" Margin="0,5,0,2"/>
-                                <Grid Height="20">
-                                    <ProgressBar x:Name="LifeProgressBar" 
-                                                 Height="20" 
-                                                 Minimum="0" 
-                                                 Maximum="100"
-                                                 Foreground="LimeGreen"
-                                                 Background="DarkGray"
-                                                 BorderBrush="Black"
-                                                 BorderThickness="1"/>
-                                    <TextBlock x:Name="LifeProgressText" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"
-                                               FontWeight="Bold"
-                                               Foreground="White">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                </Grid>
+        <!-- Map Display Area -->
+        <ScrollViewer Grid.Row="1" Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Canvas x:Name="MapCanvas" Background="Black" MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown" MouseRightButtonDown="MapCanvas_MouseRightButtonDown" MouseMove="MapCanvas_MouseMove"/>
+        </ScrollViewer>
 
-                                <!-- Movement Bar -->
-                                <TextBlock Text="Movement:" FontWeight="Bold" Margin="0,5,0,2"/>
-                                <Grid Height="20">
-                                    <ProgressBar x:Name="MovementProgressBar" 
-                                                 Height="20" 
-                                                 Minimum="0" 
-                                                 Maximum="100"
-                                                 Foreground="DodgerBlue"
-                                                 Background="DarkGray"
-                                                 BorderBrush="Black"
-                                                 BorderThickness="1"/>
-                                    <TextBlock x:Name="MovementProgressText" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"
-                                               FontWeight="Bold"
-                                               Foreground="White">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                </Grid>
+        <!-- Round Control Buttons - Bottom Right Corner -->
+        <StackPanel Grid.Row="1" Grid.Column="0" 
+            Orientation="Horizontal" 
+            HorizontalAlignment="Right" 
+            VerticalAlignment="Bottom" 
+            Margin="0,0,20,20"
+            Panel.ZIndex="100">
 
-                                <!-- Fuel Gauge (Air Units Only) -->
-                                <StackPanel x:Name="FuelGaugePanel" Visibility="Collapsed" Margin="0,5,0,0">
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                                        <TextBlock Text="⛽" FontSize="14" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Fuel:" FontWeight="Bold" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Height="20">
-                                        <ProgressBar x:Name="FuelProgressBar" 
-                                                     Height="20" 
-                                                     Minimum="0" 
-                                                     Maximum="100"
-                                                     Foreground="Orange"
-                                                     Background="DarkGray"
-                                                     BorderBrush="Black"
-                                                     BorderThickness="1"/>
-                                        <TextBlock x:Name="FuelProgressText" 
-                                                   HorizontalAlignment="Center" 
-                                                   VerticalAlignment="Center"
-                                                   FontWeight="Bold"
-                                                   Foreground="White">
-                                            <TextBlock.Effect>
-                                                <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                            </TextBlock.Effect>
-                                        </TextBlock>
-                                    </Grid>
-                                    <TextBlock x:Name="FuelDistanceText" Margin="0,2,0,0" FontSize="11"/>
-                                    <TextBlock x:Name="FuelWarningText" Margin="0,2,0,0" FontSize="11" FontWeight="Bold"/>
-
-                                    <!-- Air Unit Buttons -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                        <Button x:Name="ReturnToBaseButton" Content="Return to Base" Margin="0,0,5,0" Click="ReturnToBaseButton_Click"/>
-                                        <Button x:Name="LandAtBaseButton" Content="Land at Base" Click="LandAtBaseButton_Click"/>
-                                    </StackPanel>
-                                </StackPanel>
-
-                                <!-- Submarine Status -->
-                                <StackPanel x:Name="SubmarinePanel" Visibility="Collapsed" Margin="0,5,0,0">
-                                    <TextBlock x:Name="SubmarineStatusText" FontWeight="Bold"/>
-                                    <Button x:Name="ToggleSubmergeButton" Content="Surface/Submerge" Margin="0,5,0,0" Click="ToggleSubmergeButton_Click"/>
-                                </StackPanel>
-
-                                <!-- Carrier/Transport Capacity -->
-                                <StackPanel x:Name="CarrierCapacityPanel" Visibility="Collapsed" Margin="0,5,0,0">
-                                    <TextBlock x:Name="CarrierCapacityLabel" FontWeight="Bold" Margin="0,0,0,2"/>
-                                    <Grid Height="20">
-                                        <ProgressBar x:Name="CarrierCapacityBar" 
-                                                     Height="20" 
-                                                     Minimum="0" 
-                                                     Maximum="100"
-                                                     Foreground="SkyBlue"
-                                                     Background="DarkGray"
-                                                     BorderBrush="Black"
-                                                     BorderThickness="1"/>
-                                        <TextBlock x:Name="CarrierCapacityText" 
-                                                   HorizontalAlignment="Center" 
-                                                   VerticalAlignment="Center"
-                                                   FontWeight="Bold"
-                                                   Foreground="White">
-                                            <TextBlock.Effect>
-                                                <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                            </TextBlock.Effect>
-                                        </TextBlock>
-                                    </Grid>
-                                    <ListBox x:Name="CarrierContentsList" Height="60" Margin="0,5,0,0"/>
-                                </StackPanel>
-
-                                <!-- Patrol Boat Deep Water Warning -->
-                                <TextBlock x:Name="PatrolBoatWarningText" Visibility="Collapsed" Margin="0,5,0,0" 
-                                           FontWeight="Bold" Foreground="Red"/>
-
-                                <!-- Artillery Range -->
-                                <TextBlock x:Name="ArtilleryRangeText" Visibility="Collapsed" Margin="0,5,0,0" 
-                                           FontWeight="Bold" Foreground="DarkRed"/>
-
-                                <!-- Anti-Aircraft Base Proximity -->
-                                <TextBlock x:Name="AntiAircraftProximityText" Visibility="Collapsed" Margin="0,5,0,0" 
-                                           FontWeight="Bold"/>
-
-                                <!-- Spy Disguise Status -->
-                                <TextBlock x:Name="SpyStatusText" Visibility="Collapsed" Margin="0,5,0,0" 
-                                           FontWeight="Bold"/>
-
-                                <!-- Unit Commands -->
-                                <GroupBox Header="Unit Commands" Margin="0,0,0,10">
-                                    <StackPanel>
-                                        <Button x:Name="MoveButton" Content="Move" Click="MoveButton_Click" Margin="0,0,0,5"/>
-                                        <Button x:Name="PatrolButton" Content="Patrol" Click="PatrolButton_Click" Margin="0,0,0,5"/>
-                                        <Button x:Name="AttackButton" Content="Attack" Click="AttackButton_Click" Margin="0,0,0,5"/>
-                                        <Button x:Name="SkipTurnButton" Content="Skip This Turn" Click="SkipTurnButton_Click" Margin="0,0,0,5" Background="LightGoldenrodYellow"/>
-                                        <Button x:Name="SleepButton" Content="Sleep" Click="SleepButton_Click" Margin="0,0,0,5" Background="LightBlue"/>
-                                        <Button x:Name="SentryButton" Content="Sentry" Click="SentryButton_Click" Margin="0,0,0,5" Background="LightGreen"/>
-                                        <Button x:Name="WakeUpButton" Content="Wake Up" Click="WakeUpButton_Click" Margin="0,0,0,5" Background="Orange" Visibility="Collapsed"/>
-                                    </StackPanel>
-                                </GroupBox>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <!-- Structure Info Panel -->
-                        <GroupBox Header="Structure" Margin="0,0,0,10" x:Name="StructureInfoPanel" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock x:Name="StructureNameText" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
-
-                                <!-- Structure Life Bar -->
-                                <TextBlock Text="Structure Life:" FontWeight="Bold" Margin="0,5,0,2"/>
-                                <Grid Height="20">
-                                    <ProgressBar x:Name="StructureLifeBar" 
-                                                 Height="20" 
-                                                 Minimum="0" 
-                                                 Maximum="100"
-                                                 Foreground="LimeGreen"
-                                                 Background="DarkGray"
-                                                 BorderBrush="Black"
-                                                 BorderThickness="1"/>
-                                    <TextBlock x:Name="StructureLifeText" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"
-                                               FontWeight="Bold"
-                                               Foreground="White">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                </Grid>
-
-                                <TextBlock x:Name="DefenseBonusText" Margin="0,5,0,0"/>
-
-                                <!-- Airport -->
-                                <TextBlock Text="Airport:" FontWeight="Bold" Margin="0,10,0,2"/>
-                                <Grid Height="20">
-                                    <ProgressBar x:Name="AirportCapacityBar" 
-                                                 Height="20" 
-                                                 Minimum="0" 
-                                                 Maximum="100"
-                                                 Foreground="SkyBlue"
-                                                 Background="DarkGray"
-                                                 BorderBrush="Black"
-                                                 BorderThickness="1"/>
-                                    <TextBlock x:Name="AirportCapacityText" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"
-                                               FontWeight="Bold"
-                                               Foreground="White">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                </Grid>
-                                <ListBox x:Name="AirportList" Height="80" Margin="0,5,0,0" SelectionChanged="AirportList_SelectionChanged"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                    <Button x:Name="TakeOffButton" Content="Take Off" Margin="0,0,5,0" IsEnabled="False" Click="TakeOffButton_Click"/>
-                                    <Button x:Name="BombingRunButton" Content="Bombing Run" Margin="0,0,5,0" IsEnabled="False" Click="BombingRunButton_Click"/>
-                                    <Button x:Name="RepairAircraftButton" Content="Repair" IsEnabled="False" Click="RepairAircraftButton_Click"/>
-                                </StackPanel>
-
-                                <!-- Shipyard -->
-                                <TextBlock x:Name="ShipyardLabel" Text="Shipyard:" FontWeight="Bold" Margin="0,10,0,2"/>
-                                <Grid x:Name="ShipyardCapacityGrid" Height="20">
-                                    <ProgressBar x:Name="ShipyardCapacityBar" 
-                                                 Height="20" 
-                                                 Minimum="0" 
-                                                 Maximum="100"
-                                                 Foreground="Navy"
-                                                 Background="DarkGray"
-                                                 BorderBrush="Black"
-                                                 BorderThickness="1"/>
-                                    <TextBlock x:Name="ShipyardCapacityText" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"
-                                               FontWeight="Bold"
-                                               Foreground="White">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                </Grid>
-                                <ListBox x:Name="ShipyardList" Height="80" Margin="0,5,0,0" SelectionChanged="ShipyardList_SelectionChanged"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                    <Button x:Name="LaunchShipButton" Content="Launch" Margin="0,0,5,0" IsEnabled="False" Click="LaunchShipButton_Click"/>
-                                    <Button x:Name="RepairShipButton" Content="Repair" IsEnabled="False" Click="RepairShipButton_Click"/>
-                                </StackPanel>
-
-                                <!-- Motor Pool -->
-                                <TextBlock Text="Motor Pool:" FontWeight="Bold" Margin="0,10,0,5"/>
-                                <ListBox x:Name="MotorPoolList" Height="80" SelectionChanged="MotorPoolList_SelectionChanged"/>
-                                <Button x:Name="DeployMotorButton" Content="Deploy" Margin="0,5,0,0" IsEnabled="False" Click="DeployMotorButton_Click"/>
-
-                                <!-- Barracks -->
-                                <TextBlock Text="Barracks:" FontWeight="Bold" Margin="0,10,0,2"/>
-                                <Grid Height="20">
-                                    <ProgressBar x:Name="BarracksCapacityBar" 
-                                                 Height="20" 
-                                                 Minimum="0" 
-                                                 Maximum="100"
-                                                 Foreground="ForestGreen"
-                                                 Background="DarkGray"
-                                                 BorderBrush="Black"
-                                                 BorderThickness="1"/>
-                                    <TextBlock x:Name="BarracksCapacityText" 
-                                               HorizontalAlignment="Center" 
-                                               VerticalAlignment="Center"
-                                               FontWeight="Bold"
-                                               Foreground="White">
-                                        <TextBlock.Effect>
-                                            <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
-                                </Grid>
-                                <ListBox x:Name="BarracksList" Height="80" Margin="0,5,0,0" SelectionChanged="BarracksList_SelectionChanged"/>
-                                <Button x:Name="DeployArmyButton" Content="Deploy" Margin="0,5,0,0" IsEnabled="False" Click="DeployArmyButton_Click"/>
-
-                                <!-- Production Queue -->
-                                <TextBlock Text="Production Queue:" FontWeight="Bold" Margin="0,10,0,2"/>
-
-                                <!-- Current Production Progress Bar -->
-                                <StackPanel x:Name="CurrentProductionPanel" Visibility="Collapsed" Margin="0,0,0,5">
-                                    <TextBlock x:Name="CurrentProductionName" FontStyle="Italic" Margin="0,0,0,2"/>
-                                    <Grid Height="20">
-                                        <ProgressBar x:Name="ProductionProgressBar" 
-                                                     Height="20" 
-                                                     Minimum="0" 
-                                                     Maximum="100"
-                                                     Foreground="Gold"
-                                                     Background="DarkGray"
-                                                     BorderBrush="Black"
-                                                     BorderThickness="1"/>
-                                        <TextBlock x:Name="ProductionProgressText" 
-                                                   HorizontalAlignment="Center" 
-                                                   VerticalAlignment="Center"
-                                                   FontWeight="Bold"
-                                                   Foreground="White">
-                                            <TextBlock.Effect>
-                                                <DropShadowEffect ShadowDepth="1" BlurRadius="2" Color="Black"/>
-                                            </TextBlock.Effect>
-                                        </TextBlock>
-                                    </Grid>
-                                </StackPanel>
-
-                                <ListBox x:Name="ProductionQueueList" Height="80"/>
-
-                                <TextBlock Text="Build Unit:" FontWeight="Bold" Margin="0,10,0,5"/>
-                                <ComboBox x:Name="UnitTypesCombo" Margin="0,0,0,5"/>
-                                <Button x:Name="BuildUnitButton" Content="Add to Queue" Click="BuildUnitButton_Click"/>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <!-- Bomber Mission Panel -->
-                        <GroupBox Header="Bombing Mission" Margin="0,0,0,10" x:Name="BomberMissionPanel" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock x:Name="BomberRangeText" Margin="0,5,0,0"/>
-
-                                <TextBlock Text="Available Escorts:" FontWeight="Bold" Margin="0,10,0,5"/>
-                                <ListBox x:Name="AvailableEscortsList" Height="80" SelectionMode="Multiple"/>
-
-                                <CheckBox x:Name="IncludeTankerCheckbox" Content="Include Tanker" Margin="0,5,0,0"/>
-                                <TextBlock x:Name="AvailableTankerText" Margin="20,2,0,0"/>
-
-                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Button x:Name="LaunchMissionButton" Content="Launch Mission" Margin="0,0,5,0" Click="LaunchMissionButton_Click"/>
-                                    <Button x:Name="CancelMissionButton" Content="Cancel" Click="CancelMissionButton_Click"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <!-- Game Controls -->
-                        <GroupBox Header="Game Controls" Margin="0,0,0,10">
-                            <StackPanel>
-                                <Button x:Name="SaveGameButton" Content="Save Game" Margin="0,2" Click="SaveGameButton_Click"/>
-                                <Button x:Name="LoadGameButton" Content="Load Game" Margin="0,2" Click="LoadGameButton_Click"/>
-                            </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-            
-            <!-- Surrender Button -->
+            <!-- Surrender Button (Red Circle) -->
             <Button x:Name="SurrenderButton" 
-                    Click="SurrenderButton_Click"
-                    Width="80" 
-                    Height="80"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,110,20"
-                    Padding="0"
-                    Background="Transparent"
-                    BorderBrush="Transparent"
-                    BorderThickness="0"
-                    Cursor="Hand"
-                    ToolTip="Surrender (Reveal Map)">
+            Width="60" 
+            Height="60" 
+            Margin="10,0"
+            Click="SurrenderButton_Click"
+            ToolTip="Surrender">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <Border CornerRadius="40" 
-                                Background="#FFE53935"
-                                BorderBrush="DarkRed"
-                                BorderThickness="3"
-                                Width="80"
-                                Height="80">
-                            <Border.Effect>
-                                <DropShadowEffect Color="Black" 
-                                                  Direction="315" 
-                                                  ShadowDepth="3" 
-                                                  BlurRadius="8"
-                                                  Opacity="0.3"/>
-                            </Border.Effect>
-                            <Grid>
-                                <Canvas Width="60" Height="60">
-                                    <Rectangle Canvas.Left="18" Canvas.Top="15" 
-                                               Width="3" Height="35" 
-                                               Fill="White"/>
-                                    <Polygon Points="21,15 45,23 21,31" 
-                                             Fill="White"
-                                             Stroke="White"
-                                             StrokeThickness="1"/>
-                                </Canvas>
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect Color="Red" 
-                                                          Direction="315" 
-                                                          ShadowDepth="0" 
-                                                          BlurRadius="15"
-                                                          Opacity="0.8"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-            </Button>
-
-            <!-- New Game Button -->
-            <Button x:Name="NewGameButton" 
-                    Content="New Game"
-                    Click="NewGameButton_Click"
-                    Width="120"
-                    Height="40"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,20,110"
-                    FontSize="14"
-                    FontWeight="Bold"
-                    Background="#FF2196F3"
-                    Foreground="White"
-                    Cursor="Hand"
-                    Visibility="Collapsed">
-                <Button.Effect>
-                    <DropShadowEffect Color="Black" 
-                                      Direction="315" 
-                                      ShadowDepth="2" 
-                                      BlurRadius="6"
-                                      Opacity="0.3"/>
-                </Button.Effect>
-            </Button>
-            
-            <!-- End Turn Button -->
-            <Button x:Name="EndTurnButton" 
-                    Click="EndTurnButton_Click"
-                    Width="80" 
-                    Height="80"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,20,20"
-                    Padding="0"
-                    Background="Transparent"
-                    BorderBrush="Transparent"
-                    BorderThickness="0"
-                    Cursor="Hand"
-                    ToolTip="End Turn">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border CornerRadius="40" 
-                                Background="#FF4CAF50"
-                                BorderBrush="DarkGreen"
-                                BorderThickness="3"
-                                Width="80"
-                                Height="80">
-                            <Border.Effect>
-                                <DropShadowEffect Color="Black" 
-                                                  Direction="315" 
-                                                  ShadowDepth="3" 
-                                                  BlurRadius="8"
-                                                  Opacity="0.3"/>
-                            </Border.Effect>
-                            <Image x:Name="EndTurnImage" 
-                                   Source="/Resources/fast-forward.png"
-                                   Width="40"
-                                   Height="40"
+                        <Grid>
+                            <Ellipse x:Name="PART_Ellipse" Fill="#CC0000" Stroke="#FF0000" StrokeThickness="3">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="3" Opacity="0.5"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <Image Source="/Resources/white-flag.png" 
+                                   Width="32" 
+                                   Height="32" 
                                    Stretch="Uniform"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"/>
-                        </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect Color="LightGreen" 
-                                                          Direction="315" 
-                                                          ShadowDepth="0" 
-                                                          BlurRadius="15"
-                                                          Opacity="0.8"/>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="PART_Ellipse" Property="Fill" Value="#DD0000"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PART_Ellipse" Property="Fill" Value="#AA0000"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
             </Button>
-        </Grid>
+
+            <!-- End Turn Button (Green Circle) -->
+            <Button x:Name="EndTurnButton" 
+            Width="60" 
+            Height="60" 
+            Margin="10,0"
+            Click="EndTurnButton_Click"
+            ToolTip="End Turn">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Ellipse x:Name="PART_Ellipse" Fill="#00CC00" Stroke="#00FF00" StrokeThickness="3">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="3" Opacity="0.5"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <Image x:Name="EndTurnImage" 
+                           Source="/Resources/fast-forward.png" 
+                           Width="32" 
+                           Height="32" 
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PART_Ellipse" Property="Fill" Value="#00DD00"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PART_Ellipse" Property="Fill" Value="#00AA00"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </StackPanel>
+        <!-- New Game Button (appears after surrender) -->
+        <Button x:Name="NewGameButton" 
+        Grid.Row="1" 
+        Grid.Column="0"
+        Content="New Game" 
+        Width="120" 
+        Height="40" 
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        FontSize="16"
+        FontWeight="Bold"
+        Visibility="Collapsed" 
+        Click="NewGameButton_Click"
+        Panel.ZIndex="200">
+            <Button.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="5" Opacity="0.7"/>
+            </Button.Effect>
+        </Button>
+
+        <!-- Right Side Panel -->
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Background="#F0F0F0">
+
+                <!-- Next Unit Button -->
+                <Button x:Name="NextUnitButton" 
+                        Content="Next Unit (0)" 
+                        Margin="5" 
+                        Height="35"
+                        FontWeight="Bold"
+                        FontSize="14"
+                        Background="#4CAF50"
+                        Foreground="White"
+                        Click="NextUnitButton_Click">
+                    <Button.Effect>
+                        <DropShadowEffect Color="Gray" BlurRadius="5" ShadowDepth="2" Opacity="0.5"/>
+                    </Button.Effect>
+                </Button>
+
+                <!-- Game Info Section -->
+                <GroupBox Header="Game Info" Margin="5">
+                    <StackPanel>
+                        <Button Content="Save Game" Margin="5" Click="SaveGameButton_Click"/>
+                        <Button Content="Load Game" Margin="5" Click="LoadGameButton_Click"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- AI Thinking Panel -->
+                <Border x:Name="AIThinkingPanel" Background="#FFE6E6" BorderBrush="Red" BorderThickness="2" Margin="5" Padding="10" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="AI Processing..." FontWeight="Bold" FontSize="14"/>
+                        <TextBlock x:Name="AIStatusText" Text="Thinking..." Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Unit Info Panel -->
+                <GroupBox x:Name="UnitInfoPanel" Header="Unit Info" Margin="5" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="UnitNameText" FontWeight="Bold" Margin="5"/>
+                        <TextBlock x:Name="UnitStatsText" Margin="5"/>
+
+                        <!-- Life Bar -->
+                        <TextBlock Text="Life:" Margin="5,5,5,0"/>
+                        <ProgressBar x:Name="LifeProgressBar" Height="20" Margin="5" Maximum="100"/>
+                        <TextBlock x:Name="LifeProgressText" HorizontalAlignment="Center" Margin="0,-18,0,0" FontWeight="Bold"/>
+
+                        <!-- Movement Bar -->
+                        <TextBlock Text="Movement:" Margin="5,5,5,0"/>
+                        <ProgressBar x:Name="MovementProgressBar" Height="20" Margin="5" Maximum="100"/>
+                        <TextBlock x:Name="MovementProgressText" HorizontalAlignment="Center" Margin="0,-18,0,0" FontWeight="Bold"/>
+
+                        <!-- Fuel Gauge Panel (for air units) -->
+                        <StackPanel x:Name="FuelGaugePanel" Visibility="Collapsed" Margin="5">
+                            <TextBlock Text="Fuel:" Margin="0,5,0,0"/>
+                            <ProgressBar x:Name="FuelProgressBar" Height="20" Margin="0,5"/>
+                            <TextBlock x:Name="FuelProgressText" HorizontalAlignment="Center" Margin="0,-18,0,0" FontWeight="Bold"/>
+                            <TextBlock x:Name="FuelDistanceText" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="FuelWarningText" Margin="0,5,0,0" TextWrapping="Wrap" Foreground="Red" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <!-- Submarine Panel -->
+                        <StackPanel x:Name="SubmarinePanel" Visibility="Collapsed" Margin="5">
+                            <TextBlock x:Name="SubmarineStatusText" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <Button x:Name="ToggleSubmergeButton" Content="Toggle Submerge" Margin="0,5" Click="ToggleSubmergeButton_Click"/>
+                        </StackPanel>
+
+                        <!-- Carrier/Transport Capacity Panel -->
+                        <StackPanel x:Name="CarrierCapacityPanel" Visibility="Collapsed" Margin="5">
+                            <TextBlock x:Name="CarrierCapacityLabel" Text="Capacity:" Margin="0,5,0,0"/>
+                            <ProgressBar x:Name="CarrierCapacityBar" Height="20" Margin="0,5" Maximum="100"/>
+                            <TextBlock x:Name="CarrierCapacityText" HorizontalAlignment="Center" Margin="0,-18,0,0" FontWeight="Bold"/>
+                            <ListBox x:Name="CarrierContentsList" Height="80" Margin="0,5"/>
+                        </StackPanel>
+
+                        <!-- Special Unit Info -->
+                        <TextBlock x:Name="PatrolBoatWarningText" TextWrapping="Wrap" Margin="5" Foreground="Red" Visibility="Collapsed"/>
+                        <TextBlock x:Name="ArtilleryRangeText" TextWrapping="Wrap" Margin="5" Visibility="Collapsed"/>
+                        <TextBlock x:Name="AntiAircraftProximityText" TextWrapping="Wrap" Margin="5" Visibility="Collapsed"/>
+                        <TextBlock x:Name="SpyStatusText" TextWrapping="Wrap" Margin="5" Visibility="Collapsed"/>
+
+                        <!-- Unit Commands -->
+                        <GroupBox Header="Commands" Margin="5">
+                            <StackPanel>
+                                <Button x:Name="MoveButton" Content="Move" Margin="2" Click="MoveButton_Click"/>
+                                <Button x:Name="PatrolButton" Content="Patrol" Margin="2" Click="PatrolButton_Click"/>
+                                <Button x:Name="AttackButton" Content="Attack" Margin="2" Click="AttackButton_Click"/>
+                                <Button x:Name="SkipTurnButton" Content="Skip This Turn" Margin="2" Click="SkipTurnButton_Click"/>
+                                <Button x:Name="SleepButton" Content="Sleep" Margin="2" Click="SleepButton_Click"/>
+                                <Button x:Name="SentryButton" Content="Sentry" Margin="2" Click="SentryButton_Click"/>
+                                <Button x:Name="WakeUpButton" Content="Wake Up" Margin="2" Visibility="Collapsed" Click="WakeUpButton_Click"/>
+                                <Button x:Name="ReturnToBaseButton" Content="Return to Base" Margin="2" Click="ReturnToBaseButton_Click"/>
+                                <Button x:Name="LandAtBaseButton" Content="Land at Base" Margin="2" Click="LandAtBaseButton_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Structure Info Panel -->
+                <GroupBox x:Name="StructureInfoPanel" Header="Structure Info" Margin="5" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="StructureNameText" FontWeight="Bold" Margin="5"/>
+                        <TextBlock x:Name="StructureLifeText" Margin="5"/>
+                        <TextBlock x:Name="DefenseBonusText" Margin="5"/>
+
+                        <!-- Production Queue -->
+                        <GroupBox Header="Production Queue" Margin="5">
+                            <StackPanel>
+                                <ListBox x:Name="ProductionQueueList" Height="80"/>
+                                <ComboBox x:Name="UnitTypesCombo" Margin="0,5"/>
+                                <Button x:Name="BuildUnitButton" Content="Build Unit" Margin="0,5" Click="BuildUnitButton_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Airport -->
+                        <GroupBox Header="Airport" Margin="5">
+                            <StackPanel>
+                                <TextBlock x:Name="AirportCapacityText" Margin="5"/>
+                                <ListBox x:Name="AirportList" Height="100" SelectionChanged="AirportList_SelectionChanged"/>
+                                <Button x:Name="TakeOffButton" Content="Take Off" Margin="2" IsEnabled="False" Click="TakeOffButton_Click"/>
+                                <Button x:Name="BombingRunButton" Content="Bombing Run" Margin="2" IsEnabled="False" Click="BombingRunButton_Click"/>
+                                <Button x:Name="RepairAircraftButton" Content="Repair" Margin="2" IsEnabled="False" Click="RepairAircraftButton_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Shipyard -->
+                        <GroupBox Header="Shipyard" Margin="5">
+                            <StackPanel>
+                                <TextBlock x:Name="ShipyardLabel" Text="Shipyard"/>
+                                <TextBlock x:Name="ShipyardCapacityText" Margin="5"/>
+                                <ListBox x:Name="ShipyardList" Height="100" SelectionChanged="ShipyardList_SelectionChanged"/>
+                                <Button x:Name="LaunchShipButton" Content="Launch Ship" Margin="2" IsEnabled="False" Click="LaunchShipButton_Click"/>
+                                <Button x:Name="RepairShipButton" Content="Repair Ship" Margin="2" IsEnabled="False" Click="RepairShipButton_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Motor Pool -->
+                        <GroupBox Header="Motor Pool" Margin="5">
+                            <StackPanel>
+                                <ListBox x:Name="MotorPoolList" Height="80" SelectionChanged="MotorPoolList_SelectionChanged"/>
+                                <Button x:Name="DeployMotorButton" Content="Deploy Unit" Margin="2" IsEnabled="False" Click="DeployMotorButton_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Barracks -->
+                        <GroupBox Header="Barracks" Margin="5">
+                            <StackPanel>
+                                <TextBlock x:Name="BarracksCapacityText" Margin="5"/>
+                                <ListBox x:Name="BarracksList" Height="80" SelectionChanged="BarracksList_SelectionChanged"/>
+                                <Button x:Name="DeployArmyButton" Content="Deploy Army" Margin="2" IsEnabled="False" Click="DeployArmyButton_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Bomber Mission Panel -->
+                <GroupBox x:Name="BomberMissionPanel" Header="Bomber Mission" Margin="5" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="BomberRangeText" TextWrapping="Wrap" Margin="5"/>
+                        <TextBlock Text="Fighter Escorts:" Margin="5"/>
+                        <ListBox x:Name="AvailableEscortsList" Height="80" SelectionMode="Multiple"/>
+                        <CheckBox x:Name="IncludeTankerCheckbox" Content="Include Tanker" Margin="5"/>
+                        <TextBlock x:Name="AvailableTankerText" Margin="5"/>
+                        <StackPanel Orientation="Horizontal" Margin="5">
+                            <Button Content="Launch Mission" Margin="2" Click="LaunchMissionButton_Click"/>
+                            <Button Content="Cancel" Margin="2" Click="CancelMissionButton_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Message Log Panel (CRT Style) - Full Width Bottom -->
+        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="#0A0A0A"
+                BorderBrush="#00FF00"
+                BorderThickness="0,2,0,0"
+                Panel.ZIndex="10">
+            <Border.Effect>
+                <DropShadowEffect Color="#00FF00" BlurRadius="8" ShadowDepth="0" Opacity="0.3"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="#001100" BorderBrush="#00FF00" BorderThickness="0,0,0,1" Padding="5">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="■ MESSAGE LOG" 
+                                  FontFamily="Consolas" 
+                                  FontSize="11" 
+                                  FontWeight="Bold"
+                                  Foreground="#00FF00"/>
+                        <TextBlock x:Name="MessageCountText"
+                                  Text="[0]"
+                                  FontFamily="Consolas"
+                                  FontSize="11"
+                                  Foreground="#00AA00"
+                                  Margin="5,0,0,0"/>
+                        <TextBlock Text="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                                  FontFamily="Consolas"
+                                  FontSize="11"
+                                  Foreground="#003300"
+                                  Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Message Area -->
+                <ScrollViewer Grid.Row="1" 
+                             x:Name="MessageScrollViewer"
+                             VerticalScrollBarVisibility="Auto"
+                             Background="#000000"
+                             Padding="10,5">
+                    <ItemsControl x:Name="MessageLogItems">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock FontFamily="Consolas" 
+                                          FontSize="11"
+                                          TextWrapping="Wrap"
+                                          Margin="0,1">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Type}" Value="Info">
+                                                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Success">
+                                                    <Setter Property="Foreground" Value="#00FF00"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Warning">
+                                                    <Setter Property="Foreground" Value="#FFFF00"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Error">
+                                                    <Setter Property="Foreground" Value="#FF4444"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Combat">
+                                                    <Setter Property="Foreground" Value="#FF8800"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Movement">
+                                                    <Setter Property="Foreground" Value="#00FFFF"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Production">
+                                                    <Setter Property="Foreground" Value="#4444FF"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Type}" Value="Enemy">
+                                                    <Setter Property="Foreground" Value="#FF0000"/>
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                    <Run Text="["/><Run Text="{Binding Timestamp, StringFormat='HH:mm:ss'}"/><Run Text="] "/>
+                                    <Run Text="{Binding Text}"/>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Scanline effect overlay -->
+                <Rectangle Grid.Row="1" IsHitTestVisible="False" Opacity="0.3">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1" SpreadMethod="Repeat">
+                            <LinearGradientBrush.Transform>
+                                <ScaleTransform ScaleY="0.015"/>
+                            </LinearGradientBrush.Transform>
+                            <GradientStop Color="#00000000" Offset="0"/>
+                            <GradientStop Color="#22000000" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <!-- CRT glow effect on edges -->
+                <Rectangle Grid.Row="1" IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <RadialGradientBrush Center="0.5,0.5" RadiusX="0.8" RadiusY="0.8">
+                            <GradientStop Color="#00000000" Offset="0"/>
+                            <GradientStop Color="#11001100" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

@@ -20,7 +20,9 @@ namespace EmpireGame
         private bool isSelectingBomberTarget;
         private Bomber bomberForMission;
 
-        private const int TILE_SIZE = 16;
+        private int TILE_SIZE = 32;
+        private const int MIN_TILE_SIZE = 16;
+        private const int MAX_TILE_SIZE = 64;
 
         private int currentUnitIndex = 0;
         private int currentStructureIndex = 0;
@@ -28,6 +30,8 @@ namespace EmpireGame
         private const int MAX_UNITS_PER_TILE = 3;
 
         private Image endTurnImage;
+
+        private MessageLog messageLog;
 
 
         public MainWindow()
@@ -38,35 +42,87 @@ namespace EmpireGame
 
         private void InitializeGame()
         {
-            // Create a new game with 100x100 map and 2 players
-            game = new Game(100, 100, 2);
+            messageLog = new MessageLog();
 
-            // Generate the map with proper starting positions
+            game = new Game(100, 100, 2);
             GenerateMap();
 
-            // Initialize the map renderer
             mapRenderer = new MapRenderer(game, TILE_SIZE);
 
-            // Initialize AI controller
             aiController = new AIController(game);
 
-            // Update vision for all players
+            // Update vision FIRST, before checking what's visible
             foreach (var player in game.Players)
             {
                 player.UpdateVision(game.Map);
             }
 
-            // Cache the image control reference
             EndTurnButton.ApplyTemplate();
-            endTurnImage = EndTurnButton.Template.FindName("EndTurnImage", EndTurnButton) as Image;
 
+            messageLog.AddMessage("Empire Game initialized. Turn 1 begins.", MessageType.Success);
 
-            // Initial render
+            // Debug: Check total resources placed
+            int totalOil = 0;
+            int totalSteel = 0;
+            for (int x = 0; x < game.Map.Width; x++)
+            {
+                for (int y = 0; y < game.Map.Height; y++)
+                {
+                    var tile = game.Map.GetTile(new TilePosition(x, y));
+                    if (tile.Resource == ResourceType.Oil) totalOil++;
+                    if (tile.Resource == ResourceType.Steel) totalSteel++;
+                }
+            }
+            messageLog.AddMessage($"Total resources placed: {totalOil} oil, {totalSteel} steel", MessageType.Info);
+
+            // Debug: Check fog of war status
+            var humanPlayer = game.Players[0];
+            int visibleTiles = humanPlayer.FogOfWar.Count(kvp => kvp.Value == VisibilityLevel.Visible);
+            int exploredTiles = humanPlayer.FogOfWar.Count(kvp => kvp.Value == VisibilityLevel.Explored);
+            messageLog.AddMessage($"Player vision: {visibleTiles} visible tiles, {exploredTiles} explored tiles", MessageType.Info);
+
+            // Debug: Check player starting position
+            if (humanPlayer.Structures.Count > 0)
+            {
+                var startBase = humanPlayer.Structures[0];
+                messageLog.AddMessage($"Starting base at ({startBase.Position.X}, {startBase.Position.Y}), vision range: {startBase.VisionRange}", MessageType.Info);
+            }
+
+            // NOW check visible resources after vision is updated
+            int visibleOil = 0;
+            int visibleSteel = 0;
+            for (int x = 0; x < game.Map.Width; x++)
+            {
+                for (int y = 0; y < game.Map.Height; y++)
+                {
+                    var pos = new TilePosition(x, y);
+                    var tile = game.Map.GetTile(pos);
+                    if (humanPlayer.FogOfWar.ContainsKey(pos) &&
+                        humanPlayer.FogOfWar[pos] == VisibilityLevel.Visible)
+                    {
+                        if (tile.Resource == ResourceType.Oil)
+                        {
+                            visibleOil++;
+                            messageLog.AddMessage($"Oil found at ({pos.X}, {pos.Y})", MessageType.Info);
+                        }
+                        if (tile.Resource == ResourceType.Steel)
+                        {
+                            visibleSteel++;
+                            messageLog.AddMessage($"Steel found at ({pos.X}, {pos.Y})", MessageType.Info);
+                        }
+                    }
+                }
+            }
+            messageLog.AddMessage($"Currently visible: {visibleOil} oil, {visibleSteel} steel", MessageType.Info);
+
+            UpdateMessageLog();
+
             RenderMap();
             UpdateGameInfo();
             UpdateNextButton();
             UpdateEndTurnButtonImage();
             UpdateResourceDisplay();
+            UpdateZoomDisplay();
         }
 
         private void UpdateNextButton()
@@ -142,12 +198,9 @@ namespace EmpireGame
             if (selectedUnit != null)
             {
                 selectedUnit.SkipThisTurn();
-                MessageBox.Show($"{selectedUnit.GetName()} will be skipped for this turn");
+                AddMessage($"{selectedUnit.GetName()} skipped for this turn", MessageType.Info);
 
-                // Update next button count
                 UpdateNextButton();
-
-                // Clear selection and move to next unit
                 ClearSelection();
                 RenderMap();
             }
@@ -158,12 +211,9 @@ namespace EmpireGame
             if (selectedUnit != null)
             {
                 selectedUnit.Sleep();
-                MessageBox.Show($"{selectedUnit.GetName()} is now asleep. Select it to wake it up.");
+                AddMessage($"{selectedUnit.GetName()} is now asleep. Select it to wake it up.", MessageType.Info);
 
-                // Update next button count
                 UpdateNextButton();
-
-                // Clear selection
                 ClearSelection();
                 RenderMap();
             }
@@ -174,9 +224,8 @@ namespace EmpireGame
             if (selectedUnit != null && selectedUnit.IsAsleep)
             {
                 selectedUnit.WakeUp();
-                MessageBox.Show($"{selectedUnit.GetName()} is now awake!");
+                AddMessage($"{selectedUnit.GetName()} is now awake!", MessageType.Success);
 
-                // Update selection to refresh button states
                 SelectUnit(selectedUnit);
                 UpdateNextButton();
                 RenderMap();
@@ -248,12 +297,12 @@ namespace EmpireGame
 
         private void PlaceResourceTiles(Random rand)
         {
-            // Place 10-15 oil tiles
-            int oilTiles = rand.Next(10, 16);
+            // Place at least 10-15 oil tiles
+            int oilTiles = rand.Next(12, 18);
             PlaceResourceType(ResourceType.Oil, oilTiles, rand);
 
-            // Place 10-15 steel tiles
-            int steelTiles = rand.Next(10, 16);
+            // Place at least 10-15 steel tiles
+            int steelTiles = rand.Next(12, 18);
             PlaceResourceType(ResourceType.Steel, steelTiles, rand);
         }
 
@@ -265,37 +314,114 @@ namespace EmpireGame
 
             // Preferred terrain for each resource
             List<TerrainType> preferredTerrain;
+            List<TerrainType> fallbackTerrain;
+
             if (resourceType == ResourceType.Oil)
             {
                 preferredTerrain = new List<TerrainType> { TerrainType.Plains, TerrainType.Land };
+                fallbackTerrain = new List<TerrainType> { TerrainType.Forest, TerrainType.Hills };
             }
             else // Steel
             {
                 preferredTerrain = new List<TerrainType> { TerrainType.Hills, TerrainType.Mountain };
+                fallbackTerrain = new List<TerrainType> { TerrainType.Plains, TerrainType.Land, TerrainType.Forest };
             }
 
+            // First pass - try preferred terrain with spacing
             while (placed < count && attempts < maxAttempts)
             {
                 attempts++;
 
-                // Random position, but not at edges (10 tiles from border)
                 int x = rand.Next(10, game.Map.Width - 10);
                 int y = rand.Next(10, game.Map.Height - 10);
                 var pos = new TilePosition(x, y);
                 var tile = game.Map.GetTile(pos);
 
-                // Check if tile is suitable
                 if (tile.Resource != ResourceType.None)
-                    continue; // Already has a resource
+                    continue;
 
                 if (!preferredTerrain.Contains(tile.Terrain))
-                    continue; // Wrong terrain type
+                    continue;
 
-                // Check distance from other resource tiles (spread them out)
                 if (!IsWellSpacedFromOtherResources(pos, 8))
                     continue;
 
-                // Place the resource
+                tile.Resource = resourceType;
+                placed++;
+            }
+
+            // Second pass - use fallback terrain with spacing
+            attempts = 0;
+            while (placed < count && attempts < maxAttempts)
+            {
+                attempts++;
+
+                int x = rand.Next(10, game.Map.Width - 10);
+                int y = rand.Next(10, game.Map.Height - 10);
+                var pos = new TilePosition(x, y);
+                var tile = game.Map.GetTile(pos);
+
+                if (tile.Resource != ResourceType.None)
+                    continue;
+
+                if (!fallbackTerrain.Contains(tile.Terrain))
+                    continue;
+
+                if (!IsWellSpacedFromOtherResources(pos, 5))  // Reduced spacing
+                    continue;
+
+                tile.Resource = resourceType;
+                placed++;
+            }
+
+            // Third pass - ANY land terrain with minimal spacing (guarantee minimum)
+            attempts = 0;
+            var anyLandTerrain = new List<TerrainType>
+    {
+        TerrainType.Plains, TerrainType.Land, TerrainType.Forest,
+        TerrainType.Hills, TerrainType.Mountain
+    };
+
+            while (placed < 10 && attempts < maxAttempts) // Guarantee at least 10
+            {
+                attempts++;
+
+                int x = rand.Next(10, game.Map.Width - 10);
+                int y = rand.Next(10, game.Map.Height - 10);
+                var pos = new TilePosition(x, y);
+                var tile = game.Map.GetTile(pos);
+
+                if (tile.Resource != ResourceType.None)
+                    continue;
+
+                if (!anyLandTerrain.Contains(tile.Terrain))
+                    continue;
+
+                if (!IsWellSpacedFromOtherResources(pos, 3))  // Very minimal spacing
+                    continue;
+
+                tile.Resource = resourceType;
+                placed++;
+            }
+
+            // Fourth pass - FORCE placement if still under 10 (no spacing requirement)
+            attempts = 0;
+            while (placed < 10 && attempts < maxAttempts * 2)
+            {
+                attempts++;
+
+                int x = rand.Next(10, game.Map.Width - 10);
+                int y = rand.Next(10, game.Map.Height - 10);
+                var pos = new TilePosition(x, y);
+                var tile = game.Map.GetTile(pos);
+
+                if (tile.Resource != ResourceType.None)
+                    continue;
+
+                if (!anyLandTerrain.Contains(tile.Terrain))
+                    continue;
+
+                // No spacing check - just place it!
                 tile.Resource = resourceType;
                 placed++;
             }
@@ -791,10 +917,15 @@ namespace EmpireGame
 
         private void RenderMap()
         {
-            var bitmap = mapRenderer.RenderMap(game.CurrentPlayer, selectedUnit, selectedStructure);
+            Player humanPlayer = game.Players[0];
+            Player renderPlayer = game.HasSurrendered ? game.CurrentPlayer : humanPlayer;
+    
+            var bitmap = mapRenderer.RenderMap(renderPlayer, selectedUnit, selectedStructure);
 
             MapCanvas.Width = bitmap.PixelWidth;
             MapCanvas.Height = bitmap.PixelHeight;
+
+            MapCanvas.Children.Clear();
 
             var image = new System.Windows.Controls.Image
             {
@@ -803,10 +934,79 @@ namespace EmpireGame
                 Height = bitmap.PixelHeight
             };
 
-            MapCanvas.Children.Clear();
+            Canvas.SetZIndex(image, 10);
             MapCanvas.Children.Add(image);
+
+            // REMOVED: RenderResourceIcons(renderPlayer);
         }
 
+private void RenderResourceIcons(Player renderPlayer)
+{
+    int iconsAdded = 0;
+    
+    for (int x = 0; x < game.Map.Width; x++)
+    {
+        for (int y = 0; y < game.Map.Height; y++)
+        {
+            var pos = new TilePosition(x, y);
+            var tile = game.Map.GetTile(pos);
+
+            VisibilityLevel visibility = VisibilityLevel.Hidden;
+            if (renderPlayer.FogOfWar.ContainsKey(pos))
+            {
+                visibility = renderPlayer.FogOfWar[pos];
+            }
+
+            if (visibility == VisibilityLevel.Visible && tile.Resource != ResourceType.None)
+            {
+                try
+                {
+                    var resourceImage = new System.Windows.Controls.Image
+                    {
+                        Width = 20,
+                        Height = 20
+                    };
+
+                    string imagePath = "";
+                    if (tile.Resource == ResourceType.Oil)
+                    {
+                        imagePath = "/Resources/oil_16.png";
+                    }
+                    else if (tile.Resource == ResourceType.Steel)
+                    {
+                        imagePath = "/Resources/iron_16.png";
+                    }
+
+                    try
+                    {
+                        resourceImage.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
+                    }
+                    catch
+                    {
+                        // Try absolute pack URI if relative fails
+                        resourceImage.Source = new BitmapImage(new Uri($"pack://application:,,,{imagePath}"));
+                    }
+
+                    double canvasX = x * TILE_SIZE + TILE_SIZE - 22;
+                    double canvasY = y * TILE_SIZE + 2;
+
+                    Canvas.SetLeft(resourceImage, canvasX);
+                    Canvas.SetTop(resourceImage, canvasY);
+                    Canvas.SetZIndex(resourceImage, 1);
+
+                    MapCanvas.Children.Add(resourceImage);
+                    iconsAdded++;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to load resource icon at ({x},{y}), Resource: {tile.Resource}, Error: {ex.Message}");
+                }
+            }
+        }
+    }
+    
+    System.Diagnostics.Debug.WriteLine($"Resource icons added to canvas: {iconsAdded}");
+}
         private void UpdateGameInfo()
         {
             TurnNumberText.Text = $"Turn: {game.TurnNumber}";
@@ -1225,11 +1425,10 @@ namespace EmpireGame
 
             if (damageToRepair == 0)
             {
-                MessageBox.Show("Unit is already at full health!");
+                AddMessage("Unit is already at full health!", MessageType.Info);
                 return;
             }
 
-            // Start repair (1 turn per point of damage)
             if (selectedStructure is Base baseStructure)
             {
                 baseStructure.UnitsBeingRepaired[aircraft] = damageToRepair;
@@ -1239,7 +1438,7 @@ namespace EmpireGame
                 city.UnitsBeingRepaired[aircraft] = damageToRepair;
             }
 
-            MessageBox.Show($"Repair started. Will take {damageToRepair} turn(s).");
+            AddMessage($"Repair started. Will take {damageToRepair} turn(s).", MessageType.Production);
             SelectStructure(selectedStructure);
         }
 
@@ -1273,28 +1472,26 @@ namespace EmpireGame
             if (ship == null || selectedStructure == null)
                 return;
 
-            // Find an adjacent water tile
             var adjacentPos = FindAdjacentWaterTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
-                MessageBox.Show("No water to launch into!");
+                AddMessage("No water to launch into!", MessageType.Warning);
                 return;
             }
 
-            // Remove from shipyard
             if (selectedStructure is Base baseStructure)
             {
                 baseStructure.Shipyard.Remove(ship);
             }
 
-            // Place on map
             ship.Position = adjacentPos;
 
             var tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(ship);
 
-            // Update display
+            AddMessage($"{ship.GetName()} launched from {selectedStructure.GetName()}", MessageType.Success);
+
             SelectStructure(selectedStructure);
             game.CurrentPlayer.UpdateVision(game.Map);
             RenderMap();
@@ -1397,16 +1594,14 @@ namespace EmpireGame
             if (aircraft == null || selectedStructure == null)
                 return;
 
-            // Find an adjacent empty tile
             var adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
-                MessageBox.Show("No airspace to take off into!");
+                AddMessage("No airspace to take off into!", MessageType.Warning);
                 return;
             }
 
-            // Remove from airport
             if (selectedStructure is Base baseStructure)
             {
                 baseStructure.Airport.Remove(aircraft);
@@ -1416,15 +1611,15 @@ namespace EmpireGame
                 city.Airport.Remove(aircraft);
             }
 
-            // Place on map
             aircraft.Position = adjacentPos;
-            aircraft.HomeBaseId = -1; // In the air
-            aircraft.Fuel = aircraft.MaxFuel; // Refuel on takeoff
+            aircraft.HomeBaseId = -1;
+            aircraft.Fuel = aircraft.MaxFuel;
 
             var tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(aircraft);
 
-            // Update display
+            AddMessage($"{aircraft.GetName()} took off from {selectedStructure.GetName()}", MessageType.Movement);
+
             SelectStructure(selectedStructure);
             game.CurrentPlayer.UpdateVision(game.Map);
             RenderMap();
@@ -1751,74 +1946,50 @@ namespace EmpireGame
 
         private void MoveUnit(Unit unit, TilePosition targetPos)
         {
-            // Calculate the path
             var path = game.Map.FindPath(unit.Position, targetPos, unit);
 
             if (path.Count == 0)
             {
-                MessageBox.Show("No valid path to target!");
+                AddMessage("No valid path to target!", MessageType.Warning);
                 return;
             }
 
-            // Calculate movement cost with diagonal consideration
             double movementCost = 0;
             for (int i = 1; i < path.Count; i++)
             {
                 var tile = game.Map.GetTile(path[i]);
                 double cost = tile.GetMovementCost(unit);
-
-                // Check if this is a diagonal move
-                //if (i > 0)
-                //{
-                //    var prevPos = path[i - 1];
-                //    var currPos = path[i];
-                //    int dx = Math.Abs(currPos.X - prevPos.X);
-                //    int dy = Math.Abs(currPos.Y - prevPos.Y);
-
-                //    if (dx == 1 && dy == 1) // Diagonal
-                //    {
-                //        cost *= 1.414; // √2 approximation
-                //    }
-                //}
-
                 movementCost += cost;
             }
 
-            // Check if unit has enough movement points
             if (movementCost > unit.MovementPoints)
             {
-                MessageBox.Show($"Not enough movement! Need {movementCost:F2}, have {unit.MovementPoints:F2}");
+                AddMessage($"Not enough movement! Need {movementCost:F2}, have {unit.MovementPoints:F2}", MessageType.Warning);
                 return;
             }
 
-            // Check if destination tile can accept this unit
             var destinationTile = game.Map.GetTile(targetPos);
             if (!destinationTile.CanUnitEnter(unit))
             {
-                MessageBox.Show("Unit cannot enter that terrain type!");
+                AddMessage("Unit cannot enter that terrain type!", MessageType.Warning);
                 return;
             }
 
-            // Check for enemy units at destination (cannot stack with enemies)
             var enemyUnits = destinationTile.Units.Where(u => u.OwnerId != unit.OwnerId).ToList();
             if (enemyUnits.Count > 0)
             {
-                MessageBox.Show("Cannot move onto enemy units! Use attack instead.");
+                AddMessage("Cannot move onto enemy units! Use attack instead.", MessageType.Warning);
                 return;
             }
 
-            // NEW: Check for stack limit (maximum 3 units per tile)
             var friendlyUnits = destinationTile.Units.Where(u => u.OwnerId == unit.OwnerId).ToList();
 
-            // Only check stack limit if destination doesn't have a structure
-            // (structures can hold more units in their facilities)
             if (destinationTile.Structure == null && friendlyUnits.Count >= MAX_UNITS_PER_TILE)
             {
-                MessageBox.Show("Cannot stack more than 3 units on a tile!");
+                AddMessage("Cannot stack more than 3 units on a tile!", MessageType.Warning);
                 return;
             }
 
-            // Move the unit
             var oldTile = game.Map.GetTile(unit.Position);
             oldTile.Units.Remove(unit);
 
@@ -1828,7 +1999,6 @@ namespace EmpireGame
             var newTile = game.Map.GetTile(targetPos);
             newTile.Units.Add(unit);
 
-            // AUTO-LANDING: Check if this is an air unit landing on a friendly base/city
             if (unit is AirUnit airUnit && newTile.Structure != null &&
                 newTile.Structure.OwnerId == unit.OwnerId)
             {
@@ -1836,48 +2006,45 @@ namespace EmpireGame
                 {
                     if (baseStructure.Airport.Count < Base.MAX_AIRPORT_CAPACITY)
                     {
-                        // Auto-land the aircraft
                         newTile.Units.Remove(airUnit);
                         baseStructure.Airport.Add(airUnit);
                         airUnit.HomeBaseId = baseStructure.StructureId;
-                        airUnit.Fuel = airUnit.MaxFuel; // Refuel
+                        airUnit.Fuel = airUnit.MaxFuel;
 
-                        MessageBox.Show($"{airUnit.GetName()} automatically landed and refueled at {baseStructure.GetName()}");
+                        AddMessage($"{airUnit.GetName()} automatically landed and refueled at {baseStructure.GetName()}", MessageType.Success);
 
                         ClearSelection();
                         SelectStructure(baseStructure);
                     }
                     else
                     {
-                        MessageBox.Show($"{airUnit.GetName()} moved to base, but airport is full! Use 'Land at Base' button to land.");
+                        AddMessage($"{airUnit.GetName()} moved to base, but airport is full!", MessageType.Warning);
                     }
                 }
                 else if (newTile.Structure is City city)
                 {
                     if (city.Airport.Count < City.MAX_AIRPORT_CAPACITY)
                     {
-                        // Auto-land the aircraft
                         newTile.Units.Remove(airUnit);
                         city.Airport.Add(airUnit);
                         airUnit.HomeBaseId = city.StructureId;
-                        airUnit.Fuel = airUnit.MaxFuel; // Refuel
+                        airUnit.Fuel = airUnit.MaxFuel;
 
-                        MessageBox.Show($"{airUnit.GetName()} automatically landed and refueled at {city.GetName()}");
+                        AddMessage($"{airUnit.GetName()} automatically landed and refueled at {city.GetName()}", MessageType.Success);
 
                         ClearSelection();
                         SelectStructure(city);
                     }
                     else
                     {
-                        MessageBox.Show($"{airUnit.GetName()} moved to city, but airport is full! Use 'Land at Base' button to land.");
+                        AddMessage($"{airUnit.GetName()} moved to city, but airport is full!", MessageType.Warning);
                     }
                 }
             }
 
-            // Update vision for the current player
             game.CurrentPlayer.UpdateVision(game.Map);
+            UpdateResourceDisplay();
 
-            // Update the selected unit display
             if (selectedUnit == unit)
             {
                 SelectUnit(unit);
@@ -2150,7 +2317,7 @@ namespace EmpireGame
 
             if (!selectedItem.IsEnabled)
             {
-                MessageBox.Show("Cannot build this unit - facility is at capacity!");
+                MessageBox.Show("Cannot build this unit - either at capacity or insufficient resources!");
                 return;
             }
 
@@ -2174,6 +2341,21 @@ namespace EmpireGame
                 return;
             }
 
+            // Check if player has sufficient resources
+            if (game.CurrentPlayer.Gold < order.GoldCost ||
+                game.CurrentPlayer.Steel < order.SteelCost ||
+                game.CurrentPlayer.Oil < order.OilCost)
+            {
+                MessageBox.Show($"Insufficient resources!\n\nRequired: 💰{order.GoldCost} ⚙️{order.SteelCost} 🛢️{order.OilCost}\nAvailable: 💰{game.CurrentPlayer.Gold} ⚙️{game.CurrentPlayer.Steel} 🛢️{game.CurrentPlayer.Oil}");
+                return;
+            }
+
+            // Deduct resources immediately when adding to queue
+            game.CurrentPlayer.Gold -= order.GoldCost;
+            game.CurrentPlayer.Steel -= order.SteelCost;
+            game.CurrentPlayer.Oil -= order.OilCost;
+
+            // Add to production queue
             if (selectedStructure is Base baseStruct)
             {
                 baseStruct.ProductionQueue.Enqueue(order);
@@ -2190,6 +2372,8 @@ namespace EmpireGame
                 PopulateAvailableUnits(cityStruct);
                 UpdateResourceDisplay();
             }
+
+            AddMessage($"Resources paid! 💰{order.GoldCost} ⚙️{order.SteelCost} 🛢️{order.OilCost}\n\n{order.DisplayName} added to production queue.");
         }
 
         private void LaunchMissionButton_Click(object sender, RoutedEventArgs e)
@@ -2209,39 +2393,78 @@ namespace EmpireGame
             if (game.HasSurrendered)
                 return;
 
-            // Reset unit/structure indices for next turn
             currentUnitIndex = 0;
             currentStructureIndex = 0;
 
             game.NextTurn();
 
-            // If the new current player is AI, execute their turn
+            AddMessage($"=== Turn {game.TurnNumber} begins ===", MessageType.Success);
+
+            // Store reference to human player
+            Player humanPlayer = game.Players[0];
+
+            if (!game.CurrentPlayer.IsAI)
+            {
+                await ProcessAutomaticOrdersWithVisuals();
+            }
+
             while (game.CurrentPlayer.IsAI)
             {
-                // Show AI thinking panel
                 AIThinkingPanel.Visibility = Visibility.Visible;
                 AIStatusText.Text = $"{game.CurrentPlayer.Name} is planning...";
                 NextUnitButton.Visibility = Visibility.Collapsed;
                 UpdateEndTurnButtonImage();
 
                 UpdateGameInfo();
-                RenderMapFromHumanPerspective(); // Changed: always show from human player perspective
 
-                // Let UI update
+                // Always render from human perspective
+                var bitmap = mapRenderer.RenderMap(humanPlayer, null, null);
+                MapCanvas.Width = bitmap.PixelWidth;
+                MapCanvas.Height = bitmap.PixelHeight;
+                MapCanvas.Children.Clear();
+                var image = new System.Windows.Controls.Image
+                {
+                    Source = bitmap,
+                    Width = bitmap.PixelWidth,
+                    Height = bitmap.PixelHeight
+                };
+                Canvas.SetZIndex(image, 10);
+                MapCanvas.Children.Add(image);
+                RenderResourceIcons(humanPlayer);
+
                 await Task.Delay(500);
 
-                // Execute AI turn with status updates
                 await ExecuteAITurnWithUpdates(game.CurrentPlayer);
 
                 game.NextTurn();
+
+                if (!game.CurrentPlayer.IsAI)
+                {
+                    await ProcessAutomaticOrdersWithVisuals();
+                }
+
                 UpdateEndTurnButtonImage();
+
+                // Always render from human perspective
+                bitmap = mapRenderer.RenderMap(humanPlayer, null, null);
+                MapCanvas.Width = bitmap.PixelWidth;
+                MapCanvas.Height = bitmap.PixelHeight;
+                MapCanvas.Children.Clear();
+                image = new System.Windows.Controls.Image
+                {
+                    Source = bitmap,
+                    Width = bitmap.PixelWidth,
+                    Height = bitmap.PixelHeight
+                };
+                Canvas.SetZIndex(image, 10);
+                MapCanvas.Children.Add(image);
+                RenderResourceIcons(humanPlayer);
             }
 
-            // Hide AI panel when returning to player
             AIThinkingPanel.Visibility = Visibility.Collapsed;
 
             UpdateGameInfo();
-            RenderMap();
+            RenderMapFromHumanPerspective();
             ClearSelection();
             UpdateNextButton();
             UpdateResourceDisplay();
@@ -2255,22 +2478,22 @@ namespace EmpireGame
             AIStatusText.Text = "Moving units...";
             await Task.Delay(300);
 
-            // Execute the actual AI logic
             aiController.ExecuteAITurn(aiPlayer);
 
             AIStatusText.Text = "Turn complete";
-            RenderMapFromHumanPerspective(); // Changed: render from human perspective
+            RenderMapFromHumanPerspective();
             await Task.Delay(500);
         }
 
         private void RenderMapFromHumanPerspective()
         {
-            // Always render from Player 0's perspective (the human player)
-            var humanPlayer = game.Players[0];
+            Player humanPlayer = game.Players[0];
             var bitmap = mapRenderer.RenderMap(humanPlayer, selectedUnit, selectedStructure);
 
             MapCanvas.Width = bitmap.PixelWidth;
             MapCanvas.Height = bitmap.PixelHeight;
+
+            MapCanvas.Children.Clear();
 
             var image = new System.Windows.Controls.Image
             {
@@ -2279,8 +2502,10 @@ namespace EmpireGame
                 Height = bitmap.PixelHeight
             };
 
-            MapCanvas.Children.Clear();
+            Canvas.SetZIndex(image, 10);
             MapCanvas.Children.Add(image);
+
+            // REMOVED: RenderResourceIcons(humanPlayer);
         }
 
         private void SaveGameButton_Click(object sender, RoutedEventArgs e)
@@ -2424,17 +2649,37 @@ namespace EmpireGame
 
         // NEW BUTTON HANDLERS - Add these methods:
 
-        private void ReturnToBaseButton_Click(object sender, RoutedEventArgs e)
+        private async void ReturnToBaseButton_Click(object sender, RoutedEventArgs e)
         {
             if (selectedUnit is AirUnit airUnit)
             {
                 var nearestBase = airUnit.GetNearestBase(game.Map, game.CurrentPlayer);
                 if (nearestBase != null)
                 {
-                    // Set order to move to base
-                    airUnit.CurrentOrders.Type = OrderType.MoveTo;
-                    airUnit.CurrentOrders.TargetPosition = nearestBase.Position;
-                    MessageBox.Show($"Aircraft ordered to return to {nearestBase.GetName()} at {nearestBase.Position.X}, {nearestBase.Position.Y}");
+                    // Add to automatic orders queue
+                    game.AddAutomaticOrder(airUnit, nearestBase.Position, AutomaticOrderType.ReturnToBase);
+
+                    AddMessage($"{airUnit.GetName()} ordered to return to {nearestBase.GetName()} at ({nearestBase.Position.X}, {nearestBase.Position.Y}).\n\nThe aircraft will automatically move each turn until it reaches base.");
+
+                    // Process the order immediately for this turn
+                    await ProcessAutomaticOrdersWithVisuals();
+
+                    // Update display
+                    game.CurrentPlayer.UpdateVision(game.Map);
+                    RenderMap();
+
+                    // Clear selection if unit landed
+                    var tile = game.Map.GetTile(airUnit.Position);
+                    if (!tile.Units.Contains(airUnit))
+                    {
+                        ClearSelection();
+                    }
+                    else if (selectedUnit == airUnit)
+                    {
+                        SelectUnit(airUnit);
+                    }
+
+                    UpdateNextButton();
                 }
                 else
                 {
@@ -2447,7 +2692,6 @@ namespace EmpireGame
         {
             if (selectedUnit is AirUnit airUnit)
             {
-                // Check if adjacent to any friendly base
                 var adjacentStructures = new List<Structure>();
 
                 for (int dx = -1; dx <= 1; dx++)
@@ -2474,19 +2718,17 @@ namespace EmpireGame
                 {
                     var structure = adjacentStructures[0];
 
-                    // Remove from map
                     var tile = game.Map.GetTile(airUnit.Position);
                     tile.Units.Remove(airUnit);
 
-                    // Add to airport
                     if (structure is Base baseStructure)
                     {
                         if (baseStructure.Airport.Count < Base.MAX_AIRPORT_CAPACITY)
                         {
                             baseStructure.Airport.Add(airUnit);
                             airUnit.HomeBaseId = baseStructure.StructureId;
-                            airUnit.Fuel = airUnit.MaxFuel; // Refuel
-                            MessageBox.Show($"Aircraft landed and refueled at {structure.GetName()}");
+                            airUnit.Fuel = airUnit.MaxFuel;
+                            AddMessage($"{airUnit.GetName()} landed and refueled at {structure.GetName()}", MessageType.Success);
 
                             ClearSelection();
                             SelectStructure(structure);
@@ -2495,8 +2737,8 @@ namespace EmpireGame
                         }
                         else
                         {
-                            tile.Units.Add(airUnit); // Put back on map
-                            MessageBox.Show("Airport is full!");
+                            tile.Units.Add(airUnit);
+                            AddMessage("Airport is full!", MessageType.Warning);
                         }
                     }
                     else if (structure is City city)
@@ -2505,8 +2747,8 @@ namespace EmpireGame
                         {
                             city.Airport.Add(airUnit);
                             airUnit.HomeBaseId = city.StructureId;
-                            airUnit.Fuel = airUnit.MaxFuel; // Refuel
-                            MessageBox.Show($"Aircraft landed and refueled at {structure.GetName()}");
+                            airUnit.Fuel = airUnit.MaxFuel;
+                            AddMessage($"{airUnit.GetName()} landed and refueled at {structure.GetName()}", MessageType.Success);
 
                             ClearSelection();
                             SelectStructure(structure);
@@ -2515,18 +2757,17 @@ namespace EmpireGame
                         }
                         else
                         {
-                            tile.Units.Add(airUnit); // Put back on map
-                            MessageBox.Show("Airport is full!");
+                            tile.Units.Add(airUnit);
+                            AddMessage("Airport is full!", MessageType.Warning);
                         }
                     }
                 }
                 else
                 {
-                    MessageBox.Show("Not adjacent to a friendly base!");
+                    AddMessage("Not adjacent to a friendly base!", MessageType.Warning);
                 }
             }
         }
-
         private void ToggleSubmergeButton_Click(object sender, RoutedEventArgs e)
         {
             if (selectedUnit is Submarine submarine)
@@ -2691,5 +2932,135 @@ namespace EmpireGame
             OilIncomeText.Text = $"(+{oilIncome})";
         }
 
+        private async Task ProcessAutomaticOrdersWithVisuals()
+        {
+            if (game.AutomaticOrdersQueue.Count == 0)
+                return;
+
+            var ordersToProcess = game.AutomaticOrdersQueue.ToList();
+            game.AutomaticOrdersQueue.Clear();
+
+            var enemiesSpottedUnits = new List<Unit>();
+
+            foreach (var order in ordersToProcess)
+            {
+                if (order.Unit.Life <= 0 || order.Unit.OwnerId != game.CurrentPlayer.PlayerId)
+                    continue;
+
+                bool enemySpotted;
+
+                bool shouldContinue = game.ProcessAutomaticOrder(
+                    order,
+                    (unit) =>
+                    {
+                        game.CurrentPlayer.UpdateVision(game.Map);
+                    },
+                    () =>
+                    {
+                        RenderMapFromHumanPerspective();
+                        System.Threading.Thread.Sleep(100);
+                    },
+                    out enemySpotted
+                );
+
+                if (enemySpotted)
+                {
+                    enemiesSpottedUnits.Add(order.Unit);
+                }
+                else if (shouldContinue)
+                {
+                    game.AutomaticOrdersQueue.Enqueue(order);
+                }
+
+                RenderMapFromHumanPerspective();
+                await Task.Delay(50);
+            }
+
+            if (enemiesSpottedUnits.Count > 0)
+            {
+                string unitNames = string.Join(", ", enemiesSpottedUnits.Select(u => u.GetName()));
+                AddMessage($"ENEMY SPOTTED! {unitNames} detected enemy forces and halted.", MessageType.Enemy);
+
+                if (enemiesSpottedUnits.Count > 0)
+                {
+                    SelectUnit(enemiesSpottedUnits[0]);
+                    CenterOnPosition(enemiesSpottedUnits[0].Position);
+                }
+            }
+        }
+
+        private void AddMessage(string text, MessageType type = MessageType.Info)
+        {
+            messageLog.AddMessage(text, type);
+            UpdateMessageLog();
+        }
+
+        private void UpdateMessageLog()
+        {
+            MessageLogItems.ItemsSource = null;
+            MessageLogItems.ItemsSource = messageLog.GetMessages();
+            MessageCountText.Text = $"[{messageLog.GetMessages().Count}]";
+
+            // Auto-scroll to bottom
+            MessageScrollViewer.UpdateLayout();
+            MessageScrollViewer.ScrollToEnd();
+        }
+
+        private void ZoomInButton_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomIn();
+            UpdateZoomDisplay();
+        }
+
+        private void ZoomOutButton_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomOut();
+            UpdateZoomDisplay();
+        }
+
+        private void UpdateZoomDisplay()
+        {
+            ZoomLevelText.Text = $"{TILE_SIZE}x{TILE_SIZE}";
+        }
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.OemPlus || e.Key == Key.Add)
+            {
+                ZoomIn();
+            }
+            else if (e.Key == Key.OemMinus || e.Key == Key.Subtract)
+            {
+                ZoomOut();
+            }
+        }
+
+        private void ZoomIn()
+        {
+            if (TILE_SIZE < MAX_TILE_SIZE)
+            {
+                TILE_SIZE += 8;  // Increase by 8 pixels
+                RecreateMapRenderer();
+                RenderMap();
+                AddMessage($"Zoom: {TILE_SIZE}x{TILE_SIZE}", MessageType.Info);
+            }
+        }
+
+        private void ZoomOut()
+        {
+            if (TILE_SIZE > MIN_TILE_SIZE)
+            {
+                TILE_SIZE -= 8;  // Decrease by 8 pixels
+                RecreateMapRenderer();
+                RenderMap();
+                AddMessage($"Zoom: {TILE_SIZE}x{TILE_SIZE}", MessageType.Info);
+            }
+        }
+
+        private void RecreateMapRenderer()
+        {
+            mapRenderer = new MapRenderer(game, TILE_SIZE);
+        }
     }
+
 }

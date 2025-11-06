@@ -12,7 +12,12 @@ namespace EmpireGame
         private WriteableBitmap bitmap;
         private Unit selectedUnit;
         private Structure selectedStructure;
-        
+        private double iconScale;
+    
+        // Resource icon bitmaps
+        private BitmapSource oilIcon;
+        private BitmapSource steelIcon;
+
         // Color definitions for terrain
         private static readonly Color OceanColor = Color.FromRgb(20, 60, 120);
         private static readonly Color CoastalWaterColor = Color.FromRgb(40, 100, 160);
@@ -22,7 +27,7 @@ namespace EmpireGame
         private static readonly Color HillsColor = Color.FromRgb(120, 100, 70);
         private static readonly Color MountainColor = Color.FromRgb(140, 140, 140);
         private static readonly Color FogColor = Color.FromRgb(60, 60, 60);
-        
+
         // Player colors
         private static readonly Color[] PlayerColors = new Color[]
         {
@@ -35,49 +40,61 @@ namespace EmpireGame
             Color.FromRgb(0, 255, 255),      // Player 6 - Cyan
             Color.FromRgb(255, 180, 200)     // Player 7 - Pink
         };
-        
+
         public MapRenderer(Game game, int tileSize)
         {
             this.game = game;
             this.tileSize = tileSize;
-            
+            this.iconScale = tileSize / 16.0;
+    
             int width = game.Map.Width * tileSize;
             int height = game.Map.Height * tileSize;
-            
+    
             bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
+    
+            // Load resource icons
+            try
+            {
+                oilIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/oil_16.png"));
+                steelIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/iron_16.png"));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load resource icons: {ex.Message}");
+            }
         }
-        
+
         public WriteableBitmap RenderMap(Player currentPlayer, Unit selectedUnit = null, Structure selectedStructure = null)
         {
             this.selectedUnit = selectedUnit;
             this.selectedStructure = selectedStructure;
-            
+
             bitmap.Lock();
-            
+
             try
             {
                 unsafe
                 {
                     IntPtr pBackBuffer = bitmap.BackBuffer;
                     int stride = bitmap.BackBufferStride;
-                    
+
                     for (int x = 0; x < game.Map.Width; x++)
                     {
                         for (int y = 0; y < game.Map.Height; y++)
                         {
                             var tilePos = new TilePosition(x, y);
                             var tile = game.Map.GetTile(tilePos);
-                            
+
                             // Check fog of war
                             VisibilityLevel visibility = VisibilityLevel.Hidden;
                             if (currentPlayer.FogOfWar.ContainsKey(tilePos))
                             {
                                 visibility = currentPlayer.FogOfWar[tilePos];
                             }
-                            
+
                             // Render tile
                             RenderTile(pBackBuffer, stride, x, y, tile, visibility);
-                            
+
                             // Render contents if visible
                             if (visibility == VisibilityLevel.Visible)
                             {
@@ -86,14 +103,14 @@ namespace EmpireGame
                                 {
                                     RenderStructure(pBackBuffer, stride, x, y, tile.Structure);
                                 }
-                                
+
                                 // Render units
                                 if (tile.Units.Count > 0)
                                 {
                                     RenderUnit(pBackBuffer, stride, x, y, tile.Units[0]);
                                 }
                             }
-                            
+
                             // Highlight selected unit or structure
                             if (selectedUnit != null && selectedUnit.Position.Equals(tilePos))
                             {
@@ -112,14 +129,14 @@ namespace EmpireGame
                 bitmap.AddDirtyRect(new Int32Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight));
                 bitmap.Unlock();
             }
-            
+
             return bitmap;
         }
-        
+
         private unsafe void RenderTile(IntPtr pBackBuffer, int stride, int tileX, int tileY, Tile tile, VisibilityLevel visibility)
         {
             Color baseColor;
-            
+    
             if (visibility == VisibilityLevel.Hidden)
             {
                 baseColor = Colors.Black;
@@ -127,8 +144,7 @@ namespace EmpireGame
             else
             {
                 baseColor = GetTerrainColor(tile.Terrain);
-                
-                // Darken if only explored (not currently visible)
+        
                 if (visibility == VisibilityLevel.Explored)
                 {
                     baseColor = Color.FromRgb(
@@ -138,15 +154,14 @@ namespace EmpireGame
                     );
                 }
             }
-            
-            // Fill the tile
+    
             for (int py = 0; py < tileSize; py++)
             {
                 for (int px = 0; px < tileSize; px++)
                 {
                     int screenX = tileX * tileSize + px;
                     int screenY = tileY * tileSize + py;
-                    
+            
                     byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
                     pixel[0] = baseColor.B;
                     pixel[1] = baseColor.G;
@@ -155,62 +170,103 @@ namespace EmpireGame
                 }
             }
 
+            // Render resource icons BEFORE units (so units render on top)
             if (visibility == VisibilityLevel.Visible && tile.Resource != ResourceType.None)
             {
                 RenderResourceIcon(pBackBuffer, stride, tileX, tileY, tile.Resource);
             }
-            
-            // Draw border
+    
             DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
         }
-        
-        private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
+
+private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
+{
+    BitmapSource icon = resource == ResourceType.Oil ? oilIcon : steelIcon;
+    
+    if (icon == null)
+        return;
+    
+    // Calculate position (top-right corner of tile)
+    int iconSize = 16; // Icons are 16x16
+    int destX = tileX * tileSize + tileSize - iconSize - 2;
+    int destY = tileY * tileSize + 2;
+    
+    // Convert icon to Bgr32 format if needed
+    BitmapSource convertedIcon = icon;
+    if (icon.Format != PixelFormats.Bgr32)
+    {
+        convertedIcon = new FormatConvertedBitmap(icon, PixelFormats.Bgr32, null, 0);
+    }
+    
+    // Get icon pixel data
+    int iconStride = iconSize * 4;
+    byte[] iconPixels = new byte[iconStride * iconSize];
+    convertedIcon.CopyPixels(iconPixels, iconStride, 0);
+    
+    // Copy icon pixels to the main bitmap
+    for (int y = 0; y < iconSize; y++)
+    {
+        for (int x = 0; x < iconSize; x++)
         {
-            // For now, draw a simple colored square in the corner
-            // You'll replace this with actual icon loading later
-    
-            Color iconColor = resource == ResourceType.Oil ? Color.FromRgb(0, 0, 0) : Color.FromRgb(128, 128, 128);
-    
-            int iconX = tileX * tileSize + tileSize - 6; // Top right corner
-            int iconY = tileY * tileSize + 2;
-            int iconSize = 4;
-    
-            for (int py = 0; py < iconSize; py++)
-            {
-                for (int px = 0; px < iconSize; px++)
-                {
-                    int screenX = iconX + px;
-                    int screenY = iconY + py;
+            int screenX = destX + x;
+            int screenY = destY + y;
             
-                    if (screenX >= 0 && screenX < bitmap.PixelWidth &&
-                        screenY >= 0 && screenY < bitmap.PixelHeight)
-                    {
-                        byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
-                        pixel[0] = iconColor.B;
-                        pixel[1] = iconColor.G;
-                        pixel[2] = iconColor.R;
-                        pixel[3] = 255;
-                    }
-                }
+            // Check bounds
+            if (screenX < 0 || screenX >= bitmap.PixelWidth || 
+                screenY < 0 || screenY >= bitmap.PixelHeight)
+                continue;
+            
+            // Get icon pixel
+            int iconOffset = y * iconStride + x * 4;
+            byte iconB = iconPixels[iconOffset];
+            byte iconG = iconPixels[iconOffset + 1];
+            byte iconR = iconPixels[iconOffset + 2];
+            byte iconA = iconPixels[iconOffset + 3];
+            
+            // Skip fully transparent pixels
+            if (iconA == 0)
+                continue;
+            
+            // Write to destination
+            byte* destPixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+            
+            if (iconA == 255)
+            {
+                // Fully opaque - just copy
+                destPixel[0] = iconB;
+                destPixel[1] = iconG;
+                destPixel[2] = iconR;
+                destPixel[3] = 255;
+            }
+            else
+            {
+                // Alpha blend
+                float alpha = iconA / 255.0f;
+                destPixel[0] = (byte)(iconB * alpha + destPixel[0] * (1 - alpha));
+                destPixel[1] = (byte)(iconG * alpha + destPixel[1] * (1 - alpha));
+                destPixel[2] = (byte)(iconR * alpha + destPixel[2] * (1 - alpha));
+                destPixel[3] = 255;
             }
         }
+    }
+}
 
-        private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, int tileY, Structure structure)
+private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, int tileY, Structure structure)
         {
             Color color = GetPlayerColor(structure.OwnerId);
-            
-            // Draw a filled square for the structure
-            int startX = tileX * tileSize + 2;
-            int startY = tileY * tileSize + 2;
-            int size = tileSize - 4;
-            
+
+            int margin = (int)(2 * iconScale);
+            int startX = tileX * tileSize + margin;
+            int startY = tileY * tileSize + margin;
+            int size = tileSize - margin * 2;
+
             for (int py = 0; py < size; py++)
             {
                 for (int px = 0; px < size; px++)
                 {
                     int screenX = startX + px;
                     int screenY = startY + py;
-                    
+
                     byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
                     pixel[0] = color.B;
                     pixel[1] = color.G;
@@ -218,8 +274,7 @@ namespace EmpireGame
                     pixel[3] = 255;
                 }
             }
-            
-            // Draw the structure icon
+
             if (structure is Base)
             {
                 DrawBaseIcon(pBackBuffer, stride, tileX * tileSize, tileY * tileSize);
@@ -229,22 +284,22 @@ namespace EmpireGame
                 DrawCityIcon(pBackBuffer, stride, tileX * tileSize, tileY * tileSize);
             }
         }
-        
+
         private unsafe void RenderUnit(IntPtr pBackBuffer, int stride, int tileX, int tileY, Unit unit)
         {
             // Don't render enemy units in fog of war
             Player currentPlayer = game.CurrentPlayer;
             var tilePos = new TilePosition(tileX, tileY);
-            
+
             // Check if this tile is visible to current player
-            if (!currentPlayer.FogOfWar.ContainsKey(tilePos) || 
+            if (!currentPlayer.FogOfWar.ContainsKey(tilePos) ||
                 currentPlayer.FogOfWar[tilePos] != VisibilityLevel.Visible)
             {
                 return;
             }
-            
+
             Color color = GetPlayerColor(unit.OwnerId);
-            
+
             // Draw background shape
             if (unit is AirUnit)
             {
@@ -258,11 +313,11 @@ namespace EmpireGame
             {
                 DrawCircle(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, color);
             }
-            
+
             // Draw the unit-specific icon
             int startX = tileX * tileSize;
             int startY = tileY * tileSize;
-            
+
             // Check if spy is disguised
             if (unit is Spy spy && !spy.IsRevealed && unit.OwnerId != currentPlayer.PlayerId)
             {
@@ -325,45 +380,45 @@ namespace EmpireGame
                 DrawSpyIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
             }
         }
-        
+
         // Icon drawing methods for each unit type
-        
+
         private unsafe void DrawArmyIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Stick figure
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Head (circle)
             DrawPixel(pBackBuffer, stride, cx, cy - 3, color);
             DrawPixel(pBackBuffer, stride, cx - 1, cy - 3, color);
             DrawPixel(pBackBuffer, stride, cx + 1, cy - 3, color);
-            
+
             // Body (vertical line)
             for (int i = -2; i <= 2; i++)
                 DrawPixel(pBackBuffer, stride, cx, cy + i, color);
-            
+
             // Arms (horizontal line)
             DrawPixel(pBackBuffer, stride, cx - 2, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx - 1, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx + 1, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx + 2, cy - 1, color);
-            
+
             // Legs
             DrawPixel(pBackBuffer, stride, cx - 1, cy + 3, color);
             DrawPixel(pBackBuffer, stride, cx + 1, cy + 3, color);
         }
-        
+
         private unsafe void DrawTankIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Tank (rectangle with barrel)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Body (rectangle)
             for (int x = -3; x <= 3; x++)
             {
@@ -372,120 +427,120 @@ namespace EmpireGame
                     DrawPixel(pBackBuffer, stride, cx + x, cy + y, color);
                 }
             }
-            
+
             // Barrel (extending right)
             for (int x = 3; x <= 5; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
         }
-        
+
         private unsafe void DrawArtilleryIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Cannon
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Barrel (angled line)
             for (int i = 0; i <= 4; i++)
             {
                 DrawPixel(pBackBuffer, stride, cx + i, cy - i, color);
             }
-            
+
             // Wheels
             DrawPixel(pBackBuffer, stride, cx - 2, cy + 2, color);
             DrawPixel(pBackBuffer, stride, cx + 2, cy + 2, color);
         }
-        
+
         private unsafe void DrawAntiAircraftIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // AA gun pointing up
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Barrel (vertical)
             for (int y = -4; y <= 1; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-            
+
             // Base (horizontal)
             for (int x = -2; x <= 2; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy + 2, color);
         }
-        
+
         private unsafe void DrawFighterIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Fighter plane (top view - cross shape)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Fuselage (vertical)
             for (int y = -4; y <= 3; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-            
+
             // Wings (horizontal)
             for (int x = -3; x <= 3; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-            
+
             // Tail fins
             DrawPixel(pBackBuffer, stride, cx - 1, cy + 3, color);
             DrawPixel(pBackBuffer, stride, cx + 1, cy + 3, color);
         }
-        
+
         private unsafe void DrawBomberIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Bomber (larger wings)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Fuselage (thicker vertical)
             for (int y = -3; y <= 3; y++)
             {
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
                 DrawPixel(pBackBuffer, stride, cx + 1, cy + y, color);
             }
-            
+
             // Wide wings
             for (int x = -4; x <= 4; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
         }
-        
+
         private unsafe void DrawTankerIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Tanker plane (with fuel tanks under wings)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Fuselage
             for (int y = -3; y <= 3; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-            
+
             // Wings
             for (int x = -3; x <= 3; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-            
+
             // Fuel tanks under wings
             DrawPixel(pBackBuffer, stride, cx - 2, cy + 1, color);
             DrawPixel(pBackBuffer, stride, cx + 2, cy + 1, color);
             DrawPixel(pBackBuffer, stride, cx - 2, cy + 2, color);
             DrawPixel(pBackBuffer, stride, cx + 2, cy + 2, color);
         }
-        
+
         private unsafe void DrawSubmarineIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Submarine (elongated oval with periscope)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Hull (horizontal oval)
             for (int x = -4; x <= 4; x++)
             {
@@ -496,29 +551,29 @@ namespace EmpireGame
                 DrawPixel(pBackBuffer, stride, cx + x, cy - 1, color);
                 DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
             }
-            
+
             // Periscope
             DrawPixel(pBackBuffer, stride, cx, cy - 2, color);
             DrawPixel(pBackBuffer, stride, cx, cy - 3, color);
         }
-        
+
         private unsafe void DrawDestroyerIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Destroyer (ship profile with pointed bow)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Hull
             for (int x = -4; x <= 3; x++)
             {
                 DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
             }
-            
+
             // Bow (pointed)
             DrawPixel(pBackBuffer, stride, cx + 4, cy, color);
-            
+
             // Superstructure
             for (int y = -1; y <= 0; y++)
             {
@@ -526,101 +581,101 @@ namespace EmpireGame
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
             }
         }
-        
+
         private unsafe void DrawCarrierIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Carrier (large flat deck)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Deck (long flat rectangle)
             for (int x = -5; x <= 4; x++)
             {
                 DrawPixel(pBackBuffer, stride, cx + x, cy - 1, color);
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
             }
-            
+
             // Island (small superstructure)
             DrawPixel(pBackBuffer, stride, cx - 2, cy - 2, color);
             DrawPixel(pBackBuffer, stride, cx - 2, cy - 3, color);
         }
-        
+
         private unsafe void DrawBattleshipIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Battleship (large with gun turrets)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Hull
             for (int x = -4; x <= 4; x++)
             {
                 DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
             }
-            
+
             // Turrets (top)
             DrawPixel(pBackBuffer, stride, cx - 2, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx - 2, cy, color);
             DrawPixel(pBackBuffer, stride, cx + 2, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx + 2, cy, color);
         }
-        
+
         private unsafe void DrawPatrolBoatIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Small boat
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Small hull
             for (int x = -2; x <= 2; x++)
             {
                 DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
             }
-            
+
             // Cabin
             DrawPixel(pBackBuffer, stride, cx, cy, color);
             DrawPixel(pBackBuffer, stride, cx, cy - 1, color);
         }
-        
+
         private unsafe void DrawTransportIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Cargo ship
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Hull
             for (int x = -4; x <= 3; x++)
             {
                 DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
             }
-            
+
             // Cargo containers (boxes on deck)
             DrawPixel(pBackBuffer, stride, cx - 2, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx - 2, cy, color);
             DrawPixel(pBackBuffer, stride, cx + 1, cy - 1, color);
             DrawPixel(pBackBuffer, stride, cx + 1, cy, color);
         }
-        
+
         private unsafe void DrawSpyIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
             // Spy (person with hat/trench coat)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = isVeteran ? Colors.Yellow : Colors.White;
-            
+
             // Head with hat brim
             for (int x = -2; x <= 2; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy - 3, color);
             DrawPixel(pBackBuffer, stride, cx, cy - 2, color);
-            
+
             // Body (coat)
             for (int y = -1; y <= 2; y++)
             {
@@ -632,19 +687,19 @@ namespace EmpireGame
                 }
             }
         }
-        
+
         private unsafe void DrawBaseIcon(IntPtr pBackBuffer, int stride, int startX, int startY)
         {
             // Base (flag)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = Colors.White;
-            
+
             // Pole
             for (int y = -4; y <= 3; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-            
+
             // Flag
             for (int x = 1; x <= 3; x++)
             {
@@ -652,29 +707,29 @@ namespace EmpireGame
                 DrawPixel(pBackBuffer, stride, cx + x, cy - 2, color);
             }
         }
-        
+
         private unsafe void DrawCityIcon(IntPtr pBackBuffer, int stride, int startX, int startY)
         {
             // City (buildings)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
-            
+
             Color color = Colors.White;
-            
+
             // Three buildings of different heights
             // Left building
             for (int y = 0; y <= 3; y++)
                 DrawPixel(pBackBuffer, stride, cx - 3, cy + y, color);
-            
+
             // Middle building (tallest)
             for (int y = -2; y <= 3; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-            
+
             // Right building
             for (int y = 1; y <= 3; y++)
                 DrawPixel(pBackBuffer, stride, cx + 3, cy + y, color);
         }
-        
+
         private unsafe void DrawPixel(IntPtr pBackBuffer, int stride, int x, int y, Color color)
         {
             if (x >= 0 && x < bitmap.PixelWidth && y >= 0 && y < bitmap.PixelHeight)
@@ -686,15 +741,15 @@ namespace EmpireGame
                 pixel[3] = 255;
             }
         }
-        
+
         // Keep all the existing helper methods (DrawCircle, DrawTriangle, DrawDiamond, etc.)
-        
+
         private unsafe void DrawCircle(IntPtr pBackBuffer, int stride, int startX, int startY, Color color)
         {
             int centerX = startX + tileSize / 2;
             int centerY = startY + tileSize / 2;
-            int radius = (tileSize / 2) - 2;
-            
+            int radius = (int)((tileSize / 2.0 - 2) * 0.8); // Scale the radius
+
             for (int py = -radius; py <= radius; py++)
             {
                 for (int px = -radius; px <= radius; px++)
@@ -703,7 +758,7 @@ namespace EmpireGame
                     {
                         int screenX = centerX + px;
                         int screenY = centerY + py;
-                        
+
                         if (screenX >= startX && screenX < startX + tileSize &&
                             screenY >= startY && screenY < startY + tileSize)
                         {
@@ -717,20 +772,21 @@ namespace EmpireGame
                 }
             }
         }
-        
+
         private unsafe void DrawTriangle(IntPtr pBackBuffer, int stride, int startX, int startY, Color color)
         {
             int centerX = startX + tileSize / 2;
-            int topY = startY + 2;
-            int bottomY = startY + tileSize - 2;
-            int leftX = startX + 2;
-            int rightX = startX + tileSize - 2;
-            
+            int margin = (int)(2 * iconScale);
+            int topY = startY + margin;
+            int bottomY = startY + tileSize - margin;
+            int leftX = startX + margin;
+            int rightX = startX + tileSize - margin;
+
             for (int y = topY; y <= bottomY; y++)
             {
                 float ratio = (float)(y - topY) / (bottomY - topY);
                 int halfWidth = (int)((rightX - leftX) / 2 * ratio);
-                
+
                 for (int x = centerX - halfWidth; x <= centerX + halfWidth; x++)
                 {
                     if (x >= startX && x < startX + tileSize &&
@@ -745,13 +801,13 @@ namespace EmpireGame
                 }
             }
         }
-        
+
         private unsafe void DrawDiamond(IntPtr pBackBuffer, int stride, int startX, int startY, Color color)
         {
             int centerX = startX + tileSize / 2;
             int centerY = startY + tileSize / 2;
-            int halfSize = (tileSize / 2) - 2;
-            
+            int halfSize = (int)((tileSize / 2.0 - 2) * 0.8);
+
             for (int py = -halfSize; py <= halfSize; py++)
             {
                 int width = halfSize - Math.Abs(py);
@@ -759,7 +815,7 @@ namespace EmpireGame
                 {
                     int screenX = centerX + px;
                     int screenY = centerY + py;
-                    
+
                     if (screenX >= startX && screenX < startX + tileSize &&
                         screenY >= startY && screenY < startY + tileSize)
                     {
@@ -772,11 +828,11 @@ namespace EmpireGame
                 }
             }
         }
-        
+
         private unsafe void DrawHighlight(IntPtr pBackBuffer, int stride, int x, int y, Color color)
         {
             int thickness = 2;
-            
+
             for (int t = 0; t < thickness; t++)
             {
                 for (int px = 0; px < tileSize; px++)
@@ -786,14 +842,14 @@ namespace EmpireGame
                     pixelTop[1] = color.G;
                     pixelTop[2] = color.R;
                     pixelTop[3] = 255;
-                    
+
                     byte* pixelBottom = (byte*)pBackBuffer + (y + tileSize - 1 - t) * stride + (x + px) * 4;
                     pixelBottom[0] = color.B;
                     pixelBottom[1] = color.G;
                     pixelBottom[2] = color.R;
                     pixelBottom[3] = 255;
                 }
-                
+
                 for (int py = 0; py < tileSize; py++)
                 {
                     byte* pixelLeft = (byte*)pBackBuffer + (y + py) * stride + (x + t) * 4;
@@ -801,7 +857,7 @@ namespace EmpireGame
                     pixelLeft[1] = color.G;
                     pixelLeft[2] = color.R;
                     pixelLeft[3] = 255;
-                    
+
                     byte* pixelRight = (byte*)pBackBuffer + (y + py) * stride + (x + tileSize - 1 - t) * 4;
                     pixelRight[0] = color.B;
                     pixelRight[1] = color.G;
@@ -810,7 +866,7 @@ namespace EmpireGame
                 }
             }
         }
-        
+
         private unsafe void DrawBorder(IntPtr pBackBuffer, int stride, int x, int y, int width, int height, Color color)
         {
             for (int px = 0; px < width; px++)
@@ -820,14 +876,14 @@ namespace EmpireGame
                 pixelTop[1] = color.G;
                 pixelTop[2] = color.R;
                 pixelTop[3] = 255;
-                
+
                 byte* pixelBottom = (byte*)pBackBuffer + (y + height - 1) * stride + (x + px) * 4;
                 pixelBottom[0] = color.B;
                 pixelBottom[1] = color.G;
                 pixelBottom[2] = color.R;
                 pixelBottom[3] = 255;
             }
-            
+
             for (int py = 0; py < height; py++)
             {
                 byte* pixelLeft = (byte*)pBackBuffer + (y + py) * stride + x * 4;
@@ -835,7 +891,7 @@ namespace EmpireGame
                 pixelLeft[1] = color.G;
                 pixelLeft[2] = color.R;
                 pixelLeft[3] = 255;
-                
+
                 byte* pixelRight = (byte*)pBackBuffer + (y + py) * stride + (x + width - 1) * 4;
                 pixelRight[0] = color.B;
                 pixelRight[1] = color.G;
@@ -843,7 +899,7 @@ namespace EmpireGame
                 pixelRight[3] = 255;
             }
         }
-        
+
         private Color GetTerrainColor(TerrainType terrain)
         {
             return terrain switch
@@ -858,12 +914,12 @@ namespace EmpireGame
                 _ => LandColor
             };
         }
-        
+
         private Color GetPlayerColor(int playerId)
         {
             if (playerId < 0 || playerId >= PlayerColors.Length)
                 return Colors.Gray;
-            
+
             return PlayerColors[playerId];
         }
     }
