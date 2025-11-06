@@ -9,7 +9,7 @@ public class Tile
 {
     public TilePosition Position { get; set; }
     public TerrainType Terrain { get; set; }
-    public ResourceType Resource { get; set; }  // <-- ADD THIS
+    public ResourceType Resource { get; set; }
     public int OwnerId { get; set; }
     public Structure Structure { get; set; }
     public List<Unit> Units { get; set; }
@@ -17,8 +17,8 @@ public class Tile
     // Movement cost by terrain type
     public int GetMovementCost(Unit unit)
     {
-        // Air units ignore terrain
-        if (unit is AirUnit)
+        // Air units and satellites ignore terrain
+        if (unit is AirUnit || unit is Satellite)
             return 1;
         
         return Terrain switch
@@ -37,10 +37,10 @@ public class Tile
     // Keep old property for compatibility but mark it
     public int MovementCost => GetMovementCost(null);
     
-    // Defense bonus by terrain type (air units don't get terrain defense)
+    // Defense bonus by terrain type (air units and satellites don't get terrain defense)
     public double GetDefenseBonus(Unit unit)
     {
-        if (unit is AirUnit)
+        if (unit is AirUnit || unit is Satellite)
             return 1.0;
         
         return Terrain switch
@@ -66,6 +66,12 @@ public class Tile
     
     public bool CanUnitEnter(Unit unit)
     {
+        // Satellites can go anywhere (in orbit above terrain)
+        if (unit is Satellite)
+        {
+            return true;
+        }
+        
         if (unit is LandUnit)
         {
             return Terrain != TerrainType.Ocean && Terrain != TerrainType.CoastalWater;

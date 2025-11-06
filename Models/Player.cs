@@ -6,12 +6,14 @@
     public List<Unit> Units { get; set; }
     public List<Structure> Structures { get; set; }
     public Dictionary<TilePosition, VisibilityLevel> FogOfWar { get; set; }
-    
+
     public int Gold { get; set; }
     public int Steel { get; set; }
     public int Oil { get; set; }
     
-    public Player(int id, string name, bool isAI)
+    public HashSet<OrbitType> DeployedOrbitTypes { get; set; }
+
+    public Player(int id, string name, bool isAI, int startingGold = 10, int startingSteel = 0, int startingOil = 1)
     {
         PlayerId = id;
         Name = name;
@@ -19,12 +21,13 @@
         Units = new List<Unit>();
         Structures = new List<Structure>();
         FogOfWar = new Dictionary<TilePosition, VisibilityLevel>();
-        
-        // Starting resources
-        Gold = 10;
-        Steel = 2;
-        Oil = 2;
-    }    
+        DeployedOrbitTypes = new HashSet<OrbitType>();
+
+        // Starting resources from parameters
+        Gold = startingGold;
+        Steel = startingSteel;
+        Oil = startingOil;
+    }
 
     public void UpdateVision(Map map)
     {
@@ -37,13 +40,13 @@
                 FogOfWar[pos] = VisibilityLevel.Explored;
             }
         }
-    
+
         // Update vision from all units
         foreach (var unit in Units)
         {
             UpdateVisionFromPosition(map, unit.Position, GetUnitVisionRange(unit));
         }
-    
+
         // Update vision from all structures
         foreach (var structure in Structures)
         {
@@ -59,7 +62,7 @@
             FogOfWar[tile.Position] = VisibilityLevel.Visible;
         }
     }
-    
+
     private int GetUnitVisionRange(Unit unit)
     {
         return unit switch
@@ -78,15 +81,18 @@
             AntiAircraft => 2,
             Spy => 3,
             Army => 1,
+            OrbitingSatellite sat => sat.VisionRadius,
+            GeosynchronousSatellite geosat => geosat.VisionRadius,
             _ => 2
         };
     }
-     public void CalculateResourceIncome(Map map)
+    
+    public void CalculateResourceIncome(Map map)
     {
         int goldIncome = 0;
         int steelIncome = 0;
         int oilIncome = 0;
-        
+
         // Cities generate 3 gold, bases generate 1 gold
         foreach (var structure in Structures)
         {
@@ -94,58 +100,39 @@
                 goldIncome += 3;
             else if (structure is Base)
                 goldIncome += 1;
-            
-            // Structures control 8 adjacent tiles
-            goldIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.None);
-            steelIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Steel);
-            oilIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Oil);
         }
-        
-        // Units standing on resource tiles
-        foreach (var unit in Units)
+
+        // Count ALL tiles owned by this player (NOT just where units are standing)
+        for (int x = 0; x < map.Width; x++)
         {
-            var tile = map.GetTile(unit.Position);
-            if (tile != null)
+            for (int y = 0; y < map.Height; y++)
             {
-                if (tile.Resource == ResourceType.Steel)
-                    steelIncome += 1;
-                else if (tile.Resource == ResourceType.Oil)
-                    oilIncome += 1;
+                var pos = new TilePosition(x, y);
+                var tile = map.GetTile(pos);
+
+                // Only count tiles owned by this player
+                if (tile.OwnerId == PlayerId)
+                {
+                    if (tile.Resource == ResourceType.Steel)
+                        steelIncome += 1;
+                    else if (tile.Resource == ResourceType.Oil)
+                        oilIncome += 1;
+                }
             }
         }
-        
+
         // Apply income
         Gold += goldIncome;
         Steel += steelIncome;
         Oil += oilIncome;
     }
-    
-    private int CountAdjacentResourceIncome(Map map, TilePosition center, ResourceType resourceType)
-    {
-        int count = 0;
-        int[] dx = { -1, 0, 1, 0, -1, 1, -1, 1 };
-        int[] dy = { 0, 1, 0, -1, -1, -1, 1, 1 };
-        
-        for (int i = 0; i < 8; i++)
-        {
-            var pos = new TilePosition(center.X + dx[i], center.Y + dy[i]);
-            if (map.IsValidPosition(pos))
-            {
-                var tile = map.GetTile(pos);
-                if (tile.Resource == resourceType)
-                    count += 1;
-            }
-        }
-        
-        return count;
-    }
-    
+
     public (int goldIncome, int steelIncome, int oilIncome) GetResourceIncome(Map map)
     {
         int goldIncome = 0;
         int steelIncome = 0;
         int oilIncome = 0;
-        
+
         // Cities generate 3 gold, bases generate 1 gold
         foreach (var structure in Structures)
         {
@@ -153,25 +140,42 @@
                 goldIncome += 3;
             else if (structure is Base)
                 goldIncome += 1;
-            
-            // Structures control 8 adjacent tiles
-            steelIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Steel);
-            oilIncome += CountAdjacentResourceIncome(map, structure.Position, ResourceType.Oil);
         }
-        
-        // Units standing on resource tiles
-        foreach (var unit in Units)
+
+        // Count ALL tiles owned by this player (NOT just where units are standing)
+        for (int x = 0; x < map.Width; x++)
         {
-            var tile = map.GetTile(unit.Position);
-            if (tile != null)
+            for (int y = 0; y < map.Height; y++)
             {
-                if (tile.Resource == ResourceType.Steel)
-                    steelIncome += 1;
-                else if (tile.Resource == ResourceType.Oil)
-                    oilIncome += 1;
+                var pos = new TilePosition(x, y);
+                var tile = map.GetTile(pos);
+
+                // Only count tiles owned by this player
+                if (tile.OwnerId == PlayerId)
+                {
+                    if (tile.Resource == ResourceType.Steel)
+                        steelIncome += 1;
+                    else if (tile.Resource == ResourceType.Oil)
+                        oilIncome += 1;
+                }
             }
         }
-        
+
         return (goldIncome, steelIncome, oilIncome);
+    }
+    
+    public bool CanDeployOrbitingSatellite(OrbitType orbitType)
+    {
+        return !DeployedOrbitTypes.Contains(orbitType);
+    }
+    
+    public void RegisterOrbitingSatellite(OrbitType orbitType)
+    {
+        DeployedOrbitTypes.Add(orbitType);
+    }
+    
+    public void UnregisterOrbitingSatellite(OrbitType orbitType)
+    {
+        DeployedOrbitTypes.Remove(orbitType);
     }
 }

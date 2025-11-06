@@ -6,7 +6,7 @@
         MaxToughness = 4;
         MaxLife = 8;
         MaxMovementPoints = 5;
-        MaxFuel = 10;
+        MaxFuel = 6; 
         HomeBaseId = -1;
         
         Power = MaxPower;

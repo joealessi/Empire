@@ -13,7 +13,7 @@ namespace EmpireGame
         private Unit selectedUnit;
         private Structure selectedStructure;
         private double iconScale;
-    
+
         // Resource icon bitmaps
         private BitmapSource oilIcon;
         private BitmapSource steelIcon;
@@ -46,17 +46,17 @@ namespace EmpireGame
             this.game = game;
             this.tileSize = tileSize;
             this.iconScale = tileSize / 16.0;
-    
+
             int width = game.Map.Width * tileSize;
             int height = game.Map.Height * tileSize;
-    
+
             bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
-    
+
             // Load resource icons
             try
             {
                 oilIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/oil_16.png"));
-                steelIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/iron_16.png"));
+                steelIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/steel_16.png"));
             }
             catch (Exception ex)
             {
@@ -136,7 +136,7 @@ namespace EmpireGame
         private unsafe void RenderTile(IntPtr pBackBuffer, int stride, int tileX, int tileY, Tile tile, VisibilityLevel visibility)
         {
             Color baseColor;
-    
+
             if (visibility == VisibilityLevel.Hidden)
             {
                 baseColor = Colors.Black;
@@ -144,7 +144,7 @@ namespace EmpireGame
             else
             {
                 baseColor = GetTerrainColor(tile.Terrain);
-        
+
                 if (visibility == VisibilityLevel.Explored)
                 {
                     baseColor = Color.FromRgb(
@@ -154,14 +154,14 @@ namespace EmpireGame
                     );
                 }
             }
-    
+
             for (int py = 0; py < tileSize; py++)
             {
                 for (int px = 0; px < tileSize; px++)
                 {
                     int screenX = tileX * tileSize + px;
                     int screenY = tileY * tileSize + py;
-            
+
                     byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
                     pixel[0] = baseColor.B;
                     pixel[1] = baseColor.G;
@@ -175,83 +175,90 @@ namespace EmpireGame
             {
                 RenderResourceIcon(pBackBuffer, stride, tileX, tileY, tile.Resource);
             }
-    
-            DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
-        }
 
-private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
-{
-    BitmapSource icon = resource == ResourceType.Oil ? oilIcon : steelIcon;
-    
-    if (icon == null)
-        return;
-    
-    // Calculate position (top-right corner of tile)
-    int iconSize = 16; // Icons are 16x16
-    int destX = tileX * tileSize + tileSize - iconSize - 2;
-    int destY = tileY * tileSize + 2;
-    
-    // Convert icon to Bgr32 format if needed
-    BitmapSource convertedIcon = icon;
-    if (icon.Format != PixelFormats.Bgr32)
-    {
-        convertedIcon = new FormatConvertedBitmap(icon, PixelFormats.Bgr32, null, 0);
-    }
-    
-    // Get icon pixel data
-    int iconStride = iconSize * 4;
-    byte[] iconPixels = new byte[iconStride * iconSize];
-    convertedIcon.CopyPixels(iconPixels, iconStride, 0);
-    
-    // Copy icon pixels to the main bitmap
-    for (int y = 0; y < iconSize; y++)
-    {
-        for (int x = 0; x < iconSize; x++)
-        {
-            int screenX = destX + x;
-            int screenY = destY + y;
-            
-            // Check bounds
-            if (screenX < 0 || screenX >= bitmap.PixelWidth || 
-                screenY < 0 || screenY >= bitmap.PixelHeight)
-                continue;
-            
-            // Get icon pixel
-            int iconOffset = y * iconStride + x * 4;
-            byte iconB = iconPixels[iconOffset];
-            byte iconG = iconPixels[iconOffset + 1];
-            byte iconR = iconPixels[iconOffset + 2];
-            byte iconA = iconPixels[iconOffset + 3];
-            
-            // Skip fully transparent pixels
-            if (iconA == 0)
-                continue;
-            
-            // Write to destination
-            byte* destPixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
-            
-            if (iconA == 255)
+            if (visibility == VisibilityLevel.Visible && tile.OwnerId >= 0 && tile.Resource != ResourceType.None)
             {
-                // Fully opaque - just copy
-                destPixel[0] = iconB;
-                destPixel[1] = iconG;
-                destPixel[2] = iconR;
-                destPixel[3] = 255;
+                Color ownerColor = GetPlayerColor(tile.OwnerId);
+                // Draw a thicker border for owned resource tiles
+                DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, ownerColor);
             }
             else
+                DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
+        }
+
+        private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
+        {
+            BitmapSource icon = resource == ResourceType.Oil ? oilIcon : steelIcon;
+
+            if (icon == null)
+                return;
+
+            // Calculate position (top-right corner of tile)
+            int iconSize = 16; // Icons are 16x16
+            int destX = tileX * tileSize + tileSize - iconSize - 2;
+            int destY = tileY * tileSize + 2;
+
+            // Convert icon to Bgr32 format if needed
+            BitmapSource convertedIcon = icon;
+            if (icon.Format != PixelFormats.Bgr32)
             {
-                // Alpha blend
-                float alpha = iconA / 255.0f;
-                destPixel[0] = (byte)(iconB * alpha + destPixel[0] * (1 - alpha));
-                destPixel[1] = (byte)(iconG * alpha + destPixel[1] * (1 - alpha));
-                destPixel[2] = (byte)(iconR * alpha + destPixel[2] * (1 - alpha));
-                destPixel[3] = 255;
+                convertedIcon = new FormatConvertedBitmap(icon, PixelFormats.Bgr32, null, 0);
+            }
+
+            // Get icon pixel data
+            int iconStride = iconSize * 4;
+            byte[] iconPixels = new byte[iconStride * iconSize];
+            convertedIcon.CopyPixels(iconPixels, iconStride, 0);
+
+            // Copy icon pixels to the main bitmap
+            for (int y = 0; y < iconSize; y++)
+            {
+                for (int x = 0; x < iconSize; x++)
+                {
+                    int screenX = destX + x;
+                    int screenY = destY + y;
+
+                    // Check bounds
+                    if (screenX < 0 || screenX >= bitmap.PixelWidth ||
+                        screenY < 0 || screenY >= bitmap.PixelHeight)
+                        continue;
+
+                    // Get icon pixel
+                    int iconOffset = y * iconStride + x * 4;
+                    byte iconB = iconPixels[iconOffset];
+                    byte iconG = iconPixels[iconOffset + 1];
+                    byte iconR = iconPixels[iconOffset + 2];
+                    byte iconA = iconPixels[iconOffset + 3];
+
+                    // Skip fully transparent pixels
+                    if (iconA == 0)
+                        continue;
+
+                    // Write to destination
+                    byte* destPixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+
+                    if (iconA == 255)
+                    {
+                        // Fully opaque - just copy
+                        destPixel[0] = iconB;
+                        destPixel[1] = iconG;
+                        destPixel[2] = iconR;
+                        destPixel[3] = 255;
+                    }
+                    else
+                    {
+                        // Alpha blend
+                        float alpha = iconA / 255.0f;
+                        destPixel[0] = (byte)(iconB * alpha + destPixel[0] * (1 - alpha));
+                        destPixel[1] = (byte)(iconG * alpha + destPixel[1] * (1 - alpha));
+                        destPixel[2] = (byte)(iconR * alpha + destPixel[2] * (1 - alpha));
+                        destPixel[3] = 255;
+                    }
+                }
             }
         }
-    }
-}
 
-private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, int tileY, Structure structure)
+        private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, int tileY, Structure structure)
         {
             Color color = GetPlayerColor(structure.OwnerId);
 
@@ -385,349 +392,361 @@ private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, i
 
         private unsafe void DrawArmyIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Stick figure
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale); // Scale factor, minimum 1
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Head (circle)
-            DrawPixel(pBackBuffer, stride, cx, cy - 3, color);
-            DrawPixel(pBackBuffer, stride, cx - 1, cy - 3, color);
-            DrawPixel(pBackBuffer, stride, cx + 1, cy - 3, color);
+            // Head (circle) - scaled
+            for (int dy = -s; dy <= s; dy++)
+            {
+                for (int dx = -s; dx <= s; dx++)
+                {
+                    if (dx * dx + dy * dy <= s * s)
+                        DrawPixel(pBackBuffer, stride, cx + dx, cy - 3 * s + dy, color);
+                }
+            }
 
-            // Body (vertical line)
-            for (int i = -2; i <= 2; i++)
+            // Body (vertical line) - scaled
+            for (int i = -2 * s; i <= 2 * s; i++)
                 DrawPixel(pBackBuffer, stride, cx, cy + i, color);
 
-            // Arms (horizontal line)
-            DrawPixel(pBackBuffer, stride, cx - 2, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx - 1, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx + 1, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx + 2, cy - 1, color);
+            // Arms (horizontal line) - scaled
+            for (int x = -2 * s; x <= 2 * s; x++)
+                DrawPixel(pBackBuffer, stride, cx + x, cy - s, color);
 
-            // Legs
-            DrawPixel(pBackBuffer, stride, cx - 1, cy + 3, color);
-            DrawPixel(pBackBuffer, stride, cx + 1, cy + 3, color);
+            // Legs - scaled
+            for (int i = 0; i <= s; i++)
+            {
+                DrawPixel(pBackBuffer, stride, cx - s, cy + 3 * s + i, color);
+                DrawPixel(pBackBuffer, stride, cx + s, cy + 3 * s + i, color);
+            }
         }
 
         private unsafe void DrawTankIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Tank (rectangle with barrel)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Body (rectangle)
-            for (int x = -3; x <= 3; x++)
+            // Body (rectangle) - scaled
+            for (int x = -3 * s; x <= 3 * s; x++)
             {
-                for (int y = -1; y <= 2; y++)
+                for (int y = -s; y <= 2 * s; y++)
                 {
                     DrawPixel(pBackBuffer, stride, cx + x, cy + y, color);
                 }
             }
 
-            // Barrel (extending right)
-            for (int x = 3; x <= 5; x++)
+            // Barrel (extending right) - scaled
+            for (int x = 3 * s; x <= 5 * s; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
         }
 
         private unsafe void DrawArtilleryIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Cannon
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Barrel (angled line)
-            for (int i = 0; i <= 4; i++)
+            // Barrel (angled line) - scaled
+            for (int i = 0; i <= 4 * s; i++)
             {
-                DrawPixel(pBackBuffer, stride, cx + i, cy - i, color);
+                DrawPixel(pBackBuffer, stride, cx + i / s, cy - i / s, color);
             }
 
-            // Wheels
-            DrawPixel(pBackBuffer, stride, cx - 2, cy + 2, color);
-            DrawPixel(pBackBuffer, stride, cx + 2, cy + 2, color);
+            // Wheels - scaled
+            for (int i = 0; i <= s; i++)
+            {
+                DrawPixel(pBackBuffer, stride, cx - 2 * s + i, cy + 2 * s, color);
+                DrawPixel(pBackBuffer, stride, cx + 2 * s + i, cy + 2 * s, color);
+            }
         }
 
         private unsafe void DrawAntiAircraftIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // AA gun pointing up
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Barrel (vertical)
-            for (int y = -4; y <= 1; y++)
+            // Barrel (vertical) - scaled
+            for (int y = -4 * s; y <= s; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
 
-            // Base (horizontal)
-            for (int x = -2; x <= 2; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 2, color);
+            // Base (horizontal) - scaled
+            for (int x = -2 * s; x <= 2 * s; x++)
+                DrawPixel(pBackBuffer, stride, cx + x, cy + 2 * s, color);
         }
 
         private unsafe void DrawFighterIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Fighter plane (top view - cross shape)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Fuselage (vertical)
-            for (int y = -4; y <= 3; y++)
+            // Fuselage (vertical) - scaled
+            for (int y = -4 * s; y <= 3 * s; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
 
-            // Wings (horizontal)
-            for (int x = -3; x <= 3; x++)
+            // Wings (horizontal) - scaled
+            for (int x = -3 * s; x <= 3 * s; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
 
-            // Tail fins
-            DrawPixel(pBackBuffer, stride, cx - 1, cy + 3, color);
-            DrawPixel(pBackBuffer, stride, cx + 1, cy + 3, color);
+            // Tail fins - scaled
+            DrawPixel(pBackBuffer, stride, cx - s, cy + 3 * s, color);
+            DrawPixel(pBackBuffer, stride, cx + s, cy + 3 * s, color);
         }
 
         private unsafe void DrawBomberIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Bomber (larger wings)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Fuselage (thicker vertical)
-            for (int y = -3; y <= 3; y++)
+            // Fuselage (thicker vertical) - scaled
+            for (int y = -3 * s; y <= 3 * s; y++)
             {
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-                DrawPixel(pBackBuffer, stride, cx + 1, cy + y, color);
+                DrawPixel(pBackBuffer, stride, cx + s, cy + y, color);
             }
 
-            // Wide wings
-            for (int x = -4; x <= 4; x++)
+            // Wide wings - scaled
+            for (int x = -4 * s; x <= 4 * s; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
         }
 
         private unsafe void DrawTankerIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Tanker plane (with fuel tanks under wings)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Fuselage
-            for (int y = -3; y <= 3; y++)
+            // Fuselage - scaled
+            for (int y = -3 * s; y <= 3 * s; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
 
-            // Wings
-            for (int x = -3; x <= 3; x++)
+            // Wings - scaled
+            for (int x = -3 * s; x <= 3 * s; x++)
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
 
-            // Fuel tanks under wings
-            DrawPixel(pBackBuffer, stride, cx - 2, cy + 1, color);
-            DrawPixel(pBackBuffer, stride, cx + 2, cy + 1, color);
-            DrawPixel(pBackBuffer, stride, cx - 2, cy + 2, color);
-            DrawPixel(pBackBuffer, stride, cx + 2, cy + 2, color);
+            // Fuel tanks under wings - scaled
+            for (int i = 0; i <= s; i++)
+            {
+                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy + s + i, color);
+                DrawPixel(pBackBuffer, stride, cx + 2 * s, cy + s + i, color);
+            }
         }
 
         private unsafe void DrawSubmarineIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Submarine (elongated oval with periscope)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Hull (horizontal oval)
-            for (int x = -4; x <= 4; x++)
+            // Hull (horizontal oval) - scaled
+            for (int x = -4 * s; x <= 4 * s; x++)
             {
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
             }
-            for (int x = -3; x <= 3; x++)
+            for (int x = -3 * s; x <= 3 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 1, color);
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy - s, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
             }
 
-            // Periscope
-            DrawPixel(pBackBuffer, stride, cx, cy - 2, color);
-            DrawPixel(pBackBuffer, stride, cx, cy - 3, color);
+            // Periscope - scaled
+            for (int y = -3 * s; y <= -2 * s; y++)
+                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
         }
 
         private unsafe void DrawDestroyerIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Destroyer (ship profile with pointed bow)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Hull
-            for (int x = -4; x <= 3; x++)
+            // Hull - scaled
+            for (int x = -4 * s; x <= 3 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
             }
 
-            // Bow (pointed)
-            DrawPixel(pBackBuffer, stride, cx + 4, cy, color);
+            // Bow (pointed) - scaled
+            DrawPixel(pBackBuffer, stride, cx + 4 * s, cy, color);
 
-            // Superstructure
-            for (int y = -1; y <= 0; y++)
+            // Superstructure - scaled
+            for (int y = -s; y <= 0; y++)
             {
-                DrawPixel(pBackBuffer, stride, cx - 1, cy + y, color);
+                DrawPixel(pBackBuffer, stride, cx - s, cy + y, color);
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
             }
         }
 
         private unsafe void DrawCarrierIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Carrier (large flat deck)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Deck (long flat rectangle)
-            for (int x = -5; x <= 4; x++)
+            // Deck (long flat rectangle) - scaled
+            for (int x = -5 * s; x <= 4 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 1, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy - s, color);
                 DrawPixel(pBackBuffer, stride, cx + x, cy, color);
             }
 
-            // Island (small superstructure)
-            DrawPixel(pBackBuffer, stride, cx - 2, cy - 2, color);
-            DrawPixel(pBackBuffer, stride, cx - 2, cy - 3, color);
+            // Island (small superstructure) - scaled
+            for (int y = -3 * s; y <= -2 * s; y++)
+                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy + y, color);
         }
 
         private unsafe void DrawBattleshipIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Battleship (large with gun turrets)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Hull
-            for (int x = -4; x <= 4; x++)
+            // Hull - scaled
+            for (int x = -4 * s; x <= 4 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
             }
 
-            // Turrets (top)
-            DrawPixel(pBackBuffer, stride, cx - 2, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx - 2, cy, color);
-            DrawPixel(pBackBuffer, stride, cx + 2, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx + 2, cy, color);
+            // Turrets (top) - scaled
+            for (int i = 0; i <= s; i++)
+            {
+                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy - s + i, color);
+                DrawPixel(pBackBuffer, stride, cx + 2 * s, cy - s + i, color);
+            }
         }
 
         private unsafe void DrawPatrolBoatIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Small boat
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Small hull
-            for (int x = -2; x <= 2; x++)
+            // Small hull - scaled
+            for (int x = -2 * s; x <= 2 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
             }
 
-            // Cabin
-            DrawPixel(pBackBuffer, stride, cx, cy, color);
-            DrawPixel(pBackBuffer, stride, cx, cy - 1, color);
+            // Cabin - scaled
+            for (int y = -s; y <= 0; y++)
+                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
         }
 
         private unsafe void DrawTransportIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Cargo ship
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Hull
-            for (int x = -4; x <= 3; x++)
+            // Hull - scaled
+            for (int x = -4 * s; x <= 3 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 1, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
             }
 
-            // Cargo containers (boxes on deck)
-            DrawPixel(pBackBuffer, stride, cx - 2, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx - 2, cy, color);
-            DrawPixel(pBackBuffer, stride, cx + 1, cy - 1, color);
-            DrawPixel(pBackBuffer, stride, cx + 1, cy, color);
+            // Cargo containers (boxes on deck) - scaled
+            for (int i = 0; i <= s; i++)
+            {
+                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy - s + i, color);
+                DrawPixel(pBackBuffer, stride, cx + s, cy - s + i, color);
+            }
         }
 
         private unsafe void DrawSpyIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
         {
-            // Spy (person with hat/trench coat)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = isVeteran ? Colors.Yellow : Colors.White;
 
-            // Head with hat brim
-            for (int x = -2; x <= 2; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 3, color);
-            DrawPixel(pBackBuffer, stride, cx, cy - 2, color);
+            // Head with hat brim - scaled
+            for (int x = -2 * s; x <= 2 * s; x++)
+                DrawPixel(pBackBuffer, stride, cx + x, cy - 3 * s, color);
+            DrawPixel(pBackBuffer, stride, cx, cy - 2 * s, color);
 
-            // Body (coat)
-            for (int y = -1; y <= 2; y++)
+            // Body (coat) - scaled
+            for (int y = -s; y <= 2 * s; y++)
             {
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
                 if (y >= 0)
                 {
-                    DrawPixel(pBackBuffer, stride, cx - 1, cy + y, color);
-                    DrawPixel(pBackBuffer, stride, cx + 1, cy + y, color);
+                    DrawPixel(pBackBuffer, stride, cx - s, cy + y, color);
+                    DrawPixel(pBackBuffer, stride, cx + s, cy + y, color);
                 }
             }
         }
 
         private unsafe void DrawBaseIcon(IntPtr pBackBuffer, int stride, int startX, int startY)
         {
-            // Base (flag)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = Colors.White;
 
-            // Pole
-            for (int y = -4; y <= 3; y++)
+            // Pole - scaled
+            for (int y = -4 * s; y <= 3 * s; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
 
-            // Flag
-            for (int x = 1; x <= 3; x++)
+            // Flag - scaled
+            for (int x = s; x <= 3 * s; x++)
             {
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 3, color);
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 2, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy - 3 * s, color);
+                DrawPixel(pBackBuffer, stride, cx + x, cy - 2 * s, color);
             }
         }
 
         private unsafe void DrawCityIcon(IntPtr pBackBuffer, int stride, int startX, int startY)
         {
-            // City (buildings)
             int cx = startX + tileSize / 2;
             int cy = startY + tileSize / 2;
+            int s = Math.Max(1, (int)iconScale);
 
             Color color = Colors.White;
 
-            // Three buildings of different heights
+            // Three buildings of different heights - scaled
             // Left building
-            for (int y = 0; y <= 3; y++)
-                DrawPixel(pBackBuffer, stride, cx - 3, cy + y, color);
+            for (int y = 0; y <= 3 * s; y++)
+                DrawPixel(pBackBuffer, stride, cx - 3 * s, cy + y, color);
 
             // Middle building (tallest)
-            for (int y = -2; y <= 3; y++)
+            for (int y = -2 * s; y <= 3 * s; y++)
                 DrawPixel(pBackBuffer, stride, cx, cy + y, color);
 
             // Right building
-            for (int y = 1; y <= 3; y++)
-                DrawPixel(pBackBuffer, stride, cx + 3, cy + y, color);
+            for (int y = s; y <= 3 * s; y++)
+                DrawPixel(pBackBuffer, stride, cx + 3 * s, cy + y, color);
         }
 
         private unsafe void DrawPixel(IntPtr pBackBuffer, int stride, int x, int y, Color color)

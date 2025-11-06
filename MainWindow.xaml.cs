@@ -33,25 +33,55 @@ namespace EmpireGame
 
         private MessageLog messageLog;
 
+        private bool isSelectingPatrolWaypoints;
+        private Unit unitOnPatrol;
+        private List<TilePosition> patrolWaypoints;
+        private TilePosition patrolStartPosition;
+
+        private GameSettings gameSettings;
+
 
         public MainWindow()
         {
             InitializeComponent();
-            InitializeGame();
+
+            // Show start game form
+            var startForm = new StartGameForm();
+            if (startForm.ShowDialog() == true)
+            {
+                gameSettings = startForm.Settings;
+                InitializeGame();
+            }
+            else
+            {
+                // User cancelled, close the game
+                Close();
+            }
         }
 
         private void InitializeGame()
         {
             messageLog = new MessageLog();
 
-            game = new Game(100, 100, 2);
+            // Use settings from the start form
+            int mapSize = gameSettings.MapSize;
+            int playerCount = gameSettings.NumberOfOpponents + 1; // +1 for human player
+            TILE_SIZE = gameSettings.InitialTileSize;
+
+            game = new Game(mapSize, mapSize, playerCount,
+                gameSettings.StartingGold,
+                gameSettings.StartingSteel,
+                gameSettings.StartingOil);
+
+            // Set player name
+            game.Players[0].Name = gameSettings.CommanderName;
+
             GenerateMap();
 
             mapRenderer = new MapRenderer(game, TILE_SIZE);
 
             aiController = new AIController(game);
 
-            // Update vision FIRST, before checking what's visible
             foreach (var player in game.Players)
             {
                 player.UpdateVision(game.Map);
@@ -59,9 +89,11 @@ namespace EmpireGame
 
             EndTurnButton.ApplyTemplate();
 
-            messageLog.AddMessage("Empire Game initialized. Turn 1 begins.", MessageType.Success);
+            messageLog.AddMessage($"Welcome, {gameSettings.CommanderName}!", MessageType.Success);
+            messageLog.AddMessage($"Empire Game initialized on {gameSettings.MapType} map.", MessageType.Success);
+            messageLog.AddMessage($"Starting resources: 💰{gameSettings.StartingGold} ⚙️{gameSettings.StartingSteel} 🛢️{gameSettings.StartingOil}", MessageType.Info);
 
-            // Debug: Check total resources placed
+            // Debug messages...
             int totalOil = 0;
             int totalSteel = 0;
             for (int x = 0; x < game.Map.Width; x++)
@@ -74,46 +106,6 @@ namespace EmpireGame
                 }
             }
             messageLog.AddMessage($"Total resources placed: {totalOil} oil, {totalSteel} steel", MessageType.Info);
-
-            // Debug: Check fog of war status
-            var humanPlayer = game.Players[0];
-            int visibleTiles = humanPlayer.FogOfWar.Count(kvp => kvp.Value == VisibilityLevel.Visible);
-            int exploredTiles = humanPlayer.FogOfWar.Count(kvp => kvp.Value == VisibilityLevel.Explored);
-            messageLog.AddMessage($"Player vision: {visibleTiles} visible tiles, {exploredTiles} explored tiles", MessageType.Info);
-
-            // Debug: Check player starting position
-            if (humanPlayer.Structures.Count > 0)
-            {
-                var startBase = humanPlayer.Structures[0];
-                messageLog.AddMessage($"Starting base at ({startBase.Position.X}, {startBase.Position.Y}), vision range: {startBase.VisionRange}", MessageType.Info);
-            }
-
-            // NOW check visible resources after vision is updated
-            int visibleOil = 0;
-            int visibleSteel = 0;
-            for (int x = 0; x < game.Map.Width; x++)
-            {
-                for (int y = 0; y < game.Map.Height; y++)
-                {
-                    var pos = new TilePosition(x, y);
-                    var tile = game.Map.GetTile(pos);
-                    if (humanPlayer.FogOfWar.ContainsKey(pos) &&
-                        humanPlayer.FogOfWar[pos] == VisibilityLevel.Visible)
-                    {
-                        if (tile.Resource == ResourceType.Oil)
-                        {
-                            visibleOil++;
-                            messageLog.AddMessage($"Oil found at ({pos.X}, {pos.Y})", MessageType.Info);
-                        }
-                        if (tile.Resource == ResourceType.Steel)
-                        {
-                            visibleSteel++;
-                            messageLog.AddMessage($"Steel found at ({pos.X}, {pos.Y})", MessageType.Info);
-                        }
-                    }
-                }
-            }
-            messageLog.AddMessage($"Currently visible: {visibleOil} oil, {visibleSteel} steel", MessageType.Info);
 
             UpdateMessageLog();
 
@@ -258,13 +250,52 @@ namespace EmpireGame
                 }
             }
 
-            // Step 2: Generate several large continents
-            int numberOfContinents = game.Players.Count + rand.Next(1, 3); // At least one continent per player, plus extras
+            // Step 2: Generate land based on map type
+            List<TilePosition> continentCenters = new List<TilePosition>();
+
+            switch (gameSettings.MapType)
+            {
+                case MapType.Continents:
+                    continentCenters = GenerateContinentsMap(rand);
+                    break;
+                case MapType.Pangea:
+                    continentCenters = GeneratePangeaMap(rand);
+                    break;
+                case MapType.Islands:
+                    continentCenters = GenerateIslandsMap(rand);
+                    break;
+                case MapType.Archipelago:
+                    continentCenters = GenerateArchipelagoMap(rand);
+                    break;
+                case MapType.PeninsulaAndIslands:
+                    continentCenters = GeneratePeninsulaMap(rand);
+                    break;
+            }
+
+            // Step 3: Smooth the map to remove single-tile anomalies
+            SmoothMap();
+
+            // Step 4: Add terrain variety to land
+            AddTerrainVariety(rand);
+
+            // Step 5: Mark coastal water
+            MarkCoastalWater();
+
+            // Step 6: Place resource tiles based on abundance
+            PlaceResourceTiles(rand);
+
+            // Step 7: Place player starting positions
+            PlacePlayerStartingPositions(continentCenters, rand);
+        }
+
+        private List<TilePosition> GenerateContinentsMap(Random rand)
+        {
+            // Generate several large continents (current implementation)
+            int numberOfContinents = game.Players.Count + rand.Next(1, 3);
             List<TilePosition> continentCenters = new List<TilePosition>();
 
             for (int i = 0; i < numberOfContinents; i++)
             {
-                // Space continents apart
                 int attempts = 0;
                 TilePosition center;
                 do
@@ -279,22 +310,199 @@ namespace EmpireGame
                 GenerateContinent(center, rand.Next(200, 400), rand);
             }
 
-            // Step 3: Smooth the map to remove single-tile anomalies
-            SmoothMap();
-
-            // Step 4: Add terrain variety to land
-            AddTerrainVariety(rand);
-
-            // Step 5: Mark coastal water
-            MarkCoastalWater();
-
-            // NEW STEP 6: Place resource tiles
-            PlaceResourceTiles(rand);
-
-            // Step 7 (was 6): Place player starting positions
-            PlacePlayerStartingPositions(continentCenters, rand);
+            return continentCenters;
         }
 
+        private List<TilePosition> GeneratePangeaMap(Random rand)
+        {
+            // One massive supercontinent in the center
+            List<TilePosition> continentCenters = new List<TilePosition>();
+
+            TilePosition center = new TilePosition(game.Map.Width / 2, game.Map.Height / 2);
+            continentCenters.Add(center);
+
+            // Make it very large - 60% of map area
+            int targetSize = (int)(game.Map.Width * game.Map.Height * 0.6);
+            GenerateContinent(center, targetSize, rand);
+
+            // Add a few small offshore islands
+            for (int i = 0; i < 3; i++)
+            {
+                TilePosition islandCenter = new TilePosition(
+                    rand.Next(10, game.Map.Width - 10),
+                    rand.Next(10, game.Map.Height - 10));
+
+                // Make sure it's not overlapping the main continent
+                int distance = Math.Abs(islandCenter.X - center.X) + Math.Abs(islandCenter.Y - center.Y);
+                if (distance > 40)
+                {
+                    continentCenters.Add(islandCenter);
+                    GenerateContinent(islandCenter, rand.Next(30, 60), rand);
+                }
+            }
+
+            return continentCenters;
+        }
+
+        private List<TilePosition> GenerateIslandsMap(Random rand)
+        {
+            // Many small islands scattered across the map
+            List<TilePosition> continentCenters = new List<TilePosition>();
+
+            int numberOfIslands = game.Players.Count * 3 + rand.Next(5, 10);
+
+            for (int i = 0; i < numberOfIslands; i++)
+            {
+                int attempts = 0;
+                TilePosition center;
+                do
+                {
+                    center = new TilePosition(
+                        rand.Next(10, game.Map.Width - 10),
+                        rand.Next(10, game.Map.Height - 10));
+                    attempts++;
+                } while (attempts < 100 && IsTooCloseToOtherContinents(center, continentCenters, 15));
+
+                continentCenters.Add(center);
+
+                // Small islands
+                int size = rand.Next(40, 100);
+                GenerateContinent(center, size, rand);
+            }
+
+            return continentCenters;
+        }
+
+        private List<TilePosition> GenerateArchipelagoMap(Random rand)
+        {
+            // Chain of medium-sized islands
+            List<TilePosition> continentCenters = new List<TilePosition>();
+
+            // Create a curving chain across the map
+            int numberOfIslands = game.Players.Count * 2 + rand.Next(3, 6);
+
+            // Start position for the chain
+            int startX = rand.Next(20, game.Map.Width / 3);
+            int startY = rand.Next(20, game.Map.Height - 20);
+
+            double angleIncrement = (Math.PI * 1.5) / numberOfIslands; // Curve across map
+            double currentAngle = 0;
+
+            for (int i = 0; i < numberOfIslands; i++)
+            {
+                // Calculate position along a curved path
+                int x = startX + (int)((game.Map.Width - 40) * ((double)i / numberOfIslands));
+                int y = startY + (int)(Math.Sin(currentAngle) * (game.Map.Height / 4));
+
+                // Add some randomness
+                x += rand.Next(-10, 10);
+                y += rand.Next(-10, 10);
+
+                // Clamp to valid range
+                x = Math.Max(15, Math.Min(game.Map.Width - 15, x));
+                y = Math.Max(15, Math.Min(game.Map.Height - 15, y));
+
+                TilePosition center = new TilePosition(x, y);
+                continentCenters.Add(center);
+
+                // Medium-sized islands
+                int size = rand.Next(100, 200);
+                GenerateContinent(center, size, rand);
+
+                currentAngle += angleIncrement;
+            }
+
+            return continentCenters;
+        }
+
+        private List<TilePosition> GeneratePeninsulaMap(Random rand)
+        {
+            // One large landmass with a peninsula, plus surrounding islands
+            List<TilePosition> continentCenters = new List<TilePosition>();
+
+            // Main continent
+            TilePosition mainCenter = new TilePosition(
+                game.Map.Width / 3,
+                game.Map.Height / 2);
+            continentCenters.Add(mainCenter);
+
+            int mainSize = (int)(game.Map.Width * game.Map.Height * 0.35);
+            GenerateContinent(mainCenter, mainSize, rand);
+
+            // Peninsula extending from main continent
+            TilePosition peninsulaStart = new TilePosition(
+                mainCenter.X + rand.Next(20, 35),
+                mainCenter.Y + rand.Next(-15, 15));
+
+            // Generate peninsula as a stretched landmass
+            GenerateContinent(peninsulaStart, rand.Next(150, 250), rand);
+
+            // Add medium islands
+            for (int i = 0; i < game.Players.Count; i++)
+            {
+                int attempts = 0;
+                TilePosition center;
+                do
+                {
+                    center = new TilePosition(
+                        rand.Next(15, game.Map.Width - 15),
+                        rand.Next(15, game.Map.Height - 15));
+                    attempts++;
+                } while (attempts < 100 && IsTooCloseToOtherContinents(center, continentCenters, 25));
+
+                continentCenters.Add(center);
+                GenerateContinent(center, rand.Next(120, 200), rand);
+            }
+
+            return continentCenters;
+        }
+
+        //private void PlaceResourceTiles(Random rand)
+        //{
+        //    // Determine resource counts based on abundance setting
+        //    int oilMin, oilMax, steelMin, steelMax;
+
+        //    switch (gameSettings.ResourceAbundance)
+        //    {
+        //        case ResourceAbundance.Scarce:
+        //            oilMin = 6;
+        //            oilMax = 10;
+        //            steelMin = 6;
+        //            steelMax = 10;
+        //            break;
+        //        case ResourceAbundance.Normal:
+        //            oilMin = 12;
+        //            oilMax = 18;
+        //            steelMin = 12;
+        //            steelMax = 18;
+        //            break;
+        //        case ResourceAbundance.Abundant:
+        //            oilMin = 20;
+        //            oilMax = 30;
+        //            steelMin = 20;
+        //            steelMax = 30;
+        //            break;
+        //        default:
+        //            oilMin = 12;
+        //            oilMax = 18;
+        //            steelMin = 12;
+        //            steelMax = 18;
+        //            break;
+        //    }
+
+        //    // Scale with map size
+        //    double sizeMultiplier = (game.Map.Width * game.Map.Height) / 10000.0; // 100x100 = 1.0
+        //    oilMin = (int)(oilMin * sizeMultiplier);
+        //    oilMax = (int)(oilMax * sizeMultiplier);
+        //    steelMin = (int)(steelMin * sizeMultiplier);
+        //    steelMax = (int)(steelMax * sizeMultiplier);
+
+        //    int oilTiles = rand.Next(oilMin, oilMax + 1);
+        //    PlaceResourceType(ResourceType.Oil, oilTiles, rand);
+
+        //    int steelTiles = rand.Next(steelMin, steelMax + 1);
+        //    PlaceResourceType(ResourceType.Steel, steelTiles, rand);
+        //}
         private void PlaceResourceTiles(Random rand)
         {
             // Place at least 10-15 oil tiles
@@ -917,10 +1125,10 @@ namespace EmpireGame
 
         private void RenderMap()
         {
+            // ALWAYS render from human player's perspective (Player 0)
             Player humanPlayer = game.Players[0];
-            Player renderPlayer = game.HasSurrendered ? game.CurrentPlayer : humanPlayer;
-    
-            var bitmap = mapRenderer.RenderMap(renderPlayer, selectedUnit, selectedStructure);
+
+            var bitmap = mapRenderer.RenderMap(humanPlayer, selectedUnit, selectedStructure);
 
             MapCanvas.Width = bitmap.PixelWidth;
             MapCanvas.Height = bitmap.PixelHeight;
@@ -936,81 +1144,87 @@ namespace EmpireGame
 
             Canvas.SetZIndex(image, 10);
             MapCanvas.Children.Add(image);
-
-            // REMOVED: RenderResourceIcons(renderPlayer);
         }
 
-private void RenderResourceIcons(Player renderPlayer)
-{
-    int iconsAdded = 0;
-    
-    for (int x = 0; x < game.Map.Width; x++)
-    {
-        for (int y = 0; y < game.Map.Height; y++)
+        private void RenderResourceIcons(Player renderPlayer)
         {
-            var pos = new TilePosition(x, y);
-            var tile = game.Map.GetTile(pos);
+            int iconsAdded = 0;
 
-            VisibilityLevel visibility = VisibilityLevel.Hidden;
-            if (renderPlayer.FogOfWar.ContainsKey(pos))
+            for (int x = 0; x < game.Map.Width; x++)
             {
-                visibility = renderPlayer.FogOfWar[pos];
+                for (int y = 0; y < game.Map.Height; y++)
+                {
+                    var pos = new TilePosition(x, y);
+                    var tile = game.Map.GetTile(pos);
+
+                    VisibilityLevel visibility = VisibilityLevel.Hidden;
+                    if (renderPlayer.FogOfWar.ContainsKey(pos))
+                    {
+                        visibility = renderPlayer.FogOfWar[pos];
+                    }
+
+                    if (visibility == VisibilityLevel.Visible && tile.Resource != ResourceType.None)
+                    {
+                        try
+                        {
+                            var resourceImage = new System.Windows.Controls.Image
+                            {
+                                Width = 20,
+                                Height = 20
+                            };
+
+                            string imagePath = "";
+                            if (tile.Resource == ResourceType.Oil)
+                            {
+                                imagePath = "/Resources/oil_16.png";
+                            }
+                            else if (tile.Resource == ResourceType.Steel)
+                            {
+                                imagePath = "/Resources/steel_16.png";
+                            }
+
+                            try
+                            {
+                                resourceImage.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
+                            }
+                            catch
+                            {
+                                // Try absolute pack URI if relative fails
+                                resourceImage.Source = new BitmapImage(new Uri($"pack://application:,,,{imagePath}"));
+                            }
+
+                            double canvasX = x * TILE_SIZE + TILE_SIZE - 22;
+                            double canvasY = y * TILE_SIZE + 2;
+
+                            Canvas.SetLeft(resourceImage, canvasX);
+                            Canvas.SetTop(resourceImage, canvasY);
+                            Canvas.SetZIndex(resourceImage, 1);
+
+                            MapCanvas.Children.Add(resourceImage);
+                            iconsAdded++;
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Failed to load resource icon at ({x},{y}), Resource: {tile.Resource}, Error: {ex.Message}");
+                        }
+                    }
+                }
             }
 
-            if (visibility == VisibilityLevel.Visible && tile.Resource != ResourceType.None)
-            {
-                try
-                {
-                    var resourceImage = new System.Windows.Controls.Image
-                    {
-                        Width = 20,
-                        Height = 20
-                    };
-
-                    string imagePath = "";
-                    if (tile.Resource == ResourceType.Oil)
-                    {
-                        imagePath = "/Resources/oil_16.png";
-                    }
-                    else if (tile.Resource == ResourceType.Steel)
-                    {
-                        imagePath = "/Resources/iron_16.png";
-                    }
-
-                    try
-                    {
-                        resourceImage.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
-                    }
-                    catch
-                    {
-                        // Try absolute pack URI if relative fails
-                        resourceImage.Source = new BitmapImage(new Uri($"pack://application:,,,{imagePath}"));
-                    }
-
-                    double canvasX = x * TILE_SIZE + TILE_SIZE - 22;
-                    double canvasY = y * TILE_SIZE + 2;
-
-                    Canvas.SetLeft(resourceImage, canvasX);
-                    Canvas.SetTop(resourceImage, canvasY);
-                    Canvas.SetZIndex(resourceImage, 1);
-
-                    MapCanvas.Children.Add(resourceImage);
-                    iconsAdded++;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to load resource icon at ({x},{y}), Resource: {tile.Resource}, Error: {ex.Message}");
-                }
-            }
+            System.Diagnostics.Debug.WriteLine($"Resource icons added to canvas: {iconsAdded}");
         }
-    }
-    
-    System.Diagnostics.Debug.WriteLine($"Resource icons added to canvas: {iconsAdded}");
-}
         private void UpdateGameInfo()
         {
             TurnNumberText.Text = $"Turn: {game.TurnNumber}";
-            CurrentPlayerText.Text = $"Player: {game.CurrentPlayer.Name}";
+
+            if (game.CurrentPlayer.PlayerId == 0)
+            {
+                CurrentPlayerText.Text = $"Player: {game.CurrentPlayer.Name}";
+            }
+            else
+            {
+                CurrentPlayerText.Text = $"Player: {game.CurrentPlayer.Name}";
+            }
         }
 
         private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1030,10 +1244,19 @@ private void RenderResourceIcons(Player renderPlayer)
                 return;
             }
 
+            // NEW: Handle patrol waypoint selection
+            if (isSelectingPatrolWaypoints)
+            {
+                HandlePatrolWaypointSelection(tilePos);
+                return;
+            }
+
             var tile = game.Map.GetTile(tilePos);
 
-            // Check for units at this position
-            var friendlyUnits = tile.Units.Where(u => u.OwnerId == game.CurrentPlayer.PlayerId).ToList();
+            // Check for units at this position (exclude satellites - they're untouchable)
+            var friendlyUnits = tile.Units
+                .Where(u => u.OwnerId == game.CurrentPlayer.PlayerId && !(u is Satellite))
+                .ToList();
 
             if (friendlyUnits.Count > 1)
             {
@@ -1063,6 +1286,154 @@ private void RenderResourceIcons(Player renderPlayer)
             RenderMap();
         }
 
+        private void HandlePatrolWaypointSelection(TilePosition tilePos)
+        {
+            if (patrolWaypoints.Count >= 2)
+            {
+                AddMessage("Maximum 2 waypoints. Remove last waypoint or start patrol.", MessageType.Warning);
+                return;
+            }
+
+            // Don't allow selecting the same position as start or previous waypoint
+            if (tilePos.Equals(patrolStartPosition))
+            {
+                AddMessage("Cannot select starting position as waypoint!", MessageType.Warning);
+                return;
+            }
+
+            if (patrolWaypoints.Count > 0 && tilePos.Equals(patrolWaypoints[patrolWaypoints.Count - 1]))
+            {
+                AddMessage("Cannot select same position twice!", MessageType.Warning);
+                return;
+            }
+
+            patrolWaypoints.Add(tilePos);
+            PatrolWaypointsList.Items.Add($"Waypoint {patrolWaypoints.Count}: ({tilePos.X}, {tilePos.Y})");
+
+            AddMessage($"Waypoint {patrolWaypoints.Count} set at ({tilePos.X}, {tilePos.Y})", MessageType.Info);
+
+            if (patrolWaypoints.Count == 2)
+            {
+                AddMessage("Maximum waypoints set. Click 'Start Patrol' to begin.", MessageType.Info);
+            }
+        }
+
+        private void ClearLastWaypointButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (patrolWaypoints.Count > 0)
+            {
+                patrolWaypoints.RemoveAt(patrolWaypoints.Count - 1);
+                PatrolWaypointsList.Items.RemoveAt(PatrolWaypointsList.Items.Count - 1);
+                AddMessage("Last waypoint removed", MessageType.Info);
+            }
+        }
+
+        private void StartPatrolButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (patrolWaypoints.Count == 0)
+            {
+                AddMessage("Must set at least one waypoint!", MessageType.Warning);
+                return;
+            }
+
+            // Build the complete patrol route: Start → WP1 → WP2 → WP1 → Start
+            var fullRoute = new List<TilePosition>();
+            fullRoute.Add(patrolStartPosition);  // Index 0 - Start
+
+            // Add all waypoints (going out)
+            foreach (var wp in patrolWaypoints)
+            {
+                fullRoute.Add(wp);  // WP1, WP2
+            }
+
+            // Return path - EXCLUDE the last waypoint (we're already there)
+            // Go backwards through waypoints, stopping before the last one
+            for (int i = patrolWaypoints.Count - 2; i >= 0; i--)
+            {
+                fullRoute.Add(patrolWaypoints[i]);  // WP1 only (not WP2 again)
+            }
+
+            // Complete the loop back to start
+            fullRoute.Add(patrolStartPosition);
+
+            // Debug message
+            string routeDebug = "Patrol route: ";
+            for (int i = 0; i < fullRoute.Count; i++)
+            {
+                routeDebug += $"({fullRoute[i].X},{fullRoute[i].Y})";
+                if (i < fullRoute.Count - 1) routeDebug += " → ";
+            }
+            AddMessage(routeDebug, MessageType.Info);
+
+            // Create patrol order
+            var patrolOrder = new AutomaticOrder(unitOnPatrol, patrolStartPosition, AutomaticOrderType.Patrol);
+            patrolOrder.PatrolWaypoints = fullRoute;
+
+            // Start at waypoint 1, not 0, since unit is already at position 0
+            patrolOrder.CurrentWaypointIndex = 1;
+
+            game.AutomaticOrdersQueue.Enqueue(patrolOrder);
+
+            // Handle aircraft takeoff if needed
+            if (unitOnPatrol is AirUnit airUnit && airUnit.HomeBaseId != -1)
+            {
+                Structure homeBase = null;
+                foreach (var structure in game.CurrentPlayer.Structures)
+                {
+                    if (structure.StructureId == airUnit.HomeBaseId)
+                    {
+                        homeBase = structure;
+                        break;
+                    }
+                }
+
+                if (homeBase != null)
+                {
+                    var adjacentPos = FindAdjacentEmptyTile(homeBase.Position);
+                    if (adjacentPos.X != -1)
+                    {
+                        if (homeBase is Base baseStructure)
+                        {
+                            baseStructure.Airport.Remove(airUnit);
+                        }
+                        else if (homeBase is City city)
+                        {
+                            city.Airport.Remove(airUnit);
+                        }
+
+                        airUnit.Position = adjacentPos;
+                        airUnit.HomeBaseId = -1;
+                        airUnit.Fuel = airUnit.MaxFuel;
+
+                        var tile = game.Map.GetTile(adjacentPos);
+                        tile.Units.Add(airUnit);
+
+                        AddMessage($"{airUnit.GetName()} took off and beginning patrol", MessageType.Movement);
+                    }
+                }
+            }
+            else
+            {
+                AddMessage($"{unitOnPatrol.GetName()} starting patrol with {patrolWaypoints.Count} waypoint(s)", MessageType.Movement);
+            }
+
+            isSelectingPatrolWaypoints = false;
+            unitOnPatrol = null;
+            patrolWaypoints = null;
+            PatrolSetupPanel.Visibility = Visibility.Collapsed;
+
+            _ = ProcessAutomaticOrdersWithVisuals();
+        }
+
+        private void CancelPatrolButton_Click(object sender, RoutedEventArgs e)
+        {
+            isSelectingPatrolWaypoints = false;
+            unitOnPatrol = null;
+            patrolWaypoints = null;
+            PatrolSetupPanel.Visibility = Visibility.Collapsed;
+
+            AddMessage("Patrol setup cancelled", MessageType.Info);
+        }
 
         private void MapCanvas_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -1826,22 +2197,44 @@ private void RenderResourceIcons(Player renderPlayer)
         private void UpdateProductionQueue(Base baseStructure)
         {
             ProductionQueueList.Items.Clear();
+            int index = 0;
             foreach (var order in baseStructure.ProductionQueue)
             {
-                ProductionQueueList.Items.Add($"{order.DisplayName} ({baseStructure.CurrentProductionProgress}/{order.TotalCost})");
+                if (index == 0)
+                {
+                    // First item - show actual progress
+                    ProductionQueueList.Items.Add($"▶ {order.DisplayName} ({baseStructure.CurrentProductionProgress}/{order.TotalCost})");
+                }
+                else
+                {
+                    // Items in queue - show waiting
+                    ProductionQueueList.Items.Add($"  {order.DisplayName} (Queued - {order.TotalCost} pts)");
+                }
+                index++;
             }
         }
 
         private void UpdateProductionQueue(City city)
         {
             ProductionQueueList.Items.Clear();
+            int index = 0;
             foreach (var order in city.ProductionQueue)
             {
-                ProductionQueueList.Items.Add($"{order.DisplayName} ({city.CurrentProductionProgress}/{order.TotalCost})");
+                if (index == 0)
+                {
+                    // First item - show actual progress
+                    ProductionQueueList.Items.Add($"▶ {order.DisplayName} ({city.CurrentProductionProgress}/{order.TotalCost})");
+                }
+                else
+                {
+                    // Items in queue - show waiting
+                    ProductionQueueList.Items.Add($"  {order.DisplayName} (Queued - {order.TotalCost} pts)");
+                }
+                index++;
             }
         }
 
-        private void PopulateAvailableUnits(Structure structure)
+private void PopulateAvailableUnits(Structure structure)
         {
             UnitTypesCombo.Items.Clear();
 
@@ -1858,12 +2251,24 @@ private void RenderResourceIcons(Player renderPlayer)
                 if (baseStructure != null)
                 {
                     canBuild = baseStructure.CanBuildUnit(type);
-                    // ... capacity check code
+                    
+                    if (type == typeof(Fighter) || type == typeof(Bomber) || type == typeof(Tanker))
+                        capacityNote = $" [{baseStructure.GetAirportSpaceUsed()}/{Base.MAX_AIRPORT_CAPACITY}]";
+                    else if (type == typeof(Carrier) || type == typeof(Battleship) || 
+                             type == typeof(Destroyer) || type == typeof(Submarine) ||
+                             type == typeof(PatrolBoat) || type == typeof(Transport))
+                        capacityNote = $" [{baseStructure.GetShipyardSpaceUsed()}/{Base.MAX_SHIPYARD_CAPACITY}]";
+                    else if (type == typeof(Army))
+                        capacityNote = $" [{baseStructure.GetBarracksSpaceUsed()}/{Base.MAX_BARRACKS_CAPACITY}]";
                 }
                 else if (city != null)
                 {
                     canBuild = city.CanBuildUnit(type);
-                    // ... capacity check code
+                    
+                    if (type == typeof(Fighter) || type == typeof(Bomber) || type == typeof(Tanker))
+                        capacityNote = $" [{city.GetAirportSpaceUsed()}/{City.MAX_AIRPORT_CAPACITY}]";
+                    else if (type == typeof(Army))
+                        capacityNote = $" [{city.GetBarracksSpaceUsed()}/{City.MAX_BARRACKS_CAPACITY}]";
                 }
 
                 // Check resources
@@ -1909,6 +2314,53 @@ private void RenderResourceIcons(Player renderPlayer)
 
                 UnitTypesCombo.Items.Add(item);
             }
+            
+            void AddSatelliteUnit(string name, Type type, int gold, int steel, int oil, OrbitType orbitType)
+            {
+                // Satellites can be built at bases and cities (no capacity limit)
+                bool canBuild = (baseStructure != null || city != null);
+                
+                // Check resources
+                bool canAfford = player.Gold >= gold &&
+                                player.Steel >= steel &&
+                                player.Oil >= oil;
+                
+                // Build cost string with color indicators
+                string costString = $"{name} (";
+                
+                // Gold
+                costString += player.Gold >= gold ? $"💰{gold}" : $"💰{gold}[!]";
+                
+                // Steel
+                if (steel > 0)
+                    costString += player.Steel >= steel ? $" ⚙️{steel}" : $" ⚙️{steel}[!]";
+                
+                // Oil
+                if (oil > 0)
+                    costString += player.Oil >= oil ? $" 🛢️{oil}" : $" 🛢️{oil}[!]";
+                
+                costString += ")";
+                
+                if (!canAfford)
+                    costString += " [Need Resources]";
+                else if (canBuild)
+                    costString += " ✓";
+                
+                var item = new ComboBoxItem
+                {
+                    Content = costString,
+                    Tag = new SatelliteProductionOrder(type, gold, steel, oil, name, orbitType),
+                    IsEnabled = canBuild && canAfford
+                };
+                
+                // Color coding
+                if (!canAfford)
+                    item.Foreground = System.Windows.Media.Brushes.Red;
+                else if (canBuild)
+                    item.Foreground = System.Windows.Media.Brushes.DarkGreen;
+                
+                UnitTypesCombo.Items.Add(item);
+            }
 
             // Add all units with resource costs
             AddUnit("Army", typeof(Army), 2, 0, 0);
@@ -1919,6 +2371,19 @@ private void RenderResourceIcons(Player renderPlayer)
             AddUnit("Fighter", typeof(Fighter), 3, 1, 1);
             AddUnit("Bomber", typeof(Bomber), 4, 2, 1);
             AddUnit("Tanker", typeof(Tanker), 3, 1, 1);
+            
+            // Add Orbiting Satellites - one entry for each orbit type that player hasn't deployed yet
+            if (!player.DeployedOrbitTypes.Contains(OrbitType.Horizontal))
+                AddSatelliteUnit("Orbit Sat (Horizontal)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.Horizontal);
+            if (!player.DeployedOrbitTypes.Contains(OrbitType.Vertical))
+                AddSatelliteUnit("Orbit Sat (Vertical)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.Vertical);
+            if (!player.DeployedOrbitTypes.Contains(OrbitType.RightDiagonal))
+                AddSatelliteUnit("Orbit Sat (Right Diag)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.RightDiagonal);
+            if (!player.DeployedOrbitTypes.Contains(OrbitType.LeftDiagonal))
+                AddSatelliteUnit("Orbit Sat (Left Diag)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.LeftDiagonal);
+            
+            // Add Geosynchronous Satellite (no restrictions)
+            AddUnit("Geosync Satellite", typeof(GeosynchronousSatellite), 10, 5, 4);
 
             if (baseStructure != null && baseStructure.HasShipyard)
             {
@@ -1982,10 +2447,12 @@ private void RenderResourceIcons(Player renderPlayer)
                 return;
             }
 
-            var friendlyUnits = destinationTile.Units.Where(u => u.OwnerId == unit.OwnerId).ToList();
+            // Exclude satellites from stacking - they're in orbit and don't count
+            var friendlyUnits = destinationTile.Units
+                .Where(u => u.OwnerId == unit.OwnerId && !(u is Satellite))
+                .ToList();
 
-            if (destinationTile.Structure == null && friendlyUnits.Count >= MAX_UNITS_PER_TILE)
-            {
+            if (destinationTile.Structure == null && friendlyUnits.Count >= MAX_UNITS_PER_TILE)            {
                 AddMessage("Cannot stack more than 3 units on a tile!", MessageType.Warning);
                 return;
             }
@@ -1998,6 +2465,23 @@ private void RenderResourceIcons(Player renderPlayer)
 
             var newTile = game.Map.GetTile(targetPos);
             newTile.Units.Add(unit);
+
+            // NEW: Claim tile ownership
+            int previousOwner = newTile.OwnerId;
+            newTile.OwnerId = unit.OwnerId;
+
+            // Notify if we captured a resource tile
+            if (newTile.Resource != ResourceType.None)
+            {
+                if (previousOwner == -1)
+                {
+                    AddMessage($"📍 Claimed {newTile.Resource} resource at ({targetPos.X}, {targetPos.Y})", MessageType.Success);
+                }
+                else if (previousOwner != unit.OwnerId)
+                {
+                    AddMessage($"⚔️ Captured {newTile.Resource} resource from {game.Players[previousOwner].Name}!", MessageType.Success);
+                }
+            }
 
             if (unit is AirUnit airUnit && newTile.Structure != null &&
                 newTile.Structure.OwnerId == unit.OwnerId)
@@ -2060,6 +2544,13 @@ private void RenderResourceIcons(Player renderPlayer)
 
         private void ShowUnitStackSelection(List<Unit> units, TilePosition position)
         {
+            // Filter out satellites - they're untouchable and in orbit
+            units = units.Where(u => !(u is Satellite)).ToList();
+        
+            // If no selectable units after filtering, return
+            if (units.Count == 0)
+                return;
+        
             // Create a selection window
             var selectionWindow = new Window
             {
@@ -2072,16 +2563,19 @@ private void RenderResourceIcons(Player renderPlayer)
 
             var stackPanel = new StackPanel { Margin = new Thickness(10) };
 
+            // Count only stackable units (satellites don't count)
+            int stackableUnits = units.Count(u => !(u is Satellite));
+    
             var label = new TextBlock
             {
-                Text = $"{units.Count} units at this location (max 3):",
+                Text = $"{stackableUnits} units at this location (max 3):",
                 FontWeight = FontWeights.Bold,
                 Margin = new Thickness(0, 0, 0, 5)
             };
             stackPanel.Children.Add(label);
 
             // Show warning if at stack limit
-            if (units.Count >= MAX_UNITS_PER_TILE)
+            if (stackableUnits >= MAX_UNITS_PER_TILE)
             {
                 var warningLabel = new TextBlock
                 {
@@ -2202,33 +2696,37 @@ private void RenderResourceIcons(Player renderPlayer)
             else
                 FuelProgressBar.Foreground = System.Windows.Media.Brushes.Red;
 
-            // Calculate actual path distance to nearest base
-            int distance = airUnit.GetDistanceToNearestBase(game.Map, game.CurrentPlayer);
+            // Calculate actual path distance to nearest base (in tiles)
+            int distanceInTiles = airUnit.GetDistanceToNearestBase(game.Map, game.CurrentPlayer);
 
-            if (distance >= 0)
+            if (distanceInTiles >= 0)
             {
-                FuelDistanceText.Text = $"Distance to nearest base: {distance} tiles (actual path)";
+                // Convert tile distance to turns needed
+                // Each turn the aircraft moves MaxMovementPoints tiles and consumes 1 fuel
+                int turnsNeeded = (int)Math.Ceiling((double)distanceInTiles / airUnit.MaxMovementPoints);
+
+                FuelDistanceText.Text = $"Distance to nearest base: {distanceInTiles} tiles ({turnsNeeded} turn{(turnsNeeded != 1 ? "s" : "")})";
                 FuelDistanceText.Foreground = System.Windows.Media.Brushes.DarkBlue;
 
-                // Show warning if fuel is less than distance needed
-                if (airUnit.Fuel < distance)
+                // Show warning based on fuel vs turns needed
+                if (airUnit.Fuel < turnsNeeded)
                 {
-                    int shortage = distance - airUnit.Fuel;
+                    int shortage = turnsNeeded - airUnit.Fuel;
                     FuelWarningText.Text = $"⚠ STRANDED! Need {shortage} more fuel to reach base";
                     FuelWarningText.Foreground = System.Windows.Media.Brushes.Red;
                     FuelWarningText.Visibility = Visibility.Visible;
                 }
-                else if (airUnit.Fuel < distance + 2)
+                else if (airUnit.Fuel <= turnsNeeded + 1)
                 {
-                    int margin = airUnit.Fuel - distance;
+                    int margin = airUnit.Fuel - turnsNeeded;
                     FuelWarningText.Text = $"⚠ Low fuel margin! Only {margin} fuel to spare";
                     FuelWarningText.Foreground = System.Windows.Media.Brushes.OrangeRed;
                     FuelWarningText.Visibility = Visibility.Visible;
                 }
-                else if (airUnit.Fuel < distance + 4)
+                else if (airUnit.Fuel <= turnsNeeded + 2)
                 {
-                    int margin = airUnit.Fuel - distance;
-                    FuelWarningText.Text = $"Fuel margin: {margin} tiles (adequate)";
+                    int margin = airUnit.Fuel - turnsNeeded;
+                    FuelWarningText.Text = $"Fuel margin: {margin} turns (adequate)";
                     FuelWarningText.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
                     FuelWarningText.Visibility = Visibility.Visible;
                 }
@@ -2283,7 +2781,59 @@ private void RenderResourceIcons(Player renderPlayer)
 
         private void PatrolButton_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Patrol not yet implemented");
+            if (selectedUnit == null)
+                return;
+
+            // For aircraft, check if it's in an airport or on the map
+            if (selectedUnit is AirUnit airUnit)
+            {
+                // Aircraft can be selected either from map or from airport list
+                // If HomeBaseId is set, it's in a base
+                Structure homeBase = null;
+
+                if (airUnit.HomeBaseId != -1)
+                {
+                    // Find the base
+                    foreach (var structure in game.CurrentPlayer.Structures)
+                    {
+                        if (structure.StructureId == airUnit.HomeBaseId)
+                        {
+                            homeBase = structure;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // Aircraft is on map, find nearest base
+                    homeBase = airUnit.GetNearestBase(game.Map, game.CurrentPlayer);
+                }
+
+                if (homeBase == null)
+                {
+                    AddMessage("No friendly base available for patrol!", MessageType.Warning);
+                    return;
+                }
+
+                patrolStartPosition = homeBase.Position;
+                PatrolInstructionsText.Text = $"Patrol will start from {homeBase.GetName()} at ({homeBase.Position.X}, {homeBase.Position.Y}). Click on map to set waypoints (max 2).";
+            }
+            else
+            {
+                // For ground/sea units, start from current position
+                patrolStartPosition = selectedUnit.Position;
+                PatrolInstructionsText.Text = $"Starting from current position. Click on map to set waypoints (max 2).";
+            }
+
+            unitOnPatrol = selectedUnit;
+            patrolWaypoints = new List<TilePosition>();
+            isSelectingPatrolWaypoints = true;
+
+            PatrolSetupPanel.Visibility = Visibility.Visible;
+            PatrolWaypointsList.Items.Clear();
+            PatrolWaypointsList.Items.Add($"Start: ({patrolStartPosition.X}, {patrolStartPosition.Y})");
+
+            AddMessage("Click on map to set patrol waypoints", MessageType.Info);
         }
 
         private void SentryButton_Click(object sender, RoutedEventArgs e)
@@ -2397,17 +2947,22 @@ private void RenderResourceIcons(Player renderPlayer)
             currentStructureIndex = 0;
 
             game.NextTurn();
+    
+            // Display any production messages
+            while (game.ProductionMessages.Count > 0)
+            {
+                var message = game.ProductionMessages.Dequeue();
+                AddMessage(message, MessageType.Success);
+            }
 
             AddMessage($"=== Turn {game.TurnNumber} begins ===", MessageType.Success);
-
-            // Store reference to human player
-            Player humanPlayer = game.Players[0];
 
             if (!game.CurrentPlayer.IsAI)
             {
                 await ProcessAutomaticOrdersWithVisuals();
             }
 
+            // Process all AI turns WITHOUT rendering
             while (game.CurrentPlayer.IsAI)
             {
                 AIThinkingPanel.Visibility = Visibility.Visible;
@@ -2417,26 +2972,19 @@ private void RenderResourceIcons(Player renderPlayer)
 
                 UpdateGameInfo();
 
-                // Always render from human perspective
-                var bitmap = mapRenderer.RenderMap(humanPlayer, null, null);
-                MapCanvas.Width = bitmap.PixelWidth;
-                MapCanvas.Height = bitmap.PixelHeight;
-                MapCanvas.Children.Clear();
-                var image = new System.Windows.Controls.Image
-                {
-                    Source = bitmap,
-                    Width = bitmap.PixelWidth,
-                    Height = bitmap.PixelHeight
-                };
-                Canvas.SetZIndex(image, 10);
-                MapCanvas.Children.Add(image);
-                RenderResourceIcons(humanPlayer);
+                await Task.Delay(300);
 
-                await Task.Delay(500);
-
-                await ExecuteAITurnWithUpdates(game.CurrentPlayer);
+                // Execute AI turn (no rendering)
+                aiController.ExecuteAITurn(game.CurrentPlayer);
 
                 game.NextTurn();
+    
+                // Display any production messages from AI turns too
+                while (game.ProductionMessages.Count > 0)
+                {
+                    var message = game.ProductionMessages.Dequeue();
+                    AddMessage(message, MessageType.Success);
+                }
 
                 if (!game.CurrentPlayer.IsAI)
                 {
@@ -2444,45 +2992,16 @@ private void RenderResourceIcons(Player renderPlayer)
                 }
 
                 UpdateEndTurnButtonImage();
-
-                // Always render from human perspective
-                bitmap = mapRenderer.RenderMap(humanPlayer, null, null);
-                MapCanvas.Width = bitmap.PixelWidth;
-                MapCanvas.Height = bitmap.PixelHeight;
-                MapCanvas.Children.Clear();
-                image = new System.Windows.Controls.Image
-                {
-                    Source = bitmap,
-                    Width = bitmap.PixelWidth,
-                    Height = bitmap.PixelHeight
-                };
-                Canvas.SetZIndex(image, 10);
-                MapCanvas.Children.Add(image);
-                RenderResourceIcons(humanPlayer);
             }
 
+            // AI turns complete - now render once for human player
             AIThinkingPanel.Visibility = Visibility.Collapsed;
 
             UpdateGameInfo();
-            RenderMapFromHumanPerspective();
+            RenderMap();  // Single render call using human player
             ClearSelection();
             UpdateNextButton();
             UpdateResourceDisplay();
-        }
-
-        private async Task ExecuteAITurnWithUpdates(Player aiPlayer)
-        {
-            AIStatusText.Text = "Building units...";
-            await Task.Delay(300);
-
-            AIStatusText.Text = "Moving units...";
-            await Task.Delay(300);
-
-            aiController.ExecuteAITurn(aiPlayer);
-
-            AIStatusText.Text = "Turn complete";
-            RenderMapFromHumanPerspective();
-            await Task.Delay(500);
         }
 
         private void RenderMapFromHumanPerspective()
@@ -2653,22 +3172,26 @@ private void RenderResourceIcons(Player renderPlayer)
         {
             if (selectedUnit is AirUnit airUnit)
             {
+                // Cancel any patrol orders
+                if (selectedUnit.CurrentOrders.Type == OrderType.Patrol)
+                {
+                    selectedUnit.CurrentOrders.Type = OrderType.None;
+                    selectedUnit.CurrentOrders.PatrolWaypoints.Clear();
+                    AddMessage($"{airUnit.GetName()} patrol cancelled", MessageType.Info);
+                }
+
                 var nearestBase = airUnit.GetNearestBase(game.Map, game.CurrentPlayer);
                 if (nearestBase != null)
                 {
-                    // Add to automatic orders queue
                     game.AddAutomaticOrder(airUnit, nearestBase.Position, AutomaticOrderType.ReturnToBase);
 
-                    AddMessage($"{airUnit.GetName()} ordered to return to {nearestBase.GetName()} at ({nearestBase.Position.X}, {nearestBase.Position.Y}).\n\nThe aircraft will automatically move each turn until it reaches base.");
+                    AddMessage($"{airUnit.GetName()} ordered to return to {nearestBase.GetName()} at ({nearestBase.Position.X}, {nearestBase.Position.Y}).", MessageType.Movement);
 
-                    // Process the order immediately for this turn
                     await ProcessAutomaticOrdersWithVisuals();
 
-                    // Update display
                     game.CurrentPlayer.UpdateVision(game.Map);
                     RenderMap();
 
-                    // Clear selection if unit landed
                     var tile = game.Map.GetTile(airUnit.Position);
                     if (!tile.Units.Contains(airUnit))
                     {
@@ -2683,7 +3206,7 @@ private void RenderResourceIcons(Player renderPlayer)
                 }
                 else
                 {
-                    MessageBox.Show("No friendly base found!");
+                    AddMessage("No friendly base found!", MessageType.Warning);
                 }
             }
         }
@@ -2944,43 +3467,57 @@ private void RenderResourceIcons(Player renderPlayer)
 
             foreach (var order in ordersToProcess)
             {
+                // Skip if unit is dead or belongs to a different player
                 if (order.Unit.Life <= 0 || order.Unit.OwnerId != game.CurrentPlayer.PlayerId)
                     continue;
 
-                bool enemySpotted;
-
-                bool shouldContinue = game.ProcessAutomaticOrder(
+                // Process the order with visual updates
+                var (shouldContinue, enemySpotted) = await game.ProcessAutomaticOrder(
                     order,
                     (unit) =>
                     {
+                        // Update vision callback
                         game.CurrentPlayer.UpdateVision(game.Map);
                     },
-                    () =>
+                    async () =>
                     {
+                        // Render callback - update the display
                         RenderMapFromHumanPerspective();
-                        System.Threading.Thread.Sleep(100);
-                    },
-                    out enemySpotted
+
+                        // Allow UI to update
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+
+                        // Now delay to show the movement (increased to 1 second)
+                        await Task.Delay(gameSettings.AnimationDelay);
+                    }
                 );
+
 
                 if (enemySpotted)
                 {
+                    // Enemy spotted - cancel automatic movement
                     enemiesSpottedUnits.Add(order.Unit);
                 }
                 else if (shouldContinue)
                 {
+                    // Re-enqueue if not complete and no enemies spotted
                     game.AutomaticOrdersQueue.Enqueue(order);
                 }
-
-                RenderMapFromHumanPerspective();
-                await Task.Delay(50);
             }
 
+            // Final render after all movements
+            RenderMapFromHumanPerspective();
+
+            // Show alert if any units spotted enemies
             if (enemiesSpottedUnits.Count > 0)
             {
                 string unitNames = string.Join(", ", enemiesSpottedUnits.Select(u => u.GetName()));
-                AddMessage($"ENEMY SPOTTED! {unitNames} detected enemy forces and halted.", MessageType.Enemy);
+                MessageBox.Show($"⚠ ENEMY SPOTTED!\n\n{unitNames} detected enemy forces and halted automatic movement.\n\nThe unit(s) are now under your control.",
+                                "Enemy Contact",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
 
+                // Select the first unit that spotted an enemy
                 if (enemiesSpottedUnits.Count > 0)
                 {
                     SelectUnit(enemiesSpottedUnits[0]);
@@ -2988,6 +3525,7 @@ private void RenderResourceIcons(Player renderPlayer)
                 }
             }
         }
+
 
         private void AddMessage(string text, MessageType type = MessageType.Info)
         {
@@ -3060,6 +3598,18 @@ private void RenderResourceIcons(Player renderPlayer)
         private void RecreateMapRenderer()
         {
             mapRenderer = new MapRenderer(game, TILE_SIZE);
+        }
+
+        public class SatelliteProductionOrder : UnitProductionOrder
+        {
+            public OrbitType OrbitType { get; set; }
+        
+            public SatelliteProductionOrder(Type unitType, int goldCost, int steelCost, int oilCost, 
+                string displayName, OrbitType orbitType) 
+                : base(unitType, goldCost, steelCost, oilCost, displayName)
+            {
+                OrbitType = orbitType;
+            }
         }
     }
 

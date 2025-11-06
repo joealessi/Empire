@@ -2,7 +2,7 @@
 {
     None,
     ReturnToBase,
-    // Future: AutoPatrol, AutoExplore, etc.
+    Patrol
 }
 
 public class AutomaticOrder
@@ -13,6 +13,10 @@ public class AutomaticOrder
     public List<TilePosition> CurrentPath { get; set; }
     public int PathIndex { get; set; }
     
+    // For patrol orders
+    public List<TilePosition> PatrolWaypoints { get; set; }
+    public int CurrentWaypointIndex { get; set; }
+    
     public AutomaticOrder(Unit unit, TilePosition destination, AutomaticOrderType orderType)
     {
         Unit = unit;
@@ -20,10 +24,16 @@ public class AutomaticOrder
         OrderType = orderType;
         CurrentPath = new List<TilePosition>();
         PathIndex = 0;
+        PatrolWaypoints = new List<TilePosition>();
+        CurrentWaypointIndex = 0;
     }
     
     public bool IsComplete()
     {
+        // Patrol orders never complete, they cycle
+        if (OrderType == AutomaticOrderType.Patrol)
+            return false;
+            
         return Unit.Position.Equals(Destination) || PathIndex >= CurrentPath.Count;
     }
 }
