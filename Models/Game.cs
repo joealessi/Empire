@@ -30,7 +30,8 @@ public class Game
         TurnNumber = 1;
 
         AutomaticOrdersQueue = new Queue<AutomaticOrder>();
-        ProductionMessages = new Queue<string>();    }
+        ProductionMessages = new Queue<string>();
+    }
 
     public void NextTurn()
     {
@@ -44,7 +45,7 @@ public class Game
             ProcessTurnMechanics();
         }
 
-        // Update vision for current player (moved outside the if block)
+        // Update vision for current player
         CurrentPlayer.UpdateVision(Map);
     }
 
@@ -55,7 +56,7 @@ public class Game
             // Check sentry units BEFORE processing their turn
             CheckSentryUnits(player);
 
-            // NEW: Calculate and apply resource income
+            // Calculate and apply resource income
             player.CalculateResourceIncome(Map);
 
             // Process units
@@ -110,17 +111,22 @@ public class Game
 
     private void MoveOrbitingSatellite(OrbitingSatellite satellite, Player player)
     {
+        // Remove from current tile
         var currentTile = Map.GetTile(satellite.Position);
         currentTile.Units.Remove(satellite);
-        
-        var nextPosition = satellite.GetNextOrbitPosition(Map);
-        satellite.Position = nextPosition;
-        
-        var nextTile = Map.GetTile(nextPosition);
-        nextTile.Units.Add(satellite);
-        
-        // Update vision for the satellite's new position
+
+        // Get next position based on orbit type
+        var nextPos = satellite.GetNextOrbitPosition(Map);
+        // Move satellite to new position
+        satellite.Position = nextPos;
+        var newTile = Map.GetTile(nextPos);
+        newTile.Units.Add(satellite);
+
+        // Update vision for the player
         player.UpdateVision(Map);
+
+        // Add delay for visual tracking (if needed in MainWindow)
+        System.Threading.Thread.Sleep(100);
     }
 
     private void CheckSentryUnits(Player player)
@@ -168,8 +174,8 @@ public class Game
             AntiAircraft => 2,
             Spy => 3,
             Army => 1,
-            OrbitingSatellite sat => sat.VisionRadius,
-            GeosynchronousSatellite geosat => geosat.VisionRadius,
+            OrbitingSatellite orbitSat => orbitSat.VisionRadius,
+            GeosynchronousSatellite geoSat => geoSat.VisionRadius,
             _ => 2
         };
     }
@@ -370,8 +376,7 @@ public class Game
         }
     }
 
-
-private void ProcessProduction(Base baseStructure, Player player)
+    private void ProcessProduction(Base baseStructure, Player player)
     {
         if (baseStructure.ProductionQueue.Count == 0)
             return;
@@ -384,43 +389,50 @@ private void ProcessProduction(Base baseStructure, Player player)
             // Production complete - resources were already paid when queued
             var unit = CreateUnit(currentOrder.UnitType, baseStructure.Position, player.PlayerId);
             player.Units.Add(unit);
-            
+
             // Handle satellite orbit type registration and message
             if (currentOrder is SatelliteProductionOrder satOrder && unit is OrbitingSatellite orbitSat)
             {
                 orbitSat.Orbit = satOrder.OrbitType;
                 player.RegisterOrbitingSatellite(satOrder.OrbitType);
-                
-                // Add launch message
+
                 string orbitName = satOrder.OrbitType switch
                 {
                     OrbitType.Horizontal => "Horizontal",
-                    OrbitType.Vertical => "Vertical", 
+                    OrbitType.Vertical => "Vertical",
                     OrbitType.RightDiagonal => "Right Diagonal",
                     OrbitType.LeftDiagonal => "Left Diagonal",
                     _ => "Unknown"
                 };
                 ProductionMessages.Enqueue($"🛰️ Orbiting Satellite launched! ({orbitName} orbit)");
             }
-            else if (unit is GeosynchronousSatellite)
+            else if (unit is GeosynchronousSatellite geosyncSat)
             {
-                ProductionMessages.Enqueue($"🛰️ Geosynchronous Satellite launched!");
+                // Set to invalid position so it's not rendered yet
+                geosyncSat.Position = new TilePosition(-1, -1);
             }
 
             // Place unit in appropriate storage (check capacity)
             bool placed = false;
-            
-            // Satellites go directly to the map (not in storage)
-            if (unit is Satellite satellite)
+
+            // Orbiting satellites auto-deploy adjacent to base
+            if (unit is OrbitingSatellite orbitingSat)
             {
                 var adjacentPos = FindAdjacentEmptyTile(baseStructure.Position);
                 if (adjacentPos.X != -1)
                 {
-                    satellite.Position = adjacentPos;
+                    orbitingSat.Position = adjacentPos;
                     var tile = Map.GetTile(adjacentPos);
-                    tile.Units.Add(satellite);
+                    tile.Units.Add(orbitingSat);
                     placed = true;
                 }
+            }
+            // Geosync satellites need user to select location
+            else if (unit is GeosynchronousSatellite)
+            {
+                // DO NOT PLACE ON MAP - user will select location
+                // Position already set to (-1, -1)
+                placed = true;
             }
             else if (unit is AirUnit airUnit)
             {
@@ -479,7 +491,7 @@ private void ProcessProduction(Base baseStructure, Player player)
         ProcessRepairs(baseStructure);
     }
 
-private void ProcessProduction(City city, Player player)
+    private void ProcessProduction(City city, Player player)
     {
         if (city.ProductionQueue.Count == 0)
             return;
@@ -492,14 +504,13 @@ private void ProcessProduction(City city, Player player)
             // Production complete - resources were already paid when queued
             var unit = CreateUnit(currentOrder.UnitType, city.Position, player.PlayerId);
             player.Units.Add(unit);
-            
+
             // Handle satellite orbit type registration and message
             if (currentOrder is SatelliteProductionOrder satOrder && unit is OrbitingSatellite orbitSat)
             {
                 orbitSat.Orbit = satOrder.OrbitType;
                 player.RegisterOrbitingSatellite(satOrder.OrbitType);
-                
-                // Add launch message
+
                 string orbitName = satOrder.OrbitType switch
                 {
                     OrbitType.Horizontal => "Horizontal",
@@ -510,25 +521,33 @@ private void ProcessProduction(City city, Player player)
                 };
                 ProductionMessages.Enqueue($"🛰️ Orbiting Satellite launched! ({orbitName} orbit)");
             }
-            else if (unit is GeosynchronousSatellite)
+            else if (unit is GeosynchronousSatellite geosyncSat)
             {
-                ProductionMessages.Enqueue($"🛰️ Geosynchronous Satellite launched!");
+                // Set to invalid position so it's not rendered yet
+                geosyncSat.Position = new TilePosition(-1, -1);
             }
 
             // Place unit in appropriate storage (check capacity)
             bool placed = false;
-            
-            // Satellites go directly to the map (not in storage)
-            if (unit is Satellite satellite)
+
+            // Orbiting satellites auto-deploy adjacent to city
+            if (unit is OrbitingSatellite orbitingSat)
             {
                 var adjacentPos = FindAdjacentEmptyTile(city.Position);
                 if (adjacentPos.X != -1)
                 {
-                    satellite.Position = adjacentPos;
+                    orbitingSat.Position = adjacentPos;
                     var tile = Map.GetTile(adjacentPos);
-                    tile.Units.Add(satellite);
+                    tile.Units.Add(orbitingSat);
                     placed = true;
                 }
+            }
+            // Geosync satellites need user to select location
+            else if (unit is GeosynchronousSatellite)
+            {
+                // DO NOT PLACE ON MAP - user will select location
+                // Position already set to (-1, -1)
+                placed = true;
             }
             else if (unit is AirUnit airUnit)
             {
@@ -690,6 +709,7 @@ private void ProcessProduction(City city, Player player)
             }
         }
     }
+
     public async Task<(bool shouldContinue, bool enemySpotted)> ProcessAutomaticOrder(AutomaticOrder order, Action<Unit> updateVisionCallback, Func<Task> renderCallback)
     {
         bool enemySpotted = false;
@@ -1006,6 +1026,9 @@ private void ProcessProduction(City city, Player player)
         return new TilePosition(-1, -1);
     }
 
+    // Automatic order processing methods continue below...
+    // (Include all the patrol and automatic order methods from your original file)
+    
     private bool HasEnemyInVision(Unit unit, Player owner)
     {
         int visionRange = GetUnitVisionRange(unit);
@@ -1037,6 +1060,7 @@ private void ProcessProduction(City city, Player player)
 
         return false;
     }
+
     private void HandleAircraftLanding(Unit unit)
     {
         if (!(unit is AirUnit airUnit))

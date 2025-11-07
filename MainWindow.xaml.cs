@@ -20,6 +20,9 @@ namespace EmpireGame
         private bool isSelectingBomberTarget;
         private Bomber bomberForMission;
 
+        private bool isSelectingGeosyncLocation;
+        private GeosynchronousSatellite geosyncToPlace;
+
         private int TILE_SIZE = 32;
         private const int MIN_TILE_SIZE = 16;
         private const int MAX_TILE_SIZE = 64;
@@ -1244,6 +1247,12 @@ namespace EmpireGame
                 return;
             }
 
+            if (isSelectingGeosyncLocation)
+            {
+                HandleGeosyncPlacement(tilePos);
+                return;
+            }
+
             // NEW: Handle patrol waypoint selection
             if (isSelectingPatrolWaypoints)
             {
@@ -2234,7 +2243,7 @@ namespace EmpireGame
             }
         }
 
-private void PopulateAvailableUnits(Structure structure)
+        private void PopulateAvailableUnits(Structure structure)
         {
             UnitTypesCombo.Items.Clear();
 
@@ -2251,10 +2260,10 @@ private void PopulateAvailableUnits(Structure structure)
                 if (baseStructure != null)
                 {
                     canBuild = baseStructure.CanBuildUnit(type);
-                    
+
                     if (type == typeof(Fighter) || type == typeof(Bomber) || type == typeof(Tanker))
                         capacityNote = $" [{baseStructure.GetAirportSpaceUsed()}/{Base.MAX_AIRPORT_CAPACITY}]";
-                    else if (type == typeof(Carrier) || type == typeof(Battleship) || 
+                    else if (type == typeof(Carrier) || type == typeof(Battleship) ||
                              type == typeof(Destroyer) || type == typeof(Submarine) ||
                              type == typeof(PatrolBoat) || type == typeof(Transport))
                         capacityNote = $" [{baseStructure.GetShipyardSpaceUsed()}/{Base.MAX_SHIPYARD_CAPACITY}]";
@@ -2264,7 +2273,7 @@ private void PopulateAvailableUnits(Structure structure)
                 else if (city != null)
                 {
                     canBuild = city.CanBuildUnit(type);
-                    
+
                     if (type == typeof(Fighter) || type == typeof(Bomber) || type == typeof(Tanker))
                         capacityNote = $" [{city.GetAirportSpaceUsed()}/{City.MAX_AIRPORT_CAPACITY}]";
                     else if (type == typeof(Army))
@@ -2314,51 +2323,51 @@ private void PopulateAvailableUnits(Structure structure)
 
                 UnitTypesCombo.Items.Add(item);
             }
-            
+
             void AddSatelliteUnit(string name, Type type, int gold, int steel, int oil, OrbitType orbitType)
             {
                 // Satellites can be built at bases and cities (no capacity limit)
                 bool canBuild = (baseStructure != null || city != null);
-                
+
                 // Check resources
                 bool canAfford = player.Gold >= gold &&
                                 player.Steel >= steel &&
                                 player.Oil >= oil;
-                
+
                 // Build cost string with color indicators
                 string costString = $"{name} (";
-                
+
                 // Gold
                 costString += player.Gold >= gold ? $"💰{gold}" : $"💰{gold}[!]";
-                
+
                 // Steel
                 if (steel > 0)
                     costString += player.Steel >= steel ? $" ⚙️{steel}" : $" ⚙️{steel}[!]";
-                
+
                 // Oil
                 if (oil > 0)
                     costString += player.Oil >= oil ? $" 🛢️{oil}" : $" 🛢️{oil}[!]";
-                
+
                 costString += ")";
-                
+
                 if (!canAfford)
                     costString += " [Need Resources]";
                 else if (canBuild)
                     costString += " ✓";
-                
+
                 var item = new ComboBoxItem
                 {
                     Content = costString,
                     Tag = new SatelliteProductionOrder(type, gold, steel, oil, name, orbitType),
                     IsEnabled = canBuild && canAfford
                 };
-                
+
                 // Color coding
                 if (!canAfford)
                     item.Foreground = System.Windows.Media.Brushes.Red;
                 else if (canBuild)
                     item.Foreground = System.Windows.Media.Brushes.DarkGreen;
-                
+
                 UnitTypesCombo.Items.Add(item);
             }
 
@@ -2371,7 +2380,7 @@ private void PopulateAvailableUnits(Structure structure)
             AddUnit("Fighter", typeof(Fighter), 3, 1, 1);
             AddUnit("Bomber", typeof(Bomber), 4, 2, 1);
             AddUnit("Tanker", typeof(Tanker), 3, 1, 1);
-            
+
             // Add Orbiting Satellites - one entry for each orbit type that player hasn't deployed yet
             if (!player.DeployedOrbitTypes.Contains(OrbitType.Horizontal))
                 AddSatelliteUnit("Orbit Sat (Horizontal)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.Horizontal);
@@ -2381,7 +2390,7 @@ private void PopulateAvailableUnits(Structure structure)
                 AddSatelliteUnit("Orbit Sat (Right Diag)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.RightDiagonal);
             if (!player.DeployedOrbitTypes.Contains(OrbitType.LeftDiagonal))
                 AddSatelliteUnit("Orbit Sat (Left Diag)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.LeftDiagonal);
-            
+
             // Add Geosynchronous Satellite (no restrictions)
             AddUnit("Geosync Satellite", typeof(GeosynchronousSatellite), 10, 5, 4);
 
@@ -2452,7 +2461,8 @@ private void PopulateAvailableUnits(Structure structure)
                 .Where(u => u.OwnerId == unit.OwnerId && !(u is Satellite))
                 .ToList();
 
-            if (destinationTile.Structure == null && friendlyUnits.Count >= MAX_UNITS_PER_TILE)            {
+            if (destinationTile.Structure == null && friendlyUnits.Count >= MAX_UNITS_PER_TILE)
+            {
                 AddMessage("Cannot stack more than 3 units on a tile!", MessageType.Warning);
                 return;
             }
@@ -2546,11 +2556,11 @@ private void PopulateAvailableUnits(Structure structure)
         {
             // Filter out satellites - they're untouchable and in orbit
             units = units.Where(u => !(u is Satellite)).ToList();
-        
+
             // If no selectable units after filtering, return
             if (units.Count == 0)
                 return;
-        
+
             // Create a selection window
             var selectionWindow = new Window
             {
@@ -2565,7 +2575,7 @@ private void PopulateAvailableUnits(Structure structure)
 
             // Count only stackable units (satellites don't count)
             int stackableUnits = units.Count(u => !(u is Satellite));
-    
+
             var label = new TextBlock
             {
                 Text = $"{stackableUnits} units at this location (max 3):",
@@ -2741,6 +2751,45 @@ private void PopulateAvailableUnits(Structure structure)
                 FuelDistanceText.Foreground = System.Windows.Media.Brushes.Red;
                 FuelWarningText.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void HandleGeosyncPlacement(TilePosition tilePos)
+        {
+            if (geosyncToPlace == null)
+                return;
+
+            // Check if the position is valid and visible
+            if (!game.Map.IsValidPosition(tilePos))
+            {
+                AddMessage("Invalid deployment location!", MessageType.Warning);
+                return;
+            }
+
+            var tile = game.Map.GetTile(tilePos);
+
+            //// Check if player can see this location
+            //if (!game.CurrentPlayer.FogOfWar.ContainsKey(tilePos) ||
+            //    game.CurrentPlayer.FogOfWar[tilePos] == VisibilityLevel.Hidden)
+            //{
+            //    AddMessage("Cannot deploy satellite to unexplored territory!", MessageType.Warning);
+            //    return;
+            //}
+
+            // Place the satellite
+            geosyncToPlace.Position = tilePos;
+            tile.Units.Add(geosyncToPlace);
+
+            AddMessage($"🛰️ Geosynchronous Satellite deployed at ({tilePos.X}, {tilePos.Y})!", MessageType.Success);
+
+            // Clear selection state
+            isSelectingGeosyncLocation = false;
+            geosyncToPlace = null;
+
+            // Update vision immediately
+            game.CurrentPlayer.UpdateVision(game.Map);
+
+            // Render the map to show the satellite
+            RenderMap();
         }
 
         private void HandleBomberTargetSelection(TilePosition targetPos)
@@ -2947,7 +2996,7 @@ private void PopulateAvailableUnits(Structure structure)
             currentStructureIndex = 0;
 
             game.NextTurn();
-    
+
             // Display any production messages
             while (game.ProductionMessages.Count > 0)
             {
@@ -2978,12 +3027,32 @@ private void PopulateAvailableUnits(Structure structure)
                 aiController.ExecuteAITurn(game.CurrentPlayer);
 
                 game.NextTurn();
-    
+
                 // Display any production messages from AI turns too
                 while (game.ProductionMessages.Count > 0)
                 {
                     var message = game.ProductionMessages.Dequeue();
                     AddMessage(message, MessageType.Success);
+                }
+
+                // For AI players, auto-place any unplaced geosync satellites
+                if (game.CurrentPlayer.IsAI)
+                {
+                    var unplacedGeosync = game.CurrentPlayer.Units
+                        .OfType<GeosynchronousSatellite>()
+                        .FirstOrDefault(s => s.Position.X == -1 || s.Position.Y == -1);
+
+                    if (unplacedGeosync != null)
+                    {
+                        // Place at AI's first base/city
+                        var aiStructure = game.CurrentPlayer.Structures.FirstOrDefault();
+                        if (aiStructure != null)
+                        {
+                            unplacedGeosync.Position = aiStructure.Position;
+                            var tile = game.Map.GetTile(aiStructure.Position);
+                            tile.Units.Add(unplacedGeosync);
+                        }
+                    }
                 }
 
                 if (!game.CurrentPlayer.IsAI)
@@ -2997,8 +3066,23 @@ private void PopulateAvailableUnits(Structure structure)
             // AI turns complete - now render once for human player
             AIThinkingPanel.Visibility = Visibility.Collapsed;
 
+            // ADD THIS CHECK HERE - AFTER AI LOOP, WHEN IT'S HUMAN'S TURN AGAIN
+            if (!game.CurrentPlayer.IsAI)
+            {
+                var unplacedGeosync = game.CurrentPlayer.Units
+                    .OfType<GeosynchronousSatellite>()
+                    .FirstOrDefault(s => s.Position.X == -1 || s.Position.Y == -1);
+
+                if (unplacedGeosync != null)
+                {
+                    isSelectingGeosyncLocation = true;
+                    geosyncToPlace = unplacedGeosync;
+                    AddMessage("🛰️ Geosynchronous Satellite ready! Click on map to deploy.", MessageType.Info);
+                }
+            }
+
             UpdateGameInfo();
-            RenderMap();  // Single render call using human player
+            RenderMap();
             ClearSelection();
             UpdateNextButton();
             UpdateResourceDisplay();
@@ -3603,9 +3687,9 @@ private void PopulateAvailableUnits(Structure structure)
         public class SatelliteProductionOrder : UnitProductionOrder
         {
             public OrbitType OrbitType { get; set; }
-        
-            public SatelliteProductionOrder(Type unitType, int goldCost, int steelCost, int oilCost, 
-                string displayName, OrbitType orbitType) 
+
+            public SatelliteProductionOrder(Type unitType, int goldCost, int steelCost, int oilCost,
+                string displayName, OrbitType orbitType)
                 : base(unitType, goldCost, steelCost, oilCost, displayName)
             {
                 OrbitType = orbitType;
