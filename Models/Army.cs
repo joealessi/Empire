@@ -2,17 +2,20 @@
 {
     public Army()
     {
-        MaxPower = 5;
-        MaxToughness = 5;
-        MaxLife = 10;
-        MaxMovementPoints = 2;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 1;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        Attack = 1;
+        Defense = 1;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'A' : 'a';
-    public override string GetName() => "Army";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Land ||
+               terrain == TerrainType.Plains ||
+               terrain == TerrainType.Forest ||
+               terrain == TerrainType.Hills ||
+               terrain == TerrainType.Mountain;
+    }
 }

@@ -10,11 +10,110 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\Empire_Icons\Units\AircraftCarrier.png" />
+    <None Remove="Resources\Empire_Icons\Units\AntiAircraft.png" />
+    <None Remove="Resources\Empire_Icons\Units\Army.png" />
+    <None Remove="Resources\Empire_Icons\Units\Artillery.png" />
+    <None Remove="Resources\Empire_Icons\Units\Base.png" />
+    <None Remove="Resources\Empire_Icons\Units\Battleship.png" />
+    <None Remove="Resources\Empire_Icons\Units\Bomber.png" />
+    <None Remove="Resources\Empire_Icons\Units\City.png" />
+    <None Remove="Resources\Empire_Icons\Units\Destroyer.png" />
+    <None Remove="Resources\Empire_Icons\Units\Fighter.png" />
+    <None Remove="Resources\Empire_Icons\Units\GeosynchronousSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Units\OrbitingSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Units\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Units\Spy.png" />
+    <None Remove="Resources\Empire_Icons\Units\Submarine.png" />
+    <None Remove="Resources\Empire_Icons\Units\Tank.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\AircraftCarrier.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\AntiAircraft.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Army.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Artillery.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Base.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Battleship.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Bomber.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\City.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Destroyer.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Fighter.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\GeosynchronousSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\OrbitingSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Spy.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Submarine.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Tank.png" />
     <None Remove="Resources\fast-forward.png" />
     <None Remove="Resources\gold_16.png" />
     <None Remove="Resources\gold_31.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\AircraftCarrier.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\AntiAircraft.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Army.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Artillery.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Base.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Battleship.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Bomber.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\City.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Destroyer.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Fighter.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\GeosynchronousSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\OrbitingSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Spy.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Submarine.png" />
+    <None Remove="Resources\Empire_Icons\Green\Units\Tank.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\AircraftCarrier.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\AntiAircraft.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Army.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Artillery.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Base.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Battleship.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Bomber.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\City.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Destroyer.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Fighter.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\GeosynchronousSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\OrbitingSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Spy.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Submarine.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Tank.png" />
+    <None Remove="Resources\Empire_Icons\Green\Veteran\Tanker.png" />
     <None Remove="Resources\oil_16.png" />
     <None Remove="Resources\oil_32.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\AircraftCarrier.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\AntiAircraft.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Army.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Artillery.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Base.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Battleship.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Bomber.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\City.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Destroyer.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Fighter.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\GeosynchronousSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\OrbitingSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Spy.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Submarine.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Tank.png" />
+    <None Remove="Resources\Empire_Icons\Red\Units\Tanker.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\AircraftCarrier.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\AntiAircraft.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Army.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Artillery.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Base.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Battleship.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Bomber.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\City.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Destroyer.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Fighter.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\GeosynchronousSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\OrbitingSatellite.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Spy.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Submarine.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Tank.png" />
+    <None Remove="Resources\Empire_Icons\Red\Veteran\Tanker.png" />
     <None Remove="Resources\steel_16.png" />
     <None Remove="Resources\steel_32.png" />
     <None Remove="Resources\unavailable.png" />
@@ -22,6 +121,102 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Resources\Empire_Icons\Units\AircraftCarrier.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\AntiAircraft.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Army.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Artillery.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Base.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Battleship.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Bomber.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\City.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Destroyer.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Fighter.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\GeosynchronousSatellite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\OrbitingSatellite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\PatrolBoat.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Spy.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Submarine.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\Tank.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\AircraftCarrier.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\AntiAircraft.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Army.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Artillery.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Base.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Battleship.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Bomber.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\City.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Destroyer.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Fighter.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\GeosynchronousSatellite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\OrbitingSatellite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\PatrolBoat.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Spy.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Submarine.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Tank.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\fast-forward.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -31,11 +226,212 @@
     <Content Include="Resources\gold_31.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\AircraftCarrier.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\AntiAircraft.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Army.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Artillery.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Base.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Battleship.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Bomber.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\City.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Destroyer.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Fighter.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\GeosynchronousSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\OrbitingSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\PatrolBoat.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Spy.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Submarine.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Units\Tank.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\AircraftCarrier.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\AntiAircraft.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Army.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Artillery.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Base.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Battleship.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Bomber.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\City.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Destroyer.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Fighter.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\GeosynchronousSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\OrbitingSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\PatrolBoat.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Spy.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Submarine.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Tank.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Green\Veteran\Tanker.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\oil_16.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\oil_32.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\AircraftCarrier.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\AntiAircraft.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Army.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Artillery.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Base.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Battleship.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Bomber.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\City.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Destroyer.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Fighter.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\GeosynchronousSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\OrbitingSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\PatrolBoat.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Spy.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Submarine.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Tank.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Units\Tanker.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\AircraftCarrier.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\AntiAircraft.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Army.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Artillery.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Base.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Battleship.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Bomber.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\City.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Destroyer.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Fighter.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\GeosynchronousSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\OrbitingSatellite.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\PatrolBoat.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Spy.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Submarine.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Tank.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Red\Veteran\Tanker.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\steel_16.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

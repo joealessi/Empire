@@ -1472,6 +1472,14 @@ namespace EmpireGame
             selectedUnit = unit;
             selectedStructure = null;
 
+            if (unit == null)
+            {
+                // Hide unit info panel when no unit is selected
+                UnitInfoPanel.Visibility = Visibility.Collapsed;
+                StructureInfoPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
             UnitInfoPanel.Visibility = Visibility.Visible;
             StructureInfoPanel.Visibility = Visibility.Collapsed;
 
@@ -2113,8 +2121,9 @@ namespace EmpireGame
             tile.Units.Add(bomber);
 
             // Now set up bombing run UI
-            bomberForMission = bomber;
             isSelectingBomberTarget = true;
+            bomberForMission = bomber;
+            MapCanvas.Cursor = Cursors.Cross;
 
             BomberMissionPanel.Visibility = Visibility.Visible;
             BomberRangeText.Text = $"Bomber Range: {bomber.MaxFuel / 2} tiles (round trip)";
@@ -2413,141 +2422,227 @@ namespace EmpireGame
             StructureInfoPanel.Visibility = Visibility.Collapsed;
         }
 
-        // AUTO-LANDING AND UNIT STACKING UPDATES
-        // ========================================
 
-        // UPDATED MoveUnit METHOD - Replace your existing MoveUnit method with this:
-
-        private void MoveUnit(Unit unit, TilePosition targetPos)
+        private async void MoveUnit(Unit unit, TilePosition destination)
         {
-            var path = game.Map.FindPath(unit.Position, targetPos, unit);
+            if (!game.Map.IsValidPosition(destination))
+                return;
 
-            if (path.Count == 0)
+            var destinationTile = game.Map.GetTile(destination);
+
+            // Check if destination has an enemy unit
+            var enemyUnit = destinationTile.Units.FirstOrDefault(u => u.OwnerId != game.CurrentPlayer.PlayerId);
+
+            if (enemyUnit != null)
             {
-                AddMessage("No valid path to target!", MessageType.Warning);
+                // COMBAT!
+                TilePosition originalPosition = unit.Position;
+
+                // Calculate combat result
+                var combatResult = game.CalculateCombat(unit, enemyUnit, originalPosition);
+
+                // Show combat window
+                var combatWindow = new CombatWindow(combatResult);
+                combatWindow.Owner = this;
+                bool? result = combatWindow.ShowDialog();
+
+                if (combatWindow.AttackerRetreated)
+                {
+                    // Attacker retreated - stays in original position with reduced health
+                    // Unit is already in original position, just need to update display
+                    SelectUnit(unit);
+                    AddMessage($"{unit.GetName()} retreated from combat with {enemyUnit.GetName()}!");
+                }
+                else if (combatResult.AttackerWon)
+                {
+                    // Attacker won - move to destination, remove defender
+                    var startTile = game.Map.GetTile(unit.Position);
+                    startTile.Units.Remove(unit);
+
+                    // Remove dead defender
+                    destinationTile.Units.Remove(enemyUnit);
+                    var defender = game.Players.FirstOrDefault(p => p.PlayerId == enemyUnit.OwnerId);
+                    if (defender != null)
+                    {
+                        defender.Units.Remove(enemyUnit);
+                    }
+
+                    // Move attacker to destination
+                    unit.Position = destination;
+                    destinationTile.Units.Add(unit);
+                    destinationTile.OwnerId = unit.OwnerId;
+
+                    unit.MovementPoints = 0; // Used all movement in combat
+
+                    SelectUnit(unit);
+                    AddMessage($"{unit.GetName()} defeated {enemyUnit.GetName()}!");
+
+                    // Check if defender was in a structure's storage
+                    if (enemyUnit is AirUnit defeatedAirUnit && defeatedAirUnit.HomeBaseId != -1)
+                    {
+                        var homeBase = defender?.Structures.FirstOrDefault(s => s.StructureId == defeatedAirUnit.HomeBaseId);
+                        if (homeBase is Base baseStructure)
+                        {
+                            baseStructure.Airport.Remove(defeatedAirUnit);
+                        }
+                        else if (homeBase is City city)
+                        {
+                            city.Airport.Remove(defeatedAirUnit);
+                        }
+                    }
+                }
+                else
+                {
+                    // Defender won - remove attacker
+                    var startTile = game.Map.GetTile(unit.Position);
+                    startTile.Units.Remove(unit);
+                    game.CurrentPlayer.Units.Remove(unit);
+
+                    selectedUnit = null;
+                    SelectUnit(null);
+                    AddMessage($"{enemyUnit.GetName()} defeated {unit.GetName()}!");
+
+                    // Check if attacker was in a structure's storage
+                    if (unit is AirUnit defeatedAttackerAirUnit && defeatedAttackerAirUnit.HomeBaseId != -1)
+                    {
+                        var homeBase = game.CurrentPlayer.Structures.FirstOrDefault(s => s.StructureId == defeatedAttackerAirUnit.HomeBaseId);
+                        if (homeBase is Base baseStructure)
+                        {
+                            baseStructure.Airport.Remove(defeatedAttackerAirUnit);
+                        }
+                        else if (homeBase is City city)
+                        {
+                            city.Airport.Remove(defeatedAttackerAirUnit);
+                        }
+                    }
+                }
+
+                // Update vision and refresh map
+                game.CurrentPlayer.UpdateVision(game.Map);
+                RenderMap();
                 return;
             }
 
-            double movementCost = 0;
+            // Check if destination is occupied by friendly unit
+            if (destinationTile.Units.Any(u => u.OwnerId == game.CurrentPlayer.PlayerId))
+            {
+                AddMessage("Tile is occupied by a friendly unit!");
+                return;
+            }
+
+            // Check movement cost
+            double movementCost = destinationTile.GetMovementCost(unit);
+            if (unit.MovementPoints < movementCost)
+            {
+                AddMessage("Not enough movement points!");
+                return;
+            }
+
+            // Calculate path and check if reachable
+            var path = game.Map.FindPath(unit.Position, destination, unit);
+            if (path.Count == 0)
+            {
+                AddMessage("Cannot reach that location!");
+                return;
+            }
+
+            // Calculate total path cost
+            double totalCost = 0;
             for (int i = 1; i < path.Count; i++)
             {
                 var tile = game.Map.GetTile(path[i]);
-                double cost = tile.GetMovementCost(unit);
-                movementCost += cost;
+                totalCost += tile.GetMovementCost(unit);
             }
 
-            if (movementCost > unit.MovementPoints)
+            if (totalCost > unit.MovementPoints)
             {
-                AddMessage($"Not enough movement! Need {movementCost:F2}, have {unit.MovementPoints:F2}", MessageType.Warning);
+                AddMessage("Not enough movement points for that path!");
                 return;
             }
 
-            var destinationTile = game.Map.GetTile(targetPos);
-            if (!destinationTile.CanUnitEnter(unit))
+            // Special handling for aircraft landing
+            if (unit is AirUnit landingAirUnit && landingAirUnit.HomeBaseId == -1)
             {
-                AddMessage("Unit cannot enter that terrain type!", MessageType.Warning);
-                return;
-            }
-
-            var enemyUnits = destinationTile.Units.Where(u => u.OwnerId != unit.OwnerId).ToList();
-            if (enemyUnits.Count > 0)
-            {
-                AddMessage("Cannot move onto enemy units! Use attack instead.", MessageType.Warning);
-                return;
-            }
-
-            // Exclude satellites from stacking - they're in orbit and don't count
-            var friendlyUnits = destinationTile.Units
-                .Where(u => u.OwnerId == unit.OwnerId && !(u is Satellite))
-                .ToList();
-
-            if (destinationTile.Structure == null && friendlyUnits.Count >= MAX_UNITS_PER_TILE)
-            {
-                AddMessage("Cannot stack more than 3 units on a tile!", MessageType.Warning);
-                return;
-            }
-
-            var oldTile = game.Map.GetTile(unit.Position);
-            oldTile.Units.Remove(unit);
-
-            unit.Position = targetPos;
-            unit.MovementPoints -= movementCost;
-
-            var newTile = game.Map.GetTile(targetPos);
-            newTile.Units.Add(unit);
-
-            // NEW: Claim tile ownership
-            int previousOwner = newTile.OwnerId;
-            newTile.OwnerId = unit.OwnerId;
-
-            // Notify if we captured a resource tile
-            if (newTile.Resource != ResourceType.None)
-            {
-                if (previousOwner == -1)
+                // Check if landing on friendly base/city
+                if (destinationTile.Structure != null &&
+                    destinationTile.Structure.OwnerId == unit.OwnerId)
                 {
-                    AddMessage($"📍 Claimed {newTile.Resource} resource at ({targetPos.X}, {targetPos.Y})", MessageType.Success);
-                }
-                else if (previousOwner != unit.OwnerId)
-                {
-                    AddMessage($"⚔️ Captured {newTile.Resource} resource from {game.Players[previousOwner].Name}!", MessageType.Success);
-                }
-            }
-
-            if (unit is AirUnit airUnit && newTile.Structure != null &&
-                newTile.Structure.OwnerId == unit.OwnerId)
-            {
-                if (newTile.Structure is Base baseStructure)
-                {
-                    if (baseStructure.Airport.Count < Base.MAX_AIRPORT_CAPACITY)
+                    if (destinationTile.Structure is Base baseStructure)
                     {
-                        newTile.Units.Remove(airUnit);
-                        baseStructure.Airport.Add(airUnit);
-                        airUnit.HomeBaseId = baseStructure.StructureId;
-                        airUnit.Fuel = airUnit.MaxFuel;
+                        if (baseStructure.Airport.Count >= Base.MAX_AIRPORT_CAPACITY)
+                        {
+                            AddMessage("Airport is full!");
+                            return;
+                        }
 
-                        AddMessage($"{airUnit.GetName()} automatically landed and refueled at {baseStructure.GetName()}", MessageType.Success);
+                        // Land the aircraft
+                        var startTile = game.Map.GetTile(unit.Position);
+                        startTile.Units.Remove(unit);
 
-                        ClearSelection();
-                        SelectStructure(baseStructure);
+                        baseStructure.Airport.Add(landingAirUnit);
+                        landingAirUnit.HomeBaseId = baseStructure.StructureId;
+                        landingAirUnit.Fuel = landingAirUnit.MaxFuel;
+                        landingAirUnit.MovementPoints = 0;
+
+                        AddMessage($"{landingAirUnit.GetName()} landed at base.");
+                        selectedUnit = null;
+                        SelectUnit(null);
+                        RenderMap();
+                        return;
                     }
-                    else
+                    else if (destinationTile.Structure is City city)
                     {
-                        AddMessage($"{airUnit.GetName()} moved to base, but airport is full!", MessageType.Warning);
-                    }
-                }
-                else if (newTile.Structure is City city)
-                {
-                    if (city.Airport.Count < City.MAX_AIRPORT_CAPACITY)
-                    {
-                        newTile.Units.Remove(airUnit);
-                        city.Airport.Add(airUnit);
-                        airUnit.HomeBaseId = city.StructureId;
-                        airUnit.Fuel = airUnit.MaxFuel;
+                        if (city.Airport.Count >= City.MAX_AIRPORT_CAPACITY)
+                        {
+                            AddMessage("Airport is full!");
+                            return;
+                        }
 
-                        AddMessage($"{airUnit.GetName()} automatically landed and refueled at {city.GetName()}", MessageType.Success);
+                        var startTile = game.Map.GetTile(unit.Position);
+                        startTile.Units.Remove(unit);
 
-                        ClearSelection();
-                        SelectStructure(city);
-                    }
-                    else
-                    {
-                        AddMessage($"{airUnit.GetName()} moved to city, but airport is full!", MessageType.Warning);
+                        city.Airport.Add(landingAirUnit);
+                        landingAirUnit.HomeBaseId = city.StructureId;
+                        landingAirUnit.Fuel = landingAirUnit.MaxFuel;
+                        landingAirUnit.MovementPoints = 0;
+
+                        AddMessage($"{landingAirUnit.GetName()} landed at city.");
+                        selectedUnit = null;
+                        SelectUnit(null);
+                        RenderMap();
+                        return;
                     }
                 }
             }
 
+            // Animate movement along path
+            await AnimateUnitMovement(unit, path);
+
+            unit.MovementPoints -= totalCost;
+
+            // Claim tile ownership
+            destinationTile.OwnerId = unit.OwnerId;
+
+            SelectUnit(unit);
             game.CurrentPlayer.UpdateVision(game.Map);
-            UpdateResourceDisplay();
-
-            if (selectedUnit == unit)
-            {
-                SelectUnit(unit);
-            }
-
             RenderMap();
-            UpdateNextButton();
         }
 
+        private async Task AnimateUnitMovement(Unit unit, List<TilePosition> path)
+        {
+            for (int i = 1; i < path.Count; i++)
+            {
+                var oldTile = game.Map.GetTile(unit.Position);
+                oldTile.Units.Remove(unit);
+
+                unit.Position = path[i];
+                var newTile = game.Map.GetTile(path[i]);
+                newTile.Units.Add(unit);
+
+                RenderMap();
+                await Task.Delay(150); // 150ms between steps
+            }
+        }
 
         // PART 3: UPDATED
         // METHOD - Replace your entire method with this:
@@ -2785,6 +2880,9 @@ namespace EmpireGame
             isSelectingGeosyncLocation = false;
             geosyncToPlace = null;
 
+            // Reset cursor
+            MapCanvas.Cursor = Cursors.Arrow;
+
             // Update vision immediately
             game.CurrentPlayer.UpdateVision(game.Map);
 
@@ -2819,6 +2917,7 @@ namespace EmpireGame
 
             isSelectingBomberTarget = false;
             bomberForMission = null;
+            MapCanvas.Cursor = Cursors.Arrow;
             BomberMissionPanel.Visibility = Visibility.Collapsed;
         }
 
@@ -3078,6 +3177,7 @@ namespace EmpireGame
                     isSelectingGeosyncLocation = true;
                     geosyncToPlace = unplacedGeosync;
                     AddMessage("🛰️ Geosynchronous Satellite ready! Click on map to deploy.", MessageType.Info);
+                    MapCanvas.Cursor = Cursors.Cross;
                 }
             }
 

@@ -1,0 +1,187 @@
+﻿<Window x:Class="EmpireGame.CombatWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Combat" 
+        Height="500" 
+        Width="700"
+        WindowStyle="None"
+        WindowStartupLocation="CenterOwner"
+        Background="#CC000000"
+        KeyDown="Window_KeyDown"
+        Focusable="True">
+    <Border BorderBrush="Yellow" BorderThickness="3" Margin="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <TextBlock Grid.Row="0" 
+                       Text="COMBAT" 
+                       FontSize="32" 
+                       FontWeight="Bold" 
+                       Foreground="Yellow" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,10,0,20"/>
+
+            <!-- Combat Display -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Attacker -->
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <!-- Attacker Icon -->
+                    <Image x:Name="AttackerIcon" 
+                           Width="80" 
+                           Height="80" 
+                           Margin="0,0,0,10"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <RotateTransform Angle="10"/>
+                        </Image.RenderTransform>
+                    </Image>
+                    
+                    <TextBlock x:Name="AttackerName" 
+                               Text="Attacker" 
+                               FontSize="24" 
+                               FontWeight="Bold" 
+                               Foreground="White" 
+                               HorizontalAlignment="Center" 
+                               Margin="0,0,0,10"/>
+                    
+                    <!-- Animated Life Display -->
+                    <Grid Height="30" Margin="0,0,0,20">
+                        <TextBlock x:Name="AttackerLifeOld" 
+                                   FontSize="20" 
+                                   Foreground="LimeGreen" 
+                                   HorizontalAlignment="Center"
+                                   Opacity="0"/>
+                        <TextBlock x:Name="AttackerLife" 
+                                   Text="Life: 3" 
+                                   FontSize="20" 
+                                   Foreground="LimeGreen" 
+                                   HorizontalAlignment="Center"/>
+                    </Grid>
+                    
+                    <TextBlock x:Name="AttackerRoll" 
+                               Text="000" 
+                               FontSize="48" 
+                               FontWeight="Bold" 
+                               Foreground="Cyan" 
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- VS -->
+                <TextBlock Grid.Column="1" 
+                           Text="VS" 
+                           FontSize="36" 
+                           FontWeight="Bold" 
+                           Foreground="Red" 
+                           VerticalAlignment="Center" 
+                           Margin="30,0"/>
+
+                <!-- Defender -->
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <!-- Defender Icon -->
+                    <Image x:Name="DefenderIcon" 
+                           Width="80" 
+                           Height="80" 
+                           Margin="0,0,0,10"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <RotateTransform Angle="-10"/>
+                        </Image.RenderTransform>
+                    </Image>
+                    
+                    <TextBlock x:Name="DefenderName" 
+                               Text="Defender" 
+                               FontSize="24" 
+                               FontWeight="Bold" 
+                               Foreground="White" 
+                               HorizontalAlignment="Center" 
+                               Margin="0,0,0,10"/>
+                    
+                    <!-- Animated Life Display -->
+                    <Grid Height="30" Margin="0,0,0,20">
+                        <TextBlock x:Name="DefenderLifeOld" 
+                                   FontSize="20" 
+                                   Foreground="LimeGreen" 
+                                   HorizontalAlignment="Center"
+                                   Opacity="0"/>
+                        <TextBlock x:Name="DefenderLife" 
+                                   Text="Life: 3" 
+                                   FontSize="20" 
+                                   Foreground="LimeGreen" 
+                                   HorizontalAlignment="Center"/>
+                    </Grid>
+                    
+                    <TextBlock x:Name="DefenderRoll" 
+                               Text="000" 
+                               FontSize="48" 
+                               FontWeight="Bold" 
+                               Foreground="Cyan" 
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Round Result -->
+            <TextBlock Grid.Row="2" 
+                       x:Name="RoundResult" 
+                       Text="" 
+                       FontSize="24" 
+                       FontWeight="Bold" 
+                       Foreground="Yellow" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,20,0,10"/>
+
+            <!-- Instructions and Buttons -->
+            <StackPanel Grid.Row="3" Margin="0,10,0,20">
+                <TextBlock x:Name="SpaceInstruction"
+                           Text="Press SPACE to skip animation" 
+                           FontSize="14" 
+                           Foreground="Gray" 
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,10"/>
+                
+                <!-- Retreat Button (shown during combat) -->
+                <Button x:Name="RetreatButton"
+                        Content="RETREAT"
+                        Width="150"
+                        Height="35"
+                        FontSize="16"
+                        FontWeight="Bold"
+                        Background="#CC8B0000"
+                        Foreground="Yellow"
+                        BorderBrush="Yellow"
+                        BorderThickness="2"
+                        Click="RetreatButton_Click"
+                        Visibility="Collapsed"
+                        HorizontalAlignment="Center"
+                        Margin="0,5"/>
+                
+                <!-- Close Button (shown after combat) -->
+                <Button x:Name="CloseButton"
+                        Content="CLOSE"
+                        Width="150"
+                        Height="35"
+                        FontSize="16"
+                        FontWeight="Bold"
+                        Background="#CC006400"
+                        Foreground="White"
+                        BorderBrush="LimeGreen"
+                        BorderThickness="2"
+                        Click="CloseButton_Click"
+                        Visibility="Collapsed"
+                        HorizontalAlignment="Center"
+                        Margin="0,5"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

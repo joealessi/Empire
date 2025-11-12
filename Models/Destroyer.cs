@@ -2,17 +2,16 @@
 {
     public Destroyer()
     {
-        MaxPower = 7;
-        MaxToughness = 6;
-        MaxLife = 15;
-        MaxMovementPoints = 4;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 3;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 2;
+        Life = MaxLife;
+        Attack = 4;
+        Defense = 3;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'D' : 'd';
-    public override string GetName() => "Destroyer";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Ocean || terrain == TerrainType.CoastalWater;
+    }
 }

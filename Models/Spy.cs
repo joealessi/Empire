@@ -1,21 +1,24 @@
 ﻿public class Spy : LandUnit
 {
     public bool IsRevealed { get; set; }
-    
+
     public Spy()
     {
-        MaxPower = 3;
-        MaxToughness = 5;
-        MaxLife = 8;
-        MaxMovementPoints = 3;
-        IsRevealed = false;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 2;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        IsRevealed = false;
+        Attack = 1;
+        Defense = 1;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'Y' : 'y';
-    public override string GetName() => "Spy";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Land ||
+               terrain == TerrainType.Plains ||
+               terrain == TerrainType.Forest ||
+               terrain == TerrainType.Hills ||
+               terrain == TerrainType.Mountain;
+    }
 }

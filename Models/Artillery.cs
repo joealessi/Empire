@@ -1,21 +1,23 @@
 ﻿public class Artillery : LandUnit
 {
     public int AttackRange { get; set; }
-    
+
     public Artillery()
     {
-        MaxPower = 12;
-        MaxToughness = 3;
-        MaxLife = 8;
         MaxMovementPoints = 1;
-        AttackRange = 3;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        Attack = 8;
+        Defense = 1;
+        AttackRange = 2; // Can attack from 2 tiles away
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'R' : 'r';
-    public override string GetName() => "Artillery";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Land ||
+               terrain == TerrainType.Plains ||
+               terrain == TerrainType.Forest ||
+               terrain == TerrainType.Hills;
+    }
 }

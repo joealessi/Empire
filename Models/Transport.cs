@@ -1,28 +1,29 @@
 ﻿public class Transport : SeaUnit
 {
-    public int Capacity { get; set; }
-    public List<LandUnit> EmbarkedUnits { get; set; }
-    
+    public const int MAX_CAPACITY = 6;
+    public List<LandUnit> LoadedUnits { get; set; }
+
+    public int Capacity => MAX_CAPACITY;
+    public List<LandUnit> EmbarkedUnits => LoadedUnits;
+
     public Transport()
     {
-        MaxPower = 2;
-        MaxToughness = 4;
-        MaxLife = 12;
-        MaxMovementPoints = 3;
-        Capacity = 6;
-        EmbarkedUnits = new List<LandUnit>();
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 2;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 2;
+        Life = MaxLife;
+        LoadedUnits = new List<LandUnit>();
+        Attack = 0;
+        Defense = 2;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'N' : 'n';
-    public override string GetName() => "Transport";
-    
-    public bool CanEmbark(LandUnit unit)
+
+    public bool CanLoad()
     {
-        return EmbarkedUnits.Count < Capacity;
+        return LoadedUnits.Count < MAX_CAPACITY;
+    }
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Ocean || terrain == TerrainType.CoastalWater;
     }
 }

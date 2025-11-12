@@ -2,17 +2,19 @@
 {
     public Tank()
     {
-        MaxPower = 8;
-        MaxToughness = 7;
-        MaxLife = 15;
-        MaxMovementPoints = 3;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 2;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        Attack = 5;
+        Defense = 3;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'T' : 't';
-    public override string GetName() => "Tank";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Land ||
+               terrain == TerrainType.Plains ||
+               terrain == TerrainType.Forest ||
+               terrain == TerrainType.Hills;
+    }
 }

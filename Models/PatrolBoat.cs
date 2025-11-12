@@ -2,31 +2,16 @@
 {
     public PatrolBoat()
     {
-        MaxPower = 4;
-        MaxToughness = 3;
-        MaxLife = 8;
-        MaxMovementPoints = 5;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 4;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        Attack = 2;
+        Defense = 2;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'P' : 'p';
-    public override string GetName() => "Patrol Boat";
-    
-    public void ApplyDeepWaterPenalty(bool inDeepWater)
+
+    public override bool CanMoveOn(TerrainType terrain)
     {
-        if (inDeepWater)
-        {
-            Toughness = (int)(MaxToughness * 0.6);
-            MovementPoints = (int)(MaxMovementPoints * 0.6);
-        }
-        else
-        {
-            Toughness = MaxToughness;
-            MovementPoints = MaxMovementPoints;
-        }
+        return terrain == TerrainType.Ocean || terrain == TerrainType.CoastalWater;
     }
 }

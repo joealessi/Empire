@@ -1,21 +1,16 @@
 ﻿public class GeosynchronousSatellite : Satellite
 {
+    public OrbitType Orbit { get; set; }
+    
     public GeosynchronousSatellite()
     {
-        MaxPower = 0;
-        MaxToughness = 3;
-        MaxLife = 5;
-        MaxMovementPoints = 0;
-        VisionRadius = 15;
-        Lifespan = 60;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
+        MaxMovementPoints = 0; // Stationary
+        MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
         Life = MaxLife;
-        MovementPoints = 0;
-        TurnsRemaining = Lifespan;
+        Attack = 0;
+        Defense = 0;
+        VisionRadius = 15;
+        Orbit = OrbitType.Geosynchronous;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'G' : 'g';
-    public override string GetName() => "Geosync Satellite";
 }

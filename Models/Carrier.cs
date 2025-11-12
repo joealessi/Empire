@@ -1,28 +1,28 @@
 ﻿public class Carrier : SeaUnit
 {
-    public int Capacity { get; set; }
+    public const int MAX_CAPACITY = 8;
     public List<AirUnit> DockedAircraft { get; set; }
-    
+
+    public int Capacity => MAX_CAPACITY;
+
     public Carrier()
     {
-        MaxPower = 6;
-        MaxToughness = 8;
-        MaxLife = 20;
-        MaxMovementPoints = 3;
-        Capacity = 6;
-        DockedAircraft = new List<AirUnit>();
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 2;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 3;
+        Life = MaxLife;
+        DockedAircraft = new List<AirUnit>();
+        Attack = 2;
+        Defense = 4;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'C' : 'c';
-    public override string GetName() => "Carrier";
-    
+
     public bool CanDock(AirUnit aircraft)
     {
-        return DockedAircraft.Count < Capacity && !(aircraft is Bomber);
+        return DockedAircraft.Count < MAX_CAPACITY;
+    }
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Ocean || terrain == TerrainType.CoastalWater;
     }
 }

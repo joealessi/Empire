@@ -2,17 +2,16 @@
 {
     public Battleship()
     {
-        MaxPower = 12;
-        MaxToughness = 10;
-        MaxLife = 25;
         MaxMovementPoints = 2;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 3;
+        Life = MaxLife;
+        Attack = 10;
+        Defense = 5;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'L' : 'l';
-    public override string GetName() => "Battleship";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Ocean || terrain == TerrainType.CoastalWater;
+    }
 }

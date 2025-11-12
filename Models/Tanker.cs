@@ -2,25 +2,19 @@
 {
     public Tanker()
     {
-        MaxPower = 0;
-        MaxToughness = 2;
-        MaxLife = 8;
-        MaxMovementPoints = 4;
-        MaxFuel = 20;
-        HomeBaseId = -1;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 8;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        MaxFuel = 24;
         Fuel = MaxFuel;
+        HomeBaseId = -1;
+        Attack = 0;
+        Defense = 1;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'K' : 'k';
-    public override string GetName() => "Tanker";
-    
-    public override bool CanAttack(Unit target)
+
+    public override bool CanMoveOn(TerrainType terrain)
     {
-        return false; // Tankers cannot attack
+        return true;
     }
 }

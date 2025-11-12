@@ -56,32 +56,15 @@ public class Game
             // Check sentry units BEFORE processing their turn
             CheckSentryUnits(player);
 
-            // Calculate and apply resource income
+            // NEW: Calculate and apply resource income
             player.CalculateResourceIncome(Map);
 
-            // Process units
-            foreach (var unit in player.Units.ToList())
+            // Consume fuel for air units
+            foreach (var unit in player.Units.ToList()) // Use ToList() to avoid modification during iteration
             {
                 if (unit is AirUnit airUnit)
                 {
                     airUnit.ConsumeFuel();
-                }
-                else if (unit is Satellite satellite)
-                {
-                    // Age satellites
-                    satellite.AgeSatellite();
-
-                    // If satellite died, unregister its orbit type
-                    if (satellite.Life <= 0 && satellite is OrbitingSatellite orbitSat)
-                    {
-                        player.UnregisterOrbitingSatellite(orbitSat.Orbit);
-                    }
-
-                    // Move orbiting satellites
-                    if (unit is OrbitingSatellite orbitingSat && orbitingSat.Life > 0)
-                    {
-                        MoveOrbitingSatellite(orbitingSat, player);
-                    }
                 }
 
                 // Restore movement points
@@ -93,6 +76,9 @@ public class Game
                 // Process automated orders
                 ProcessUnitOrders(unit);
             }
+
+            // Remove crashed/dead units after fuel consumption
+            RemoveDeadUnits(player);
 
             // Process production queues
             foreach (var structure in player.Structures)
@@ -109,6 +95,37 @@ public class Game
         }
     }
 
+    private void RemoveDeadUnits(Player player)
+    {
+        // Create a list of units to remove
+        var unitsToRemove = player.Units.Where(u => u.Life <= 0).ToList();
+
+        // Remove dead units
+        foreach (var unit in unitsToRemove)
+        {
+            // Remove from tile
+            var tile = Map.GetTile(unit.Position);
+            tile.Units.Remove(unit);
+
+            // Remove from player's unit list
+            player.Units.Remove(unit);
+
+            // If it's an air unit, also remove from any base storage
+            if (unit is AirUnit airUnit && airUnit.HomeBaseId != -1)
+            {
+                // Find the base/city and remove from airport
+                var homeBase = player.Structures.FirstOrDefault(s => s.StructureId == airUnit.HomeBaseId);
+                if (homeBase is Base baseStructure)
+                {
+                    baseStructure.Airport.Remove(airUnit);
+                }
+                else if (homeBase is City city)
+                {
+                    city.Airport.Remove(airUnit);
+                }
+            }
+        }
+    }
     private void MoveOrbitingSatellite(OrbitingSatellite satellite, Player player)
     {
         // Remove from current tile
@@ -1028,7 +1045,7 @@ public class Game
 
     // Automatic order processing methods continue below...
     // (Include all the patrol and automatic order methods from your original file)
-    
+
     private bool HasEnemyInVision(Unit unit, Player owner)
     {
         int visionRange = GetUnitVisionRange(unit);
@@ -1110,5 +1127,157 @@ public class Game
         // Add the new order
         var newOrder = new AutomaticOrder(unit, destination, orderType);
         AutomaticOrdersQueue.Enqueue(newOrder);
+    }
+    //Combat
+    public CombatResult CalculateCombat(Unit attacker, Unit defender, TilePosition attackerOriginalPosition)
+    {
+        var result = new CombatResult
+        {
+            Attacker = attacker,
+            Defender = defender,
+            AttackerOriginalPosition = attackerOriginalPosition
+        };
+
+        var random = new Random();
+        var defenderTile = Map.GetTile(defender.Position);
+
+        while (attacker.Life > 0 && defender.Life > 0)
+        {
+            var round = new CombatRound();
+
+            // Calculate attacker's score
+            int attackerRoll = random.Next(1, 101);
+            int attackerBonus = attacker.Attack;
+
+            // Veteran bonus
+            if (attacker.IsVeteran)
+                attackerBonus += 5;
+
+            // Type matchup bonuses for attacker
+            attackerBonus += GetAttackBonus(attacker, defender);
+
+            round.AttackerRoll = attackerRoll;
+            round.AttackerScore = attackerRoll + attackerBonus - defender.Defense;
+
+            // Calculate defender's score
+            int defenderRoll = random.Next(1, 101);
+            int defenderBonus = defender.Attack;
+
+            // Veteran bonus
+            if (defender.IsVeteran)
+                defenderBonus += 5;
+
+            // Terrain bonus for defender
+            defenderBonus += GetTerrainDefenseBonus(defenderTile.Terrain);
+
+            // Structure defense bonus
+            if (defenderTile.Structure != null)
+                defenderBonus += 10;
+
+            // Type matchup bonuses for defender (when counter-attacking)
+            defenderBonus += GetAttackBonus(defender, attacker);
+
+            round.DefenderRoll = defenderRoll;
+            round.DefenderScore = defenderRoll + defenderBonus - attacker.Defense;
+
+            // Determine winner of this round
+            if (round.AttackerScore > round.DefenderScore)
+            {
+                defender.Life--;
+                round.AttackerWon = true;
+                round.Tie = false;
+            }
+            else if (round.DefenderScore > round.AttackerScore)
+            {
+                attacker.Life--;
+                round.AttackerWon = false;
+                round.Tie = false;
+            }
+            else
+            {
+                // Tie - both take damage
+                attacker.Life--;
+                defender.Life--;
+                round.Tie = true;
+            }
+
+            round.AttackerLifeAfter = attacker.Life;
+            round.DefenderLifeAfter = defender.Life;
+
+            result.Rounds.Add(round);
+        }
+
+        // Determine overall winner
+        if (attacker.Life > 0)
+        {
+            result.AttackerWon = true;
+            // Award veteran status if not already veteran
+            if (!attacker.IsVeteran)
+                attacker.IsVeteran = true;
+        }
+        else if (defender.Life > 0)
+        {
+            result.DefenderWon = true;
+            // Award veteran status if not already veteran
+            if (!defender.IsVeteran)
+                defender.IsVeteran = true;
+        }
+
+        return result;
+    }
+
+    private int GetAttackBonus(Unit attacker, Unit defender)
+    {
+        int bonus = 0;
+
+        // Tank vs Army
+        if (attacker is Tank && defender is Army)
+            bonus += 5;
+
+        // Fighter vs Bomber
+        if (attacker is Fighter && defender is Bomber)
+            bonus += 5;
+
+        // Destroyer vs Submarine
+        if (attacker is Destroyer && defender is Submarine)
+            bonus += 5;
+
+        // Submarine vs large ships
+        if (attacker is Submarine && (defender is Carrier || defender is Battleship))
+            bonus += 3;
+
+        // Anti-Aircraft vs Air units
+        if (attacker is AntiAircraft && defender is AirUnit)
+            bonus += 8;
+
+        // Artillery vs structures
+        if (attacker is Artillery)
+        {
+            var defenderTile = Map.GetTile(defender.Position);
+            if (defenderTile.Structure != null)
+                bonus += 5;
+        }
+
+        // Bomber vs structures
+        if (attacker is Bomber)
+        {
+            var defenderTile = Map.GetTile(defender.Position);
+            if (defenderTile.Structure != null)
+                bonus += 5;
+        }
+
+        return bonus;
+    }
+
+    private int GetTerrainDefenseBonus(TerrainType terrain)
+    {
+        return terrain switch
+        {
+            TerrainType.Mountain => 10,
+            TerrainType.Hills => 5,
+            TerrainType.Forest => 3,
+            TerrainType.CoastalWater => 2,
+            _ => 0
+        };
     }
 }

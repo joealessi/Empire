@@ -1,21 +1,20 @@
 ﻿public class Submarine : SeaUnit
 {
     public bool IsSubmerged { get; set; }
-    
+
     public Submarine()
     {
-        MaxPower = 8;
-        MaxToughness = 4;
-        MaxLife = 12;
         MaxMovementPoints = 3;
-        IsSubmerged = true;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 2;
+        Life = MaxLife;
+        Attack = 8;
+        Defense = 2;
+        IsSubmerged = false;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'S' : 's';
-    public override string GetName() => "Submarine";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return terrain == TerrainType.Ocean || terrain == TerrainType.CoastalWater;
+    }
 }

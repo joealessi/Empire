@@ -2,20 +2,19 @@
 {
     public Fighter()
     {
-        MaxPower = 6;
-        MaxToughness = 4;
-        MaxLife = 8;
-        MaxMovementPoints = 5;
-        MaxFuel = 6; 
-        HomeBaseId = -1;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
+        MaxMovementPoints = 10;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        MaxFuel = 20;
         Fuel = MaxFuel;
+        HomeBaseId = -1;
+        Attack = 3;
+        Defense = 3;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'F' : 'f';
-    public override string GetName() => "Fighter";
+
+    public override bool CanMoveOn(TerrainType terrain)
+    {
+        return true;
+    }
 }

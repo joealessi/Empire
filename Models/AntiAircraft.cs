@@ -2,30 +2,19 @@
 {
     public AntiAircraft()
     {
-        MaxPower = 10;
-        MaxToughness = 3;
-        MaxLife = 8;
         MaxMovementPoints = 2;
-        
-        Power = MaxPower;
-        Toughness = MaxToughness;
-        Life = MaxLife;
         MovementPoints = MaxMovementPoints;
+        MaxLife = 1;
+        Life = MaxLife;
+        Attack = 2;
+        Defense = 2;
     }
-    
-    public override char GetSymbol() => IsVeteran ? 'Z' : 'z';
-    public override string GetName() => "Anti-Aircraft";
-    
-    public override bool CanAttack(Unit target)
+
+    public override bool CanMoveOn(TerrainType terrain)
     {
-        // Can only attack air units and only when within 2 tiles of base
-        return target is AirUnit;
-    }
-    
-    public bool IsWithinRangeOfBase(Map map)
-    {
-        // Check if within 2 tiles of any friendly base or city
-        // Implementation would check the map for nearby structures
-        return false; // Placeholder
+        return terrain == TerrainType.Land ||
+               terrain == TerrainType.Plains ||
+               terrain == TerrainType.Forest ||
+               terrain == TerrainType.Hills;
     }
 }

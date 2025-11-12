@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -13,10 +15,43 @@ namespace EmpireGame
         private Unit selectedUnit;
         private Structure selectedStructure;
         private double iconScale;
+        private string iconBasePath;
 
         // Resource icon bitmaps
         private BitmapSource oilIcon;
         private BitmapSource steelIcon;
+
+        // Unit sprite dictionaries (not player-specific)
+        private Dictionary<string, BitmapSource> unitSprites = new Dictionary<string, BitmapSource>();
+        private Dictionary<string, BitmapSource> veteranSprites = new Dictionary<string, BitmapSource>();
+        
+        // Structure sprites
+        private Dictionary<string, BitmapSource> structureSprites = new Dictionary<string, BitmapSource>();
+
+        // Satellite sprites
+        private BitmapSource orbitingSatelliteSprite;
+        private BitmapSource geosynchronousSatelliteSprite;
+
+        // Mapping from class names to icon file names
+        private static readonly Dictionary<string, string> IconFileNameMap = new Dictionary<string, string>
+        {
+            { "Army", "Army" },
+            { "Tank", "Tank" },
+            { "Artillery", "Artillery" },
+            { "AntiAircraft", "AntiAircraft" },
+            { "Spy", "Spy" },
+            { "Fighter", "Fighter" },
+            { "Bomber", "Bomber" },
+            { "Tanker", "Fighter" },  // Use Fighter icon as fallback for Tanker
+            { "Carrier", "AircraftCarrier" },
+            { "Battleship", "Battleship" },
+            { "Destroyer", "Destroyer" },
+            { "Submarine", "Submarine" },
+            { "PatrolBoat", "PatrolBoat" },
+            { "Transport", "PatrolBoat" },  // Use PatrolBoat icon as fallback for Transport
+            { "City", "City" },
+            { "Base", "Base" }
+        };
 
         // Color definitions for terrain
         private static readonly Color OceanColor = Color.FromRgb(20, 60, 120);
@@ -47,12 +82,21 @@ namespace EmpireGame
             this.tileSize = tileSize;
             this.iconScale = tileSize / 16.0;
 
+            // Set base path for icons (in application directory)
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            iconBasePath = Path.Combine(appDirectory, "Resources\\Empire_Icons");
+
             int width = game.Map.Width * tileSize;
             int height = game.Map.Height * tileSize;
 
             bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
 
-            // Load resource icons
+            LoadResourceIcons();
+            LoadSprites();
+        }
+
+        private void LoadResourceIcons()
+        {
             try
             {
                 oilIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/oil_16.png"));
@@ -62,6 +106,161 @@ namespace EmpireGame
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load resource icons: {ex.Message}");
             }
+        }
+
+        private void LoadSprites()
+        {
+            System.Diagnostics.Debug.WriteLine($"Looking for icons at: {iconBasePath}");
+            System.Diagnostics.Debug.WriteLine($"Directory exists: {Directory.Exists(iconBasePath)}");
+
+            // Load regular unit sprites from Units folder
+            string unitsPath = Path.Combine(iconBasePath, "Units");
+            if (Directory.Exists(unitsPath))
+            {
+                System.Diagnostics.Debug.WriteLine($"Units folder exists: {unitsPath}");
+                
+                foreach (var kvp in IconFileNameMap)
+                {
+                    string unitType = kvp.Key;
+                    string fileName = kvp.Value;
+
+                    string unitPath = Path.Combine(unitsPath, $"{fileName}.png");
+                    
+                    if (File.Exists(unitPath))
+                    {
+                        try
+                        {
+                            var bitmap = new BitmapImage();
+                            bitmap.BeginInit();
+                            bitmap.UriSource = new Uri(unitPath, UriKind.Absolute);
+                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                            bitmap.EndInit();
+                            bitmap.Freeze();
+                            unitSprites[unitType] = bitmap;
+                            System.Diagnostics.Debug.WriteLine($"✓ Loaded: Units/{fileName}.png ({bitmap.PixelWidth}x{bitmap.PixelHeight})");
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"✗ Failed to load {unitPath}: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"✗ File not found: {unitPath}");
+                    }
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"✗ Units folder not found: {unitsPath}");
+            }
+
+            // Load veteran unit sprites from Veteran folder
+            string veteranPath = Path.Combine(iconBasePath, "Veteran");
+            if (Directory.Exists(veteranPath))
+            {
+                System.Diagnostics.Debug.WriteLine($"Veteran folder exists: {veteranPath}");
+                
+                foreach (var kvp in IconFileNameMap)
+                {
+                    string unitType = kvp.Key;
+                    string fileName = kvp.Value;
+
+                    string vetPath = Path.Combine(veteranPath, $"{fileName}.png");
+                    
+                    if (File.Exists(vetPath))
+                    {
+                        try
+                        {
+                            var bitmap = new BitmapImage();
+                            bitmap.BeginInit();
+                            bitmap.UriSource = new Uri(vetPath, UriKind.Absolute);
+                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                            bitmap.EndInit();
+                            bitmap.Freeze();
+                            veteranSprites[unitType] = bitmap;
+                            System.Diagnostics.Debug.WriteLine($"✓ Loaded: Veteran/{fileName}.png ({bitmap.PixelWidth}x{bitmap.PixelHeight})");
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"✗ Failed to load {vetPath}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"✗ Veteran folder not found: {veteranPath}");
+            }
+
+            // Load structure sprites from Units folder
+            string[] structureTypes = new string[] { "City", "Base" };
+            foreach (string structureType in structureTypes)
+            {
+                string structPath = Path.Combine(unitsPath, $"{structureType}.png");
+                
+                if (File.Exists(structPath))
+                {
+                    try
+                    {
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(structPath, UriKind.Absolute);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        bitmap.Freeze();
+                        structureSprites[structureType] = bitmap;
+                        System.Diagnostics.Debug.WriteLine($"✓ Loaded: Units/{structureType}.png ({bitmap.PixelWidth}x{bitmap.PixelHeight})");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"✗ Failed to load {structPath}: {ex.Message}");
+                    }
+                }
+            }
+
+            // Load satellite sprites
+            string orbitingSatPath = Path.Combine(unitsPath, "OrbitingSatellite.png");
+            if (File.Exists(orbitingSatPath))
+            {
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(orbitingSatPath, UriKind.Absolute);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+                    orbitingSatelliteSprite = bitmap;
+                    System.Diagnostics.Debug.WriteLine($"✓ Loaded: OrbitingSatellite.png ({bitmap.PixelWidth}x{bitmap.PixelHeight})");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"✗ Failed to load {orbitingSatPath}: {ex.Message}");
+                }
+            }
+
+            string geoSatPath = Path.Combine(unitsPath, "GeosynchronousSatellite.png");
+            if (File.Exists(geoSatPath))
+            {
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(geoSatPath, UriKind.Absolute);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+                    geosynchronousSatelliteSprite = bitmap;
+                    System.Diagnostics.Debug.WriteLine($"✓ Loaded: GeosynchronousSatellite.png ({bitmap.PixelWidth}x{bitmap.PixelHeight})");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"✗ Failed to load {geoSatPath}: {ex.Message}");
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Sprite loading complete. Icons will be scaled to fit tiles ({tileSize}x{tileSize})");
         }
 
         public WriteableBitmap RenderMap(Player currentPlayer, Unit selectedUnit = null, Structure selectedStructure = null)
@@ -194,101 +393,60 @@ namespace EmpireGame
                 return;
 
             // Calculate position (top-right corner of tile)
-            int iconSize = 16; // Icons are 16x16
-            int destX = tileX * tileSize + tileSize - iconSize - 2;
+            int iconDisplaySize = Math.Min(16, tileSize - 4);
+            int destX = tileX * tileSize + tileSize - iconDisplaySize - 2;
             int destY = tileY * tileSize + 2;
 
-            // Convert icon to Bgr32 format if needed
-            BitmapSource convertedIcon = icon;
-            if (icon.Format != PixelFormats.Bgr32)
-            {
-                convertedIcon = new FormatConvertedBitmap(icon, PixelFormats.Bgr32, null, 0);
-            }
-
-            // Get icon pixel data
-            int iconStride = iconSize * 4;
-            byte[] iconPixels = new byte[iconStride * iconSize];
-            convertedIcon.CopyPixels(iconPixels, iconStride, 0);
-
-            // Copy icon pixels to the main bitmap
-            for (int y = 0; y < iconSize; y++)
-            {
-                for (int x = 0; x < iconSize; x++)
-                {
-                    int screenX = destX + x;
-                    int screenY = destY + y;
-
-                    // Check bounds
-                    if (screenX < 0 || screenX >= bitmap.PixelWidth ||
-                        screenY < 0 || screenY >= bitmap.PixelHeight)
-                        continue;
-
-                    // Get icon pixel
-                    int iconOffset = y * iconStride + x * 4;
-                    byte iconB = iconPixels[iconOffset];
-                    byte iconG = iconPixels[iconOffset + 1];
-                    byte iconR = iconPixels[iconOffset + 2];
-                    byte iconA = iconPixels[iconOffset + 3];
-
-                    // Skip fully transparent pixels
-                    if (iconA == 0)
-                        continue;
-
-                    // Write to destination
-                    byte* destPixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
-
-                    if (iconA == 255)
-                    {
-                        // Fully opaque - just copy
-                        destPixel[0] = iconB;
-                        destPixel[1] = iconG;
-                        destPixel[2] = iconR;
-                        destPixel[3] = 255;
-                    }
-                    else
-                    {
-                        // Alpha blend
-                        float alpha = iconA / 255.0f;
-                        destPixel[0] = (byte)(iconB * alpha + destPixel[0] * (1 - alpha));
-                        destPixel[1] = (byte)(iconG * alpha + destPixel[1] * (1 - alpha));
-                        destPixel[2] = (byte)(iconR * alpha + destPixel[2] * (1 - alpha));
-                        destPixel[3] = 255;
-                    }
-                }
-            }
+            RenderSprite(pBackBuffer, stride, icon, destX, destY, iconDisplaySize, iconDisplaySize);
         }
 
         private unsafe void RenderStructure(IntPtr pBackBuffer, int stride, int tileX, int tileY, Structure structure)
         {
-            Color color = GetPlayerColor(structure.OwnerId);
+            string structureType = structure is City ? "City" : "Base";
+            Color playerColor = GetPlayerColor(structure.OwnerId);
 
-            int margin = (int)(2 * iconScale);
-            int startX = tileX * tileSize + margin;
-            int startY = tileY * tileSize + margin;
-            int size = tileSize - margin * 2;
-
-            for (int py = 0; py < size; py++)
+            BitmapSource sprite = null;
+            if (structureSprites.ContainsKey(structureType))
             {
-                for (int px = 0; px < size; px++)
+                sprite = structureSprites[structureType];
+            }
+
+            if (sprite != null)
+            {
+                // Draw colored circle background to indicate owner
+                DrawColorRing(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, playerColor);
+
+                // Render sprite centered on tile, scaled to fit (slightly smaller to show colored ring)
+                int spriteSize = tileSize - 8; // Leave more margin to show colored background
+                int offsetX = 4;
+                int offsetY = 4;
+                int destX = tileX * tileSize + offsetX;
+                int destY = tileY * tileSize + offsetY;
+
+                RenderSprite(pBackBuffer, stride, sprite, destX, destY, spriteSize, spriteSize);
+            }
+            else
+            {
+                // Simple fallback - colored square
+                int margin = (int)(2 * iconScale);
+                int startX = tileX * tileSize + margin;
+                int startY = tileY * tileSize + margin;
+                int size = tileSize - margin * 2;
+
+                for (int py = 0; py < size; py++)
                 {
-                    int screenX = startX + px;
-                    int screenY = startY + py;
+                    for (int px = 0; px < size; px++)
+                    {
+                        int screenX = startX + px;
+                        int screenY = startY + py;
 
-                    byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
-                    pixel[0] = color.B;
-                    pixel[1] = color.G;
-                    pixel[2] = color.R;
-                    pixel[3] = 255;
+                        byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                        pixel[0] = playerColor.B;
+                        pixel[1] = playerColor.G;
+                        pixel[2] = playerColor.R;
+                        pixel[3] = 255;
+                    }
                 }
-            }
-
-            if (structure is Base)
-            {
-                DrawBaseIcon(pBackBuffer, stride, tileX * tileSize, tileY * tileSize);
-            }
-            else if (structure is City)
-            {
-                DrawCityIcon(pBackBuffer, stride, tileX * tileSize, tileY * tileSize);
             }
         }
 
@@ -305,448 +463,161 @@ namespace EmpireGame
                 return;
             }
 
-            Color color = GetPlayerColor(unit.OwnerId);
+            // Check if this is a satellite (satellites don't have player-specific colors)
+            string unitTypeName = unit.GetType().Name;
+            if (unitTypeName == "OrbitingSatellite" || unitTypeName == "GeosynchronousSatellite")
+            {
+                BitmapSource satelliteSprite = unitTypeName == "OrbitingSatellite" ? orbitingSatelliteSprite : geosynchronousSatelliteSprite;
+                
+                if (satelliteSprite != null)
+                {
+                    int spriteSize = tileSize - 4;
+                    int offsetX = 2;
+                    int offsetY = 2;
+                    int destX = tileX * tileSize + offsetX;
+                    int destY = tileY * tileSize + offsetY;
 
-            // Draw background shape
-            if (unit is AirUnit)
-            {
-                DrawTriangle(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, color);
+                    RenderSprite(pBackBuffer, stride, satelliteSprite, destX, destY, spriteSize, spriteSize);
+                    return;
+                }
             }
-            else if (unit is SeaUnit)
+
+            string unitType = GetUnitTypeName(unit, currentPlayer);
+            Color playerColor = GetPlayerColor(unit.OwnerId);
+            bool isVeteran = unit.IsVeteran;
+
+            // Select the appropriate sprite based on veteran status
+            BitmapSource sprite = null;
+            if (isVeteran && veteranSprites.ContainsKey(unitType))
             {
-                DrawDiamond(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, color);
+                sprite = veteranSprites[unitType];
+            }
+            else if (unitSprites.ContainsKey(unitType))
+            {
+                sprite = unitSprites[unitType];
+            }
+
+            if (sprite != null)
+            {
+                // Draw colored circle background to indicate owner
+                DrawColorRing(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, playerColor);
+
+                // Render sprite centered on tile, scaled to fit (slightly smaller to show colored ring)
+                int spriteSize = tileSize - 8; // Leave more margin to show colored background
+                int offsetX = 4;
+                int offsetY = 4;
+                int destX = tileX * tileSize + offsetX;
+                int destY = tileY * tileSize + offsetY;
+
+                RenderSprite(pBackBuffer, stride, sprite, destX, destY, spriteSize, spriteSize);
             }
             else
             {
-                DrawCircle(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, color);
+                // Simple fallback - draw basic shape based on unit type
+                if (unit is AirUnit)
+                {
+                    DrawTriangle(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, playerColor);
+                }
+                else if (unit is SeaUnit)
+                {
+                    DrawDiamond(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, playerColor);
+                }
+                else
+                {
+                    DrawCircle(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, playerColor);
+                }
             }
+        }
 
-            // Draw the unit-specific icon
-            int startX = tileX * tileSize;
-            int startY = tileY * tileSize;
-
+        private string GetUnitTypeName(Unit unit, Player currentPlayer)
+        {
             // Check if spy is disguised
             if (unit is Spy spy && !spy.IsRevealed && unit.OwnerId != currentPlayer.PlayerId)
             {
-                DrawArmyIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
+                return "Army";
             }
-            else if (unit is Army)
-            {
-                DrawArmyIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Tank)
-            {
-                DrawTankIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Artillery)
-            {
-                DrawArtilleryIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is AntiAircraft)
-            {
-                DrawAntiAircraftIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Fighter)
-            {
-                DrawFighterIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Bomber)
-            {
-                DrawBomberIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Tanker)
-            {
-                DrawTankerIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Carrier)
-            {
-                DrawCarrierIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Battleship)
-            {
-                DrawBattleshipIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Destroyer)
-            {
-                DrawDestroyerIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Submarine)
-            {
-                DrawSubmarineIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is PatrolBoat)
-            {
-                DrawPatrolBoatIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Transport)
-            {
-                DrawTransportIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
-            else if (unit is Spy)
-            {
-                DrawSpyIcon(pBackBuffer, stride, startX, startY, unit.IsVeteran);
-            }
+
+            return unit.GetType().Name;
         }
 
-        // Icon drawing methods for each unit type
-
-        private unsafe void DrawArmyIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
+        private unsafe void RenderSprite(IntPtr pBackBuffer, int stride, BitmapSource sprite, int destX, int destY, int renderWidth, int renderHeight)
         {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale); // Scale factor, minimum 1
+            if (sprite == null)
+                return;
 
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Head (circle) - scaled
-            for (int dy = -s; dy <= s; dy++)
+            // Convert sprite to Bgra32 format if needed
+            BitmapSource convertedSprite = sprite;
+            if (sprite.Format != PixelFormats.Bgra32)
             {
-                for (int dx = -s; dx <= s; dx++)
+                convertedSprite = new FormatConvertedBitmap(sprite, PixelFormats.Bgra32, null, 0);
+            }
+
+            int spriteWidth = convertedSprite.PixelWidth;
+            int spriteHeight = convertedSprite.PixelHeight;
+
+            // Get sprite pixel data
+            int spriteStride = spriteWidth * 4;
+            byte[] spritePixels = new byte[spriteStride * spriteHeight];
+            convertedSprite.CopyPixels(spritePixels, spriteStride, 0);
+
+            // Calculate scale factors for resizing
+            float scaleX = (float)spriteWidth / renderWidth;
+            float scaleY = (float)spriteHeight / renderHeight;
+
+            // Copy sprite pixels to the main bitmap with scaling and alpha blending
+            for (int y = 0; y < renderHeight; y++)
+            {
+                for (int x = 0; x < renderWidth; x++)
                 {
-                    if (dx * dx + dy * dy <= s * s)
-                        DrawPixel(pBackBuffer, stride, cx + dx, cy - 3 * s + dy, color);
+                    int screenX = destX + x;
+                    int screenY = destY + y;
+
+                    // Check bounds
+                    if (screenX < 0 || screenX >= bitmap.PixelWidth ||
+                        screenY < 0 || screenY >= bitmap.PixelHeight)
+                        continue;
+
+                    // Sample from sprite with scaling (nearest neighbor)
+                    int srcX = (int)(x * scaleX);
+                    int srcY = (int)(y * scaleY);
+
+                    // Clamp to sprite bounds
+                    srcX = Math.Min(srcX, spriteWidth - 1);
+                    srcY = Math.Min(srcY, spriteHeight - 1);
+
+                    // Get sprite pixel
+                    int spriteOffset = srcY * spriteStride + srcX * 4;
+                    byte spriteB = spritePixels[spriteOffset];
+                    byte spriteG = spritePixels[spriteOffset + 1];
+                    byte spriteR = spritePixels[spriteOffset + 2];
+                    byte spriteA = spritePixels[spriteOffset + 3];
+
+                    // Skip fully transparent pixels
+                    if (spriteA == 0)
+                        continue;
+
+                    // Write to destination with alpha blending
+                    byte* destPixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+
+                    if (spriteA == 255)
+                    {
+                        // Fully opaque - just copy
+                        destPixel[0] = spriteB;
+                        destPixel[1] = spriteG;
+                        destPixel[2] = spriteR;
+                        destPixel[3] = 255;
+                    }
+                    else
+                    {
+                        // Alpha blend
+                        float alpha = spriteA / 255.0f;
+                        destPixel[0] = (byte)(spriteB * alpha + destPixel[0] * (1 - alpha));
+                        destPixel[1] = (byte)(spriteG * alpha + destPixel[1] * (1 - alpha));
+                        destPixel[2] = (byte)(spriteR * alpha + destPixel[2] * (1 - alpha));
+                        destPixel[3] = 255;
+                    }
                 }
             }
-
-            // Body (vertical line) - scaled
-            for (int i = -2 * s; i <= 2 * s; i++)
-                DrawPixel(pBackBuffer, stride, cx, cy + i, color);
-
-            // Arms (horizontal line) - scaled
-            for (int x = -2 * s; x <= 2 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy - s, color);
-
-            // Legs - scaled
-            for (int i = 0; i <= s; i++)
-            {
-                DrawPixel(pBackBuffer, stride, cx - s, cy + 3 * s + i, color);
-                DrawPixel(pBackBuffer, stride, cx + s, cy + 3 * s + i, color);
-            }
-        }
-
-        private unsafe void DrawTankIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Body (rectangle) - scaled
-            for (int x = -3 * s; x <= 3 * s; x++)
-            {
-                for (int y = -s; y <= 2 * s; y++)
-                {
-                    DrawPixel(pBackBuffer, stride, cx + x, cy + y, color);
-                }
-            }
-
-            // Barrel (extending right) - scaled
-            for (int x = 3 * s; x <= 5 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-        }
-
-        private unsafe void DrawArtilleryIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Barrel (angled line) - scaled
-            for (int i = 0; i <= 4 * s; i++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + i / s, cy - i / s, color);
-            }
-
-            // Wheels - scaled
-            for (int i = 0; i <= s; i++)
-            {
-                DrawPixel(pBackBuffer, stride, cx - 2 * s + i, cy + 2 * s, color);
-                DrawPixel(pBackBuffer, stride, cx + 2 * s + i, cy + 2 * s, color);
-            }
-        }
-
-        private unsafe void DrawAntiAircraftIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Barrel (vertical) - scaled
-            for (int y = -4 * s; y <= s; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-
-            // Base (horizontal) - scaled
-            for (int x = -2 * s; x <= 2 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy + 2 * s, color);
-        }
-
-        private unsafe void DrawFighterIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Fuselage (vertical) - scaled
-            for (int y = -4 * s; y <= 3 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-
-            // Wings (horizontal) - scaled
-            for (int x = -3 * s; x <= 3 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-
-            // Tail fins - scaled
-            DrawPixel(pBackBuffer, stride, cx - s, cy + 3 * s, color);
-            DrawPixel(pBackBuffer, stride, cx + s, cy + 3 * s, color);
-        }
-
-        private unsafe void DrawBomberIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Fuselage (thicker vertical) - scaled
-            for (int y = -3 * s; y <= 3 * s; y++)
-            {
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-                DrawPixel(pBackBuffer, stride, cx + s, cy + y, color);
-            }
-
-            // Wide wings - scaled
-            for (int x = -4 * s; x <= 4 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-        }
-
-        private unsafe void DrawTankerIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Fuselage - scaled
-            for (int y = -3 * s; y <= 3 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-
-            // Wings - scaled
-            for (int x = -3 * s; x <= 3 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-
-            // Fuel tanks under wings - scaled
-            for (int i = 0; i <= s; i++)
-            {
-                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy + s + i, color);
-                DrawPixel(pBackBuffer, stride, cx + 2 * s, cy + s + i, color);
-            }
-        }
-
-        private unsafe void DrawSubmarineIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Hull (horizontal oval) - scaled
-            for (int x = -4 * s; x <= 4 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-            }
-            for (int x = -3 * s; x <= 3 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy - s, color);
-                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
-            }
-
-            // Periscope - scaled
-            for (int y = -3 * s; y <= -2 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-        }
-
-        private unsafe void DrawDestroyerIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Hull - scaled
-            for (int x = -4 * s; x <= 3 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
-            }
-
-            // Bow (pointed) - scaled
-            DrawPixel(pBackBuffer, stride, cx + 4 * s, cy, color);
-
-            // Superstructure - scaled
-            for (int y = -s; y <= 0; y++)
-            {
-                DrawPixel(pBackBuffer, stride, cx - s, cy + y, color);
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-            }
-        }
-
-        private unsafe void DrawCarrierIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Deck (long flat rectangle) - scaled
-            for (int x = -5 * s; x <= 4 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy - s, color);
-                DrawPixel(pBackBuffer, stride, cx + x, cy, color);
-            }
-
-            // Island (small superstructure) - scaled
-            for (int y = -3 * s; y <= -2 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy + y, color);
-        }
-
-        private unsafe void DrawBattleshipIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Hull - scaled
-            for (int x = -4 * s; x <= 4 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
-            }
-
-            // Turrets (top) - scaled
-            for (int i = 0; i <= s; i++)
-            {
-                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy - s + i, color);
-                DrawPixel(pBackBuffer, stride, cx + 2 * s, cy - s + i, color);
-            }
-        }
-
-        private unsafe void DrawPatrolBoatIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Small hull - scaled
-            for (int x = -2 * s; x <= 2 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
-            }
-
-            // Cabin - scaled
-            for (int y = -s; y <= 0; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-        }
-
-        private unsafe void DrawTransportIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Hull - scaled
-            for (int x = -4 * s; x <= 3 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy + s, color);
-            }
-
-            // Cargo containers (boxes on deck) - scaled
-            for (int i = 0; i <= s; i++)
-            {
-                DrawPixel(pBackBuffer, stride, cx - 2 * s, cy - s + i, color);
-                DrawPixel(pBackBuffer, stride, cx + s, cy - s + i, color);
-            }
-        }
-
-        private unsafe void DrawSpyIcon(IntPtr pBackBuffer, int stride, int startX, int startY, bool isVeteran)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = isVeteran ? Colors.Yellow : Colors.White;
-
-            // Head with hat brim - scaled
-            for (int x = -2 * s; x <= 2 * s; x++)
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 3 * s, color);
-            DrawPixel(pBackBuffer, stride, cx, cy - 2 * s, color);
-
-            // Body (coat) - scaled
-            for (int y = -s; y <= 2 * s; y++)
-            {
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-                if (y >= 0)
-                {
-                    DrawPixel(pBackBuffer, stride, cx - s, cy + y, color);
-                    DrawPixel(pBackBuffer, stride, cx + s, cy + y, color);
-                }
-            }
-        }
-
-        private unsafe void DrawBaseIcon(IntPtr pBackBuffer, int stride, int startX, int startY)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = Colors.White;
-
-            // Pole - scaled
-            for (int y = -4 * s; y <= 3 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-
-            // Flag - scaled
-            for (int x = s; x <= 3 * s; x++)
-            {
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 3 * s, color);
-                DrawPixel(pBackBuffer, stride, cx + x, cy - 2 * s, color);
-            }
-        }
-
-        private unsafe void DrawCityIcon(IntPtr pBackBuffer, int stride, int startX, int startY)
-        {
-            int cx = startX + tileSize / 2;
-            int cy = startY + tileSize / 2;
-            int s = Math.Max(1, (int)iconScale);
-
-            Color color = Colors.White;
-
-            // Three buildings of different heights - scaled
-            // Left building
-            for (int y = 0; y <= 3 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx - 3 * s, cy + y, color);
-
-            // Middle building (tallest)
-            for (int y = -2 * s; y <= 3 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx, cy + y, color);
-
-            // Right building
-            for (int y = s; y <= 3 * s; y++)
-                DrawPixel(pBackBuffer, stride, cx + 3 * s, cy + y, color);
         }
 
         private unsafe void DrawPixel(IntPtr pBackBuffer, int stride, int x, int y, Color color)
@@ -761,13 +632,45 @@ namespace EmpireGame
             }
         }
 
-        // Keep all the existing helper methods (DrawCircle, DrawTriangle, DrawDiamond, etc.)
+        private unsafe void DrawColorRing(IntPtr pBackBuffer, int stride, int startX, int startY, Color color)
+        {
+            int centerX = startX + tileSize / 2;
+            int centerY = startY + tileSize / 2;
+            int outerRadius = (int)((tileSize / 2.0 - 1) * 0.95);
+            int innerRadius = outerRadius - 3; // Ring thickness of 3 pixels
+
+            for (int py = -outerRadius; py <= outerRadius; py++)
+            {
+                for (int px = -outerRadius; px <= outerRadius; px++)
+                {
+                    int distanceSquared = px * px + py * py;
+            
+                    // Check if pixel is within the ring (between inner and outer radius)
+                    if (distanceSquared <= outerRadius * outerRadius && 
+                        distanceSquared >= innerRadius * innerRadius)
+                    {
+                        int screenX = centerX + px;
+                        int screenY = centerY + py;
+
+                        if (screenX >= startX && screenX < startX + tileSize &&
+                            screenY >= startY && screenY < startY + tileSize)
+                        {
+                            byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                            pixel[0] = color.B;
+                            pixel[1] = color.G;
+                            pixel[2] = color.R;
+                            pixel[3] = 255;
+                        }
+                    }
+                }
+            }
+        }
 
         private unsafe void DrawCircle(IntPtr pBackBuffer, int stride, int startX, int startY, Color color)
         {
             int centerX = startX + tileSize / 2;
             int centerY = startY + tileSize / 2;
-            int radius = (int)((tileSize / 2.0 - 2) * 0.8); // Scale the radius
+            int radius = (int)((tileSize / 2.0 - 2) * 0.8);
 
             for (int py = -radius; py <= radius; py++)
             {
