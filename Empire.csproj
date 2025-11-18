@@ -23,6 +23,7 @@
     <None Remove="Resources\Empire_Icons\Units\GeosynchronousSatellite.png" />
     <None Remove="Resources\Empire_Icons\Units\OrbitingSatellite.png" />
     <None Remove="Resources\Empire_Icons\Units\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Units\Sapper.png" />
     <None Remove="Resources\Empire_Icons\Units\Spy.png" />
     <None Remove="Resources\Empire_Icons\Units\Submarine.png" />
     <None Remove="Resources\Empire_Icons\Units\Tank.png" />
@@ -39,6 +40,7 @@
     <None Remove="Resources\Empire_Icons\Veteran\GeosynchronousSatellite.png" />
     <None Remove="Resources\Empire_Icons\Veteran\OrbitingSatellite.png" />
     <None Remove="Resources\Empire_Icons\Veteran\PatrolBoat.png" />
+    <None Remove="Resources\Empire_Icons\Veteran\Sapper.png" />
     <None Remove="Resources\Empire_Icons\Veteran\Spy.png" />
     <None Remove="Resources\Empire_Icons\Veteran\Submarine.png" />
     <None Remove="Resources\Empire_Icons\Veteran\Tank.png" />
@@ -160,6 +162,9 @@
     <Content Include="Resources\Empire_Icons\Units\PatrolBoat.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\Empire_Icons\Units\Sapper.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Empire_Icons\Units\Spy.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -206,6 +211,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Empire_Icons\Veteran\PatrolBoat.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Veteran\Sapper.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Empire_Icons\Veteran\Spy.png">

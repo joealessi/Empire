@@ -2,9 +2,9 @@
 {
     public Tank()
     {
-        MaxMovementPoints = 2;
+        MaxMovementPoints = 3;
         MovementPoints = MaxMovementPoints;
-        MaxLife = 1;
+        MaxLife = 2;
         Life = MaxLife;
         Attack = 5;
         Defense = 3;

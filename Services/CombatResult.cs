@@ -7,6 +7,12 @@
     public bool AttackerWon { get; set; }
     public bool DefenderWon { get; set; }
     public bool AttackerEscaped { get; set; }
+    
+    public int AttackerInitialLife { get; set; }
+    public int DefenderInitialLife { get; set; }
+
+    public Structure DefendingStructure { get; set; }
+    public bool StructureDestroyed { get; set; }
 
     public CombatResult()
     {

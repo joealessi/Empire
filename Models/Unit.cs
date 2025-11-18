@@ -82,4 +82,16 @@
     {
         IsVeteran = true;
     }
+
+    public bool CanEnterEnemyStructure(Tile tile)
+    {
+        if (tile.Structure == null)
+            return true;
+    
+        // Can only enter enemy structures if they're destroyed
+        if (tile.Structure.OwnerId != OwnerId && tile.Structure.Life > 0)
+            return false;
+    
+        return true;
+    }
 }

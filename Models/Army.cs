@@ -2,9 +2,9 @@
 {
     public Army()
     {
-        MaxMovementPoints = 1;
+        MaxMovementPoints = 2;
         MovementPoints = MaxMovementPoints;
-        MaxLife = 1;
+        MaxLife = 2;
         Life = MaxLife;
         Attack = 1;
         Defense = 1;

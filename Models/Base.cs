@@ -37,12 +37,16 @@
     }
     
     public override char GetSymbol() => 'B';
-    public override string GetName() => "Base";
-    
+    public override string GetName()
+    {
+        if (!string.IsNullOrWhiteSpace(CustomName))
+            return CustomName;
+        return "Base";
+    }    
     public int GetDefenseBonus()
     {
         // Soldiers in barracks contribute to defense
-        int bonus = 0;
+        int bonus = 50;
         foreach (var army in Barracks)
         {
             bonus += army.Power / 2;

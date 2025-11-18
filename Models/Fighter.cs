@@ -4,7 +4,7 @@
     {
         MaxMovementPoints = 10;
         MovementPoints = MaxMovementPoints;
-        MaxLife = 1;
+        MaxLife = 2;
         Life = MaxLife;
         MaxFuel = 20;
         Fuel = MaxFuel;

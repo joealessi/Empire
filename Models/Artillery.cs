@@ -10,7 +10,7 @@
         Life = MaxLife;
         Attack = 8;
         Defense = 1;
-        AttackRange = 2; // Can attack from 2 tiles away
+        AttackRange = 4; // Can attack from 2 tiles away
     }
 
     public override bool CanMoveOn(TerrainType terrain)

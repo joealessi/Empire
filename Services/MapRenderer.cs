@@ -24,7 +24,7 @@ namespace EmpireGame
         // Unit sprite dictionaries (not player-specific)
         private Dictionary<string, BitmapSource> unitSprites = new Dictionary<string, BitmapSource>();
         private Dictionary<string, BitmapSource> veteranSprites = new Dictionary<string, BitmapSource>();
-        
+
         // Structure sprites
         private Dictionary<string, BitmapSource> structureSprites = new Dictionary<string, BitmapSource>();
 
@@ -50,7 +50,8 @@ namespace EmpireGame
             { "PatrolBoat", "PatrolBoat" },
             { "Transport", "PatrolBoat" },  // Use PatrolBoat icon as fallback for Transport
             { "City", "City" },
-            { "Base", "Base" }
+            { "Base", "Base" },
+            { "Sapper", "Sapper" }
         };
 
         // Color definitions for terrain
@@ -118,14 +119,14 @@ namespace EmpireGame
             if (Directory.Exists(unitsPath))
             {
                 System.Diagnostics.Debug.WriteLine($"Units folder exists: {unitsPath}");
-                
+
                 foreach (var kvp in IconFileNameMap)
                 {
                     string unitType = kvp.Key;
                     string fileName = kvp.Value;
 
                     string unitPath = Path.Combine(unitsPath, $"{fileName}.png");
-                    
+
                     if (File.Exists(unitPath))
                     {
                         try
@@ -160,14 +161,14 @@ namespace EmpireGame
             if (Directory.Exists(veteranPath))
             {
                 System.Diagnostics.Debug.WriteLine($"Veteran folder exists: {veteranPath}");
-                
+
                 foreach (var kvp in IconFileNameMap)
                 {
                     string unitType = kvp.Key;
                     string fileName = kvp.Value;
 
                     string vetPath = Path.Combine(veteranPath, $"{fileName}.png");
-                    
+
                     if (File.Exists(vetPath))
                     {
                         try
@@ -198,7 +199,7 @@ namespace EmpireGame
             foreach (string structureType in structureTypes)
             {
                 string structPath = Path.Combine(unitsPath, $"{structureType}.png");
-                
+
                 if (File.Exists(structPath))
                 {
                     try
@@ -383,6 +384,11 @@ namespace EmpireGame
             }
             else
                 DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
+
+            if (tile.HasBridge)
+            {
+                RenderBridge(pBackBuffer, stride, tileX, tileY);
+            }
         }
 
         private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
@@ -413,21 +419,67 @@ namespace EmpireGame
 
             if (sprite != null)
             {
-                // Draw colored circle background to indicate owner
+                // Draw colored circle background
                 DrawColorRing(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, playerColor);
 
-                // Render sprite centered on tile, scaled to fit (slightly smaller to show colored ring)
-                int spriteSize = tileSize - 8; // Leave more margin to show colored background
+                // Render sprite
+                int spriteSize = tileSize - 8;
                 int offsetX = 4;
                 int offsetY = 4;
                 int destX = tileX * tileSize + offsetX;
                 int destY = tileY * tileSize + offsetY;
 
                 RenderSprite(pBackBuffer, stride, sprite, destX, destY, spriteSize, spriteSize);
+
+                // Show damage indicator if structure is damaged
+                double lifePercent = structure.Life / (double)structure.MaxLife;
+                if (lifePercent < 1.0)
+                {
+                    // Draw damage bar at bottom of tile
+                    int barHeight = 4;
+                    int barWidth = tileSize - 8;
+                    int barX = tileX * tileSize + 4;
+                    int barY = tileY * tileSize + tileSize - barHeight - 2;
+
+                    // Background (red)
+                    for (int py = 0; py < barHeight; py++)
+                    {
+                        for (int px = 0; px < barWidth; px++)
+                        {
+                            int screenX = barX + px;
+                            int screenY = barY + py;
+
+                            byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                            pixel[0] = 0;   // B
+                            pixel[1] = 0;   // G
+                            pixel[2] = 128; // R
+                            pixel[3] = 255; // A
+                        }
+                    }
+
+                    // Foreground (green for life remaining)
+                    int lifeBarWidth = (int)(barWidth * lifePercent);
+                    Color lifeColor = lifePercent > 0.5 ? Color.FromRgb(0, 255, 0) : Color.FromRgb(255, 255, 0);
+
+                    for (int py = 0; py < barHeight; py++)
+                    {
+                        for (int px = 0; px < lifeBarWidth; px++)
+                        {
+                            int screenX = barX + px;
+                            int screenY = barY + py;
+
+                            byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                            pixel[0] = lifeColor.B;
+                            pixel[1] = lifeColor.G;
+                            pixel[2] = lifeColor.R;
+                            pixel[3] = 255;
+                        }
+                    }
+                }
             }
             else
             {
-                // Simple fallback - colored square
+                // Fallback rendering
                 int margin = (int)(2 * iconScale);
                 int startX = tileX * tileSize + margin;
                 int startY = tileY * tileSize + margin;
@@ -449,7 +501,6 @@ namespace EmpireGame
                 }
             }
         }
-
         private unsafe void RenderUnit(IntPtr pBackBuffer, int stride, int tileX, int tileY, Unit unit)
         {
             // Don't render enemy units in fog of war
@@ -468,7 +519,7 @@ namespace EmpireGame
             if (unitTypeName == "OrbitingSatellite" || unitTypeName == "GeosynchronousSatellite")
             {
                 BitmapSource satelliteSprite = unitTypeName == "OrbitingSatellite" ? orbitingSatelliteSprite : geosynchronousSatelliteSprite;
-                
+
                 if (satelliteSprite != null)
                 {
                     int spriteSize = tileSize - 4;
@@ -644,9 +695,9 @@ namespace EmpireGame
                 for (int px = -outerRadius; px <= outerRadius; px++)
                 {
                     int distanceSquared = px * px + py * py;
-            
+
                     // Check if pixel is within the ring (between inner and outer radius)
-                    if (distanceSquared <= outerRadius * outerRadius && 
+                    if (distanceSquared <= outerRadius * outerRadius &&
                         distanceSquared >= innerRadius * innerRadius)
                     {
                         int screenX = centerX + px;
@@ -843,6 +894,40 @@ namespace EmpireGame
                 return Colors.Gray;
 
             return PlayerColors[playerId];
+        }
+
+        private unsafe void RenderBridge(IntPtr pBackBuffer, int stride, int tileX, int tileY)
+        {
+            // Draw a brown bridge across the tile
+            Color bridgeColor = Color.FromRgb(139, 90, 43);
+            int startX = tileX * tileSize;
+            int startY = tileY * tileSize;
+
+            // Draw horizontal planks
+            int plankHeight = 3;
+            int spacing = tileSize / 4;
+
+            for (int p = 0; p < 4; p++)
+            {
+                int plankY = startY + (p * spacing);
+                for (int py = 0; py < plankHeight; py++)
+                {
+                    for (int px = 0; px < tileSize; px++)
+                    {
+                        int screenX = startX + px;
+                        int screenY = plankY + py;
+
+                        if (screenY >= startY && screenY < startY + tileSize)
+                        {
+                            byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                            pixel[0] = bridgeColor.B;
+                            pixel[1] = bridgeColor.G;
+                            pixel[2] = bridgeColor.R;
+                            pixel[3] = 255;
+                        }
+                    }
+                }
+            }
         }
     }
 }

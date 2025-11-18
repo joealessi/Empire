@@ -17,7 +17,7 @@
     
     public City()
     {
-        MaxLife = 40;
+        MaxLife = 100;
         Life = MaxLife;
         VisionRange = 4;
         ProductionPointsPerTurn = 8;
@@ -28,14 +28,19 @@
         Barracks = new List<Army>();
         UnitsBeingRepaired = new Dictionary<Unit, int>();
     }
-    
-    public override char GetSymbol() => 'I';
-    public override string GetName() => "City";
+
+    public override char GetSymbol() => 'C';
+    public override string GetName()
+    {
+        if (!string.IsNullOrWhiteSpace(CustomName))
+            return CustomName;
+        return "City";
+    }  
     
     public int GetDefenseBonus()
     {
         // Soldiers in barracks contribute to defense
-        int bonus = 0;
+        int bonus = 75;
         foreach (var army in Barracks)
         {
             bonus += army.Power / 2;
@@ -90,6 +95,10 @@
         {
             return false;
         }
+        else if (unitType == typeof(Sapper))
+{
+    return true; // No capacity limit for sappers
+}
     
         return true; // Other units have no capacity limit
     }

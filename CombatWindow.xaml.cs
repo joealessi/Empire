@@ -44,6 +44,10 @@ namespace EmpireGame
             combatResult = result;
             AttackerRetreated = false;
 
+            // Reset units to their initial life values for display
+            combatResult.Attacker.Life = combatResult.AttackerInitialLife;
+            combatResult.Defender.Life = combatResult.DefenderInitialLife;
+
             // Load unit icons
             LoadUnitIcon(AttackerIcon, combatResult.Attacker);
             LoadUnitIcon(DefenderIcon, combatResult.Defender);
@@ -51,11 +55,11 @@ namespace EmpireGame
             // Set up initial display with player identification
             AttackerName.Text = $"{GetPlayerName(combatResult.Attacker.OwnerId)} {combatResult.Attacker.GetName()}";
             DefenderName.Text = $"{GetPlayerName(combatResult.Defender.OwnerId)} {combatResult.Defender.GetName()}";
-            
+    
             // Color code the names by player
             AttackerName.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Attacker.OwnerId));
             DefenderName.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Defender.OwnerId));
-            
+    
             UpdateLifeDisplay(false); // Initial display without animation
 
             // Start combat animation

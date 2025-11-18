@@ -70,7 +70,7 @@
     public List<Tile> GetTilesInRadius(TilePosition center, int radius)
     {
         var tiles = new List<Tile>();
-        
+    
         for (int x = center.X - radius; x <= center.X + radius; x++)
         {
             for (int y = center.Y - radius; y <= center.Y + radius; y++)
@@ -78,7 +78,7 @@
                 var pos = new TilePosition(x, y);
                 if (IsValidPosition(pos))
                 {
-                    int distance = Math.Abs(x - center.X) + Math.Abs(y - center.Y);
+                    int distance = Math.Max(Math.Abs(x - center.X), Math.Abs(y - center.Y));
                     if (distance <= radius)
                     {
                         tiles.Add(GetTile(pos));
@@ -86,7 +86,7 @@
                 }
             }
         }
-        
+    
         return tiles;
     }
     

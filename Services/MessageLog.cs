@@ -12,7 +12,7 @@ namespace EmpireGame
         Combat,     // Orange text
         Movement,   // Cyan text
         Production, // Blue text
-        Enemy       // Bright red text
+        Critical       // Bright red text
     }
 
     public class GameMessage

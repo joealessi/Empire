@@ -48,7 +48,7 @@
                           FontSize="14"
                           Padding="5"
                           Margin="0,0,0,20"
-                          SelectedIndex="0">
+                          SelectedIndex="1">
                     <ComboBoxItem Content="Continents (Balanced)"/>
                     <ComboBoxItem Content="Pangea (One Supercontinent)"/>
                     <ComboBoxItem Content="Islands (Many Small)"/>
@@ -79,19 +79,132 @@
                            FontSize="14"
                            FontWeight="Bold"
                            Margin="0,0,0,5"/>
-                <ComboBox x:Name="OpponentsCombo"
-                          FontSize="14"
-                          Padding="5"
-                          Margin="0,0,0,20"
-                          SelectedIndex="0">
-                    <ComboBoxItem Content="1 Opponent"/>
-                    <ComboBoxItem Content="2 Opponents"/>
-                    <ComboBoxItem Content="3 Opponents"/>
-                    <ComboBoxItem Content="4 Opponents"/>
-                    <ComboBoxItem Content="5 Opponents"/>
-                    <ComboBoxItem Content="6 Opponents"/>
-                    <ComboBoxItem Content="7 Opponents"/>
+                <ComboBox x:Name="OpponentsCombo" SelectedIndex="3" SelectionChanged="OpponentsCombo_SelectionChanged">
+                    <ComboBoxItem>1 Opponent</ComboBoxItem>
+                    <ComboBoxItem>2 Opponents</ComboBoxItem>
+                    <ComboBoxItem>3 Opponents</ComboBoxItem>
+                    <ComboBoxItem>4 Opponents</ComboBoxItem>
+                    <ComboBoxItem>5 Opponents</ComboBoxItem>
+                    <ComboBoxItem>6 Opponents</ComboBoxItem>
+                    <ComboBoxItem>7 Opponents</ComboBoxItem>
                 </ComboBox>
+
+                <!-- AI Personalities Section -->
+                <TextBlock Text="AI Opponents:" FontSize="16" FontWeight="Bold" Margin="0,15,0,5"/>
+
+                <StackPanel x:Name="AIPersonalitiesPanel">
+                    <!-- AI 1 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 1:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI1PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- AI 2 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 2:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI2PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- AI 3 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 3:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI3PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- AI 4 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 4:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI4PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- AI 5 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 5:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI5PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- AI 6 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 6:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI6PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- AI 7 -->
+                    <Grid Margin="0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Opponent 7:" VerticalAlignment="Center" Grid.Column="0"/>
+                        <ComboBox x:Name="AI7PersonalityCombo" Grid.Column="1" Margin="5,0,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
 
                 <!-- Difficulty -->
                 <TextBlock Text="Difficulty:"

@@ -12,25 +12,35 @@ public class Game
     public Queue<AutomaticOrder> AutomaticOrdersQueue { get; set; }
     public Queue<string> ProductionMessages { get; set; }
 
+    public Queue<(int playerId, Structure structure)> CompletedBases { get; set; }
+    public Queue<(int playerId, TilePosition position)> CompletedBridges { get; set; }
+
     public bool HasSurrendered { get; set; }
 
     public Player CurrentPlayer => Players[CurrentPlayerIndex];
 
-    public Game(int mapWidth, int mapHeight, int playerCount, int startingGold = 10, int startingSteel = 0, int startingOil = 1)
+    public Game(int mapWidth, int mapHeight, int playerCount, int startingGold, int startingSteel, int startingOil)
     {
         Map = new Map(mapWidth, mapHeight);
         Players = new List<Player>();
 
+        // Create ONLY the requested number of players
         for (int i = 0; i < playerCount; i++)
         {
-            Players.Add(new Player(i, $"Player {i + 1}", i > 0, startingGold, startingSteel, startingOil));
+            bool isAI = (i > 0); // First player (index 0) is human
+            var player = new Player(i, $"Player {i}", isAI);
+            player.Gold = startingGold;
+            player.Steel = startingSteel;
+            player.Oil = startingOil;
+            Players.Add(player);
         }
 
         CurrentPlayerIndex = 0;
         TurnNumber = 1;
-
         AutomaticOrdersQueue = new Queue<AutomaticOrder>();
         ProductionMessages = new Queue<string>();
+        CompletedBases = new Queue<(int, Structure)>();
+        CompletedBridges = new Queue<(int, TilePosition)>();
     }
 
     public void NextTurn()
@@ -75,6 +85,9 @@ public class Game
 
                 // Process automated orders
                 ProcessUnitOrders(unit);
+
+                // Process sapper building projects
+                ProcessSapperBuilding(player);
             }
 
             // Remove crashed/dead units after fuel consumption
@@ -83,6 +96,9 @@ public class Game
             // Process production queues
             foreach (var structure in player.Structures)
             {
+                // Process structure healing
+                ProcessStructureHealing(player);
+
                 if (structure is Base baseStructure)
                 {
                     ProcessProduction(baseStructure, player);
@@ -1135,7 +1151,9 @@ public class Game
         {
             Attacker = attacker,
             Defender = defender,
-            AttackerOriginalPosition = attackerOriginalPosition
+            AttackerOriginalPosition = attackerOriginalPosition,
+            AttackerInitialLife = attacker.Life,
+            DefenderInitialLife = defender.Life
         };
 
         var random = new Random();
@@ -1226,6 +1244,53 @@ public class Game
         return result;
     }
 
+    public CombatResult AttackStructure(Unit attacker, Structure structure)
+    {
+        var result = new CombatResult
+        {
+            Attacker = attacker,
+            Defender = null,
+            DefendingStructure = structure,
+            Rounds = new List<CombatRound>()
+        };
+
+        var random = new Random();
+        int attackerPower = attacker.Attack;
+        int defenseBonus = structure.GetDefenseBonus();
+    
+        var round = new CombatRound();
+    
+        round.AttackerRoll = random.Next(1, 101);
+        round.AttackerScore = round.AttackerRoll + attackerPower;
+    
+        int structureDefense = (int)(defenseBonus * (structure.Life / (double)structure.MaxLife));
+        round.DefenderRoll = random.Next(1, 101);
+        round.DefenderScore = round.DefenderRoll + structureDefense;
+
+        if (round.AttackerScore > round.DefenderScore)
+        {
+            int damage = Math.Max(1, (round.AttackerScore - round.DefenderScore) / 10);
+            structure.Life = Math.Max(0, structure.Life - damage);
+            round.AttackerWon = true;
+        }
+        else
+        {
+            round.AttackerWon = false;
+        }
+
+        round.AttackerLifeAfter = attacker.Life;
+        round.DefenderLifeAfter = 0;
+
+        result.Rounds.Add(round);
+        result.AttackerWon = structure.Life <= 0;
+
+        if (structure.Life <= 0)
+        {
+            result.StructureDestroyed = true;
+        }
+
+        return result;
+    }
     private int GetAttackBonus(Unit attacker, Unit defender)
     {
         int bonus = 0;
@@ -1280,4 +1345,174 @@ public class Game
             _ => 0
         };
     }
+
+    public bool IsPlayerEliminated(Player player)
+    {
+        // Count units on the map
+        int unitsOnMap = player.Units.Count;
+
+        // Count units in storage at structures
+        int unitsInStorage = 0;
+        foreach (var structure in player.Structures)
+        {
+            if (structure is Base baseStructure)
+            {
+                unitsInStorage += baseStructure.Airport.Count;
+                unitsInStorage += baseStructure.Barracks.Count;
+                unitsInStorage += baseStructure.MotorPool.Count;
+                unitsInStorage += baseStructure.Shipyard.Count;
+            }
+            else if (structure is City city)
+            {
+                unitsInStorage += city.Airport.Count;
+                unitsInStorage += city.Barracks.Count;
+                unitsInStorage += city.MotorPool.Count;
+            }
+        }
+
+        int totalUnits = unitsOnMap + unitsInStorage;
+
+        // A player is eliminated only if they have no structures AND no units anywhere
+        return player.Structures.Count == 0 && totalUnits == 0;
+    }
+
+    public void CheckForEliminatedPlayers()
+    {
+        // Don't check for elimination in the first few turns - players need time to establish
+        if (TurnNumber <= 3)
+            return;
+
+        foreach (var player in Players.ToList())
+        {
+            // Only check AI players for automatic elimination
+            if (player.IsAI && IsPlayerEliminated(player) && !player.HasBeenEliminated)
+            {
+                player.HasBeenEliminated = true;
+                ProductionMessages.Enqueue($"💀 {player.Name} has been eliminated from the game!");
+            }
+        }
+    }
+
+    public void ProcessSapperBuilding(Player player)
+    {
+        foreach (var unit in player.Units.OfType<Sapper>().ToList())
+        {
+            if (unit.IsBuildingBase || unit.IsBuildingBridge)
+            {
+                unit.ProgressBuild();
+
+                if (unit.IsBuildComplete())
+                {
+                    if (unit.IsBuildingBase)
+                    {
+                        CompleteBuildBase(unit, player);
+                    }
+                    else if (unit.IsBuildingBridge)
+                    {
+                        CompleteBuildBridge(unit, player);
+                    }
+                }
+            }
+        }
+    }
+
+    private void CompleteBuildBase(Sapper sapper, Player player)
+    {
+        var tile = Map.GetTile(sapper.BuildTarget);
+    
+        if (tile.Structure == null)
+        {
+            var newBase = CreateStructure(typeof(Base), sapper.BuildTarget, player.PlayerId) as Base;
+        
+            // Check if near coast for naval production
+            bool hasWater = HasAdjacentWater(sapper.BuildTarget);
+            newBase.CanProduceNaval = hasWater;
+            newBase.HasShipyard = hasWater;
+        
+            player.Structures.Add(newBase);
+            tile.Structure = newBase;
+            tile.OwnerId = player.PlayerId;
+        
+            // Queue the base for naming
+            CompletedBases.Enqueue((player.PlayerId, newBase));
+        
+            // Remove the sapper from the game (it's destroyed)
+            var sapperTile = Map.GetTile(sapper.Position);
+            sapperTile.Units.Remove(sapper);
+            player.Units.Remove(sapper);
+        }
+    
+        sapper.ResetBuild();
+    }
+
+    private void CompleteBuildBridge(Sapper sapper, Player player)
+    {
+        var tile = Map.GetTile(sapper.BuildTarget);
+        tile.HasBridge = true;
+    
+        // Queue the bridge for naming
+        CompletedBridges.Enqueue((player.PlayerId, sapper.BuildTarget));
+    
+        // Remove the sapper from the game (it's destroyed)
+        var sapperTile = Map.GetTile(sapper.Position);
+        sapperTile.Units.Remove(sapper);
+        player.Units.Remove(sapper);
+    
+        sapper.ResetBuild();
+    }
+
+    private bool HasAdjacentWater(TilePosition pos)
+    {
+        int[] dx = { -1, 0, 1, 0, -1, 1, -1, 1 };
+        int[] dy = { 0, 1, 0, -1, -1, -1, 1, 1 };
+
+        for (int i = 0; i < 8; i++)
+        {
+            var checkPos = new TilePosition(pos.X + dx[i], pos.Y + dy[i]);
+            if (Map.IsValidPosition(checkPos))
+            {
+                var tile = Map.GetTile(checkPos);
+                if (tile.Terrain == TerrainType.Ocean || tile.Terrain == TerrainType.CoastalWater)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public Unit GetBottomUnitInStack(TilePosition position)
+    {
+        var tile = Map.GetTile(position);
+        if (tile.Units.Count == 0)
+            return null;
+
+        // Sappers are always at the bottom (attacked last)
+        var sapper = tile.Units.FirstOrDefault(u => u is Sapper);
+        if (sapper != null)
+            return sapper;
+
+        // Otherwise return the first unit
+        return tile.Units.First();
+    }
+
+    private void ProcessStructureHealing(Player player)
+    {
+        foreach (var structure in player.Structures)
+        {
+            structure.TurnsSinceLastHeal++;
+
+            if (structure is Base && structure.TurnsSinceLastHeal >= 2 && structure.Life < structure.MaxLife)
+            {
+                structure.Heal(1);
+                structure.TurnsSinceLastHeal = 0;
+            }
+            else if (structure is City && structure.TurnsSinceLastHeal >= 2 && structure.Life < structure.MaxLife)
+            {
+                structure.Heal(2);
+                structure.TurnsSinceLastHeal = 0;
+            }
+        }
+    }
+
 }

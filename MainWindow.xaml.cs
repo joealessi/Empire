@@ -43,6 +43,8 @@ namespace EmpireGame
 
         private GameSettings gameSettings;
 
+        private bool isSelectingBridgeTarget;
+        private Sapper sapperForBridge;
 
         public MainWindow()
         {
@@ -79,6 +81,24 @@ namespace EmpireGame
             // Set player name
             game.Players[0].Name = gameSettings.CommanderName;
 
+            // Update AI players with their personalities (don't create new players!)
+            for (int i = 1; i < playerCount; i++)
+            {
+                var aiPlayer = game.Players[i]; // Use existing player
+
+                // Assign personality from settings
+                if (gameSettings.AIPersonalities != null && i - 1 < gameSettings.AIPersonalities.Count)
+                {
+                    aiPlayer.Personality = gameSettings.AIPersonalities[i - 1];
+                    aiPlayer.Name = aiPlayer.Personality.Name;
+                }
+                else
+                {
+                    aiPlayer.Personality = new AIPersonality($"AI Commander {i}", AIPlaystyle.Balanced);
+                    aiPlayer.Name = aiPlayer.Personality.Name;
+                }
+            }
+
             GenerateMap();
 
             mapRenderer = new MapRenderer(game, TILE_SIZE);
@@ -88,6 +108,17 @@ namespace EmpireGame
             foreach (var player in game.Players)
             {
                 player.UpdateVision(game.Map);
+            }
+
+            // Verify all players have structures
+            for (int i = 0; i < game.Players.Count; i++)
+            {
+                var p = game.Players[i];
+                System.Diagnostics.Debug.WriteLine($"Player {i} ({p.Name}): {p.Structures.Count} structures, {p.Units.Count} units");
+                foreach (var structure in p.Structures)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  - {structure.GetName()} at ({structure.Position.X}, {structure.Position.Y})");
+                }
             }
 
             EndTurnButton.ApplyTemplate();
@@ -671,7 +702,6 @@ namespace EmpireGame
 
         private void GenerateContinent(TilePosition center, int size, Random rand)
         {
-            // Use a growth algorithm to create organic-looking continents
             Queue<TilePosition> frontier = new Queue<TilePosition>();
             HashSet<TilePosition> visited = new HashSet<TilePosition>();
 
@@ -679,6 +709,13 @@ namespace EmpireGame
             visited.Add(center);
 
             int tilesPlaced = 0;
+
+            // Add directional bias for more interesting shapes
+            double[] directionBias = new double[8];
+            for (int i = 0; i < 8; i++)
+            {
+                directionBias[i] = 0.5 + rand.NextDouble() * 0.5;
+            }
 
             while (frontier.Count > 0 && tilesPlaced < size)
             {
@@ -690,31 +727,58 @@ namespace EmpireGame
                     tile.Terrain = TerrainType.Land;
                     tilesPlaced++;
 
-                    // Add neighbors with probability that decreases with distance from center
                     int distanceFromCenter = Math.Abs(current.X - center.X) + Math.Abs(current.Y - center.Y);
-                    double probability = 1.0 - (distanceFromCenter / (size / 10.0));
-                    probability = Math.Max(0.3, Math.Min(0.95, probability));
 
-                    // Check all four neighbors
-                    int[] dx = { -1, 0, 1, 0 };
-                    int[] dy = { 0, 1, 0, -1 };
+                    // Base probability that varies more dramatically
+                    double baseProbability = 1.0 - Math.Pow(distanceFromCenter / (size / 8.0), 1.5);
+                    baseProbability = Math.Max(0.15, Math.Min(0.95, baseProbability));
 
-                    for (int i = 0; i < 4; i++)
+                    // Add noise to probability for irregular coastlines
+                    double noiseFactor = (rand.NextDouble() - 0.5) * 0.4;
+
+                    // Use 8 directions instead of 4 for more organic shapes
+                    int[] dx = { -1, 0, 1, 0, -1, 1, -1, 1 };
+                    int[] dy = { 0, 1, 0, -1, -1, -1, 1, 1 };
+
+                    for (int i = 0; i < 8; i++)
                     {
                         var neighborPos = new TilePosition(current.X + dx[i], current.Y + dy[i]);
 
-                        if (game.Map.IsValidPosition(neighborPos) &&
-                            !visited.Contains(neighborPos) &&
-                            rand.NextDouble() < probability)
+                        if (game.Map.IsValidPosition(neighborPos) && !visited.Contains(neighborPos))
                         {
-                            visited.Add(neighborPos);
-                            frontier.Enqueue(neighborPos);
+                            // Apply directional bias and noise for irregular shapes
+                            double adjustedProbability = baseProbability * directionBias[i] + noiseFactor;
+
+                            // Occasionally create tendrils reaching out
+                            if (rand.NextDouble() < 0.05)
+                            {
+                                adjustedProbability += 0.3;
+                            }
+
+                            // Diagonal tiles are slightly less likely (creates more jagged coastlines)
+                            if (i >= 4)
+                            {
+                                adjustedProbability *= 0.85;
+                            }
+
+                            adjustedProbability = Math.Max(0.05, Math.Min(0.98, adjustedProbability));
+
+                            if (rand.NextDouble() < adjustedProbability)
+                            {
+                                visited.Add(neighborPos);
+                                frontier.Enqueue(neighborPos);
+
+                                // Randomly update direction bias to create changing coastline character
+                                if (rand.NextDouble() < 0.1)
+                                {
+                                    directionBias[i] *= (0.7 + rand.NextDouble() * 0.6);
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-
         private void SmoothMap()
         {
             // Remove single-tile islands and fill single-tile lakes
@@ -879,16 +943,16 @@ namespace EmpireGame
                     startPos = FindAnyLandPosition(rand);
                 }
 
-                // Create starting base
-                var baseStructure = (Base)game.CreateStructure(typeof(Base), startPos, i);
+                // Create starting City
+                var cityStructure = (City)game.CreateStructure(typeof(City), startPos, i);
 
                 // Check if near coast for naval production and shipyard
                 bool hasWater = HasAdjacentWater(startPos);
-                baseStructure.CanProduceNaval = hasWater;
-                baseStructure.HasShipyard = hasWater;
+                //cityStructure.CanProduceNaval = hasWater;
+                //cityStructure.HasShipyard = hasWater;
 
-                game.Players[i].Structures.Add(baseStructure);
-                game.Map.GetTile(startPos).Structure = baseStructure;
+                game.Players[i].Structures.Add(cityStructure);
+                game.Map.GetTile(startPos).Structure = cityStructure;
                 game.Map.GetTile(startPos).OwnerId = i;
 
                 // Add starting units around the base
@@ -1253,6 +1317,24 @@ namespace EmpireGame
                 return;
             }
 
+            if (isSelectingBridgeTarget && sapperForBridge != null)
+            {
+                if (sapperForBridge.CanBuildBridgeAt(tilePos, game.Map))
+                {
+                    sapperForBridge.StartBuildingBridge(tilePos);
+                    AddMessage($"Sapper began building a bridge. 1 turn remaining.", MessageType.Info);
+                    isSelectingBridgeTarget = false;
+                    sapperForBridge = null;
+                    SelectUnit(selectedUnit);
+                    RenderMap();
+                }
+                else
+                {
+                    AddMessage("Cannot build bridge here! Must be single-tile water with land on 2+ sides.", MessageType.Error);
+                }
+                return;
+            }
+
             // NEW: Handle patrol waypoint selection
             if (isSelectingPatrolWaypoints)
             {
@@ -1262,9 +1344,11 @@ namespace EmpireGame
 
             var tile = game.Map.GetTile(tilePos);
 
-            // Check for units at this position (exclude satellites - they're untouchable)
+            // Check for units at this position (exclude satellites and sappers - they're untouchable)
             var friendlyUnits = tile.Units
-                .Where(u => u.OwnerId == game.CurrentPlayer.PlayerId && !(u is Satellite))
+                .Where(u => u.OwnerId == game.CurrentPlayer.PlayerId &&
+                            !(u is Satellite) &&
+                            !(u is Sapper sapper && (sapper.IsBuildingBase || sapper.IsBuildingBridge)))
                 .ToList();
 
             if (friendlyUnits.Count > 1)
@@ -1461,7 +1545,7 @@ namespace EmpireGame
             // Issue move order
             MoveUnit(selectedUnit, tilePos);
         }
-
+        
         private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
         {
             // Could show hover information here
@@ -1554,6 +1638,39 @@ namespace EmpireGame
             {
                 UpdateSpyDisplay(spy);
             }
+            else if (unit is Sapper sapper)
+            {
+                BuildBaseButton.Visibility = Visibility.Visible;
+                BuildBridgeButton.Visibility = Visibility.Visible;
+
+                if (sapper.IsBuildingBase || sapper.IsBuildingBridge)
+                {
+                    CancelBuildButton.Visibility = Visibility.Visible;
+                    SapperBuildText.Visibility = Visibility.Visible;
+
+                    string buildType = sapper.IsBuildingBase ? "Base" : "Bridge";
+                    int turnsNeeded = sapper.IsBuildingBase ? 2 : 1;
+                    int turnsRemaining = turnsNeeded - sapper.BuildProgress;
+                    SapperBuildText.Text = $"🏗️ Building {buildType}: {turnsRemaining} turn(s) remaining";
+
+                    BuildBaseButton.IsEnabled = false;
+                    BuildBridgeButton.IsEnabled = false;
+                }
+                else
+                {
+                    CancelBuildButton.Visibility = Visibility.Collapsed;
+                    SapperBuildText.Visibility = Visibility.Collapsed;
+                    BuildBaseButton.IsEnabled = true;
+                    BuildBridgeButton.IsEnabled = true;
+                }
+            }
+            else
+            {
+                BuildBaseButton.Visibility = Visibility.Collapsed;
+                BuildBridgeButton.Visibility = Visibility.Collapsed;
+                CancelBuildButton.Visibility = Visibility.Collapsed;
+                SapperBuildText.Visibility = Visibility.Collapsed;
+            }
 
             // Show/Hide state buttons based on unit state
             if (selectedUnit.IsAsleep)
@@ -1584,6 +1701,15 @@ namespace EmpireGame
 
             StructureNameText.Text = structure.GetName();
             StructureLifeText.Text = $"Life: {structure.Life}/{structure.MaxLife}";
+    
+            // Color code life based on percentage
+            double lifePercent = (double)structure.Life / structure.MaxLife;
+            if (lifePercent > 0.7)
+                StructureLifeText.Foreground = System.Windows.Media.Brushes.LimeGreen;
+            else if (lifePercent > 0.4)
+                StructureLifeText.Foreground = System.Windows.Media.Brushes.Orange;
+            else
+                StructureLifeText.Foreground = System.Windows.Media.Brushes.Red;
 
             if (structure is Base baseStructure)
             {
@@ -2384,6 +2510,7 @@ namespace EmpireGame
             AddUnit("Army", typeof(Army), 2, 0, 0);
             AddUnit("Tank", typeof(Tank), 2, 1, 0);
             AddUnit("Artillery", typeof(Artillery), 2, 1, 0);
+            AddUnit("Sapper", typeof(Sapper), 2, 1, 0);
             AddUnit("Anti-Aircraft", typeof(AntiAircraft), 2, 1, 0);
             AddUnit("Spy", typeof(Spy), 3, 0, 0);
             AddUnit("Fighter", typeof(Fighter), 3, 1, 1);
@@ -2449,9 +2576,16 @@ namespace EmpireGame
                 if (combatWindow.AttackerRetreated)
                 {
                     // Attacker retreated - stays in original position with reduced health
-                    // Unit is already in original position, just need to update display
                     SelectUnit(unit);
-                    AddMessage($"{unit.GetName()} retreated from combat with {enemyUnit.GetName()}!");
+
+                    string unitName = unit.GetName().ToLower();
+                    string enemyName = enemyUnit.GetName().ToLower();
+                    if (unit.IsVeteran)
+                        unitName = "veteran " + unitName;
+                    if (enemyUnit.IsVeteran)
+                        enemyName = "veteran " + enemyName;
+
+                    AddMessage($"Your {unitName} retreated from combat with {enemyName}!");
                 }
                 else if (combatResult.AttackerWon)
                 {
@@ -2465,17 +2599,49 @@ namespace EmpireGame
                     if (defender != null)
                     {
                         defender.Units.Remove(enemyUnit);
+                        defender.RecordUnitLoss(unit.OwnerId);
                     }
+
+                    // Track kill for human player
+                    game.CurrentPlayer.RecordEnemyKill();
 
                     // Move attacker to destination
                     unit.Position = destination;
                     destinationTile.Units.Add(unit);
                     destinationTile.OwnerId = unit.OwnerId;
 
-                    unit.MovementPoints = 0; // Used all movement in combat
+                    // Check for structure capture
+                    if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
+                    {
+                        var capturedStructure = destinationTile.Structure;
+                        var oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
+                        if (oldOwner != null)
+                        {
+                            oldOwner.RecordStructureLoss(capturedStructure);
+                            oldOwner.Structures.Remove(capturedStructure);
+                            AddMessage($"⚠️ {oldOwner.Name} lost {capturedStructure.GetName()}!", MessageType.Warning);
+                        }
+
+                        capturedStructure.OwnerId = unit.OwnerId;
+                        game.CurrentPlayer.Structures.Add(capturedStructure);
+                        game.CurrentPlayer.RecordStructureCapture();
+                        AddMessage($"🏆 You captured {capturedStructure.GetName()}!", MessageType.Success);
+                    }
+
+                    unit.MovementPoints = 0;
 
                     SelectUnit(unit);
-                    AddMessage($"{unit.GetName()} defeated {enemyUnit.GetName()}!");
+
+                    string unitName = unit.GetName().ToLower();
+                    string enemyName = enemyUnit.GetName().ToLower();
+                    string defenderName = defender?.Name ?? "Enemy";
+
+                    if (unit.IsVeteran)
+                        unitName = "veteran " + unitName;
+                    if (enemyUnit.IsVeteran)
+                        enemyName = "veteran " + enemyName;
+
+                    AddMessage($"⚔️ {defenderName}'s {enemyName} was defeated by your {unitName}!", MessageType.Combat);
 
                     // Check if defender was in a structure's storage
                     if (enemyUnit is AirUnit defeatedAirUnit && defeatedAirUnit.HomeBaseId != -1)
@@ -2497,10 +2663,22 @@ namespace EmpireGame
                     var startTile = game.Map.GetTile(unit.Position);
                     startTile.Units.Remove(unit);
                     game.CurrentPlayer.Units.Remove(unit);
+                    game.CurrentPlayer.RecordUnitLoss(enemyUnit.OwnerId);
 
                     selectedUnit = null;
                     SelectUnit(null);
-                    AddMessage($"{enemyUnit.GetName()} defeated {unit.GetName()}!");
+
+                    string unitName = unit.GetName().ToLower();
+                    string enemyName = enemyUnit.GetName().ToLower();
+                    var enemyOwner = game.Players.FirstOrDefault(p => p.PlayerId == enemyUnit.OwnerId);
+                    string enemyOwnerName = enemyOwner?.Name ?? "Enemy";
+
+                    if (unit.IsVeteran)
+                        unitName = "veteran " + unitName;
+                    if (enemyUnit.IsVeteran)
+                        enemyName = "veteran " + enemyName;
+
+                    AddMessage($"⚔️ Your {unitName} was defeated by {enemyOwnerName}'s {enemyName}!", MessageType.Combat);
 
                     // Check if attacker was in a structure's storage
                     if (unit is AirUnit defeatedAttackerAirUnit && defeatedAttackerAirUnit.HomeBaseId != -1)
@@ -2623,6 +2801,24 @@ namespace EmpireGame
             // Claim tile ownership
             destinationTile.OwnerId = unit.OwnerId;
 
+            // Check for structure capture on movement (no combat)
+            if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
+            {
+                var capturedStructure = destinationTile.Structure;
+                var oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
+                if (oldOwner != null)
+                {
+                    oldOwner.RecordStructureLoss(capturedStructure);
+                    oldOwner.Structures.Remove(capturedStructure);
+                    AddMessage($"⚠️ {oldOwner.Name} lost {capturedStructure.GetName()}!", MessageType.Warning);
+                }
+
+                capturedStructure.OwnerId = unit.OwnerId;
+                game.CurrentPlayer.Structures.Add(capturedStructure);
+                game.CurrentPlayer.RecordStructureCapture();
+                AddMessage($"🏰 You captured {capturedStructure.GetName()}!", MessageType.Success);
+            }
+
             SelectUnit(unit);
             game.CurrentPlayer.UpdateVision(game.Map);
             RenderMap();
@@ -2643,9 +2839,6 @@ namespace EmpireGame
                 await Task.Delay(150); // 150ms between steps
             }
         }
-
-        // PART 3: UPDATED
-        // METHOD - Replace your entire method with this:
 
         private void ShowUnitStackSelection(List<Unit> units, TilePosition position)
         {
@@ -3000,10 +3193,12 @@ namespace EmpireGame
             }
         }
 
-
         private void AttackButton_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Attack not yet implemented");
+            if (selectedUnit != null && selectedUnit.MovementPoints > 0 && selectedUnit.Attack > 0)
+            {
+                AddMessage("Right-click on an enemy unit to attack.", MessageType.Info);
+            }
         }
 
         private void BuildUnitButton_Click(object sender, RoutedEventArgs e)
@@ -3096,6 +3291,16 @@ namespace EmpireGame
 
             game.NextTurn();
 
+            // Update statistics for human player
+            var humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
+            if (humanPlayer != null)
+            {
+                humanPlayer.UpdateStatistics(game.Map);
+            }
+
+            // Check for game over
+            CheckForGameOver();
+
             // Display any production messages
             while (game.ProductionMessages.Count > 0)
             {
@@ -3107,6 +3312,7 @@ namespace EmpireGame
 
             if (!game.CurrentPlayer.IsAI)
             {
+                // Process automatic orders at the start of human turn
                 await ProcessAutomaticOrdersWithVisuals();
             }
 
@@ -3122,8 +3328,11 @@ namespace EmpireGame
 
                 await Task.Delay(300);
 
-                // Execute AI turn (no rendering)
-                aiController.ExecuteAITurn(game.CurrentPlayer);
+                // Execute AI turn with message callback
+                aiController.ExecuteAITurn(game.CurrentPlayer, (message, type) =>
+                {
+                    AddMessage(message, type);
+                });
 
                 game.NextTurn();
 
@@ -3139,53 +3348,39 @@ namespace EmpireGame
                 {
                     var unplacedGeosync = game.CurrentPlayer.Units
                         .OfType<GeosynchronousSatellite>()
-                        .FirstOrDefault(s => s.Position.X == -1 || s.Position.Y == -1);
+                        .Where(s => s.Position.X == -1 && s.Position.Y == -1)
+                        .ToList();
 
-                    if (unplacedGeosync != null)
+                    foreach (var satellite in unplacedGeosync)
                     {
-                        // Place at AI's first base/city
-                        var aiStructure = game.CurrentPlayer.Structures.FirstOrDefault();
-                        if (aiStructure != null)
-                        {
-                            unplacedGeosync.Position = aiStructure.Position;
-                            var tile = game.Map.GetTile(aiStructure.Position);
-                            tile.Units.Add(unplacedGeosync);
-                        }
+                        var randomPos = new TilePosition(
+                            new Random().Next(0, game.Map.Width),
+                            new Random().Next(0, game.Map.Height));
+
+                        satellite.Position = randomPos;
+                        var tile = game.Map.GetTile(randomPos);
+                        tile.Units.Add(satellite);
                     }
                 }
-
-                if (!game.CurrentPlayer.IsAI)
-                {
-                    await ProcessAutomaticOrdersWithVisuals();
-                }
-
-                UpdateEndTurnButtonImage();
             }
 
-            // AI turns complete - now render once for human player
-            AIThinkingPanel.Visibility = Visibility.Collapsed;
-
-            // ADD THIS CHECK HERE - AFTER AI LOOP, WHEN IT'S HUMAN'S TURN AGAIN
-            if (!game.CurrentPlayer.IsAI)
+            // AFTER all AI turns complete, process human automatic orders again
+            if (!game.CurrentPlayer.IsAI && game.AutomaticOrdersQueue.Count > 0)
             {
-                var unplacedGeosync = game.CurrentPlayer.Units
-                    .OfType<GeosynchronousSatellite>()
-                    .FirstOrDefault(s => s.Position.X == -1 || s.Position.Y == -1);
-
-                if (unplacedGeosync != null)
-                {
-                    isSelectingGeosyncLocation = true;
-                    geosyncToPlace = unplacedGeosync;
-                    AddMessage("🛰️ Geosynchronous Satellite ready! Click on map to deploy.", MessageType.Info);
-                    MapCanvas.Cursor = Cursors.Cross;
-                }
+                await ProcessAutomaticOrdersWithVisuals();
             }
 
+            // Process completed builds and prompt for names
+            ProcessCompletedBuilds();
+
+            AIThinkingPanel.Visibility = Visibility.Collapsed;
             UpdateGameInfo();
-            RenderMap();
-            ClearSelection();
             UpdateNextButton();
+            UpdateEndTurnButtonImage();
             UpdateResourceDisplay();
+            RenderMap();
+
+            System.Diagnostics.Debug.WriteLine($"Turn {game.TurnNumber} - Current Player: {game.CurrentPlayer.Name} - Message Queue: {messageLog.GetMessages().Count}");
         }
 
         private void RenderMapFromHumanPerspective()
@@ -3711,9 +3906,21 @@ namespace EmpireGame
         }
 
 
-        private void AddMessage(string text, MessageType type = MessageType.Info)
+        private void AddMessage(string message, MessageType type = MessageType.Info)
         {
-            messageLog.AddMessage(text, type);
+            var brush = type switch
+            {
+                MessageType.Success => System.Windows.Media.Brushes.LimeGreen,
+                MessageType.Warning => System.Windows.Media.Brushes.Orange,
+                MessageType.Error => System.Windows.Media.Brushes.Red,
+                MessageType.Combat => System.Windows.Media.Brushes.Yellow,
+                MessageType.Critical => System.Windows.Media.Brushes.Magenta,
+                _ => System.Windows.Media.Brushes.White
+            };
+
+            messageLog.AddMessage(message, type);
+
+            // Update the UI display
             UpdateMessageLog();
         }
 
@@ -3794,6 +4001,376 @@ namespace EmpireGame
             {
                 OrbitType = orbitType;
             }
+        }
+
+        private void CheckForGameOver()
+        {
+            var humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
+            if (humanPlayer != null && game.IsPlayerEliminated(humanPlayer))
+            {
+                ShowGameOver(false);
+            }
+        }
+
+        private void ShowGameOver(bool victory)
+        {
+            var humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
+            if (humanPlayer != null)
+            {
+                humanPlayer.Statistics.TurnsSurvived = game.TurnNumber;
+                humanPlayer.Statistics.Victory = victory;
+
+                var gameOverWindow = new GameOverWindow(humanPlayer.Statistics);
+                gameOverWindow.Owner = this;
+                gameOverWindow.ShowDialog();
+
+                if (gameOverWindow.ReturnToMainMenu)
+                {
+                    // Return to main menu
+                    var startForm = new StartGameForm();
+                    if (startForm.ShowDialog() == true)
+                    {
+                        gameSettings = startForm.Settings;
+                        InitializeGame();
+                    }
+                    else
+                    {
+                        Application.Current.Shutdown();
+                    }
+                }
+                else
+                {
+                    Application.Current.Shutdown();
+                }
+            }
+        }
+        // Add this property near the top of your MainWindow class
+        private double messageLogFontSize = 12.0;
+        public double MessageLogFontSize
+        {
+            get { return messageLogFontSize; }
+            set
+            {
+                messageLogFontSize = value;
+                UpdateMessageLogFontSize();
+            }
+        }
+
+        // Add these button click handlers
+        private void IncreaseTextSizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (messageLogFontSize < 20)
+            {
+                messageLogFontSize += 1;
+                MessageTextSizeDisplay.Text = messageLogFontSize.ToString();
+                UpdateMessageLogFontSize();
+            }
+        }
+
+        private void DecreaseTextSizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (messageLogFontSize > 8)
+            {
+                messageLogFontSize -= 1;
+                MessageTextSizeDisplay.Text = messageLogFontSize.ToString();
+                UpdateMessageLogFontSize();
+            }
+        }
+
+        private void UpdateMessageLogFontSize()
+        {
+            if (MessageLogItems != null)
+            {
+                foreach (var item in MessageLogItems.Items)
+                {
+                    var container = MessageLogItems.ItemContainerGenerator.ContainerFromItem(item) as ContentPresenter;
+                    if (container != null)
+                    {
+                        var textBlock = FindVisualChild<TextBlock>(container);
+                        if (textBlock != null)
+                        {
+                            textBlock.FontSize = messageLogFontSize;
+                        }
+                    }
+                }
+
+                // Force refresh
+                MessageLogItems.Items.Refresh();
+            }
+        }
+
+        // Helper method to find visual children
+        private T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
+                    return typedChild;
+
+                var result = FindVisualChild<T>(child);
+                if (result != null)
+                    return result;
+            }
+            return null;
+        }
+        private void BuildBaseButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedUnit is Sapper sapper)
+            {
+                if (sapper.CanBuildBaseAt(sapper.Position, game.Map))
+                {
+                    sapper.StartBuildingBase(sapper.Position);
+                    AddMessage($"Sapper began building a base. 2 turns remaining.", MessageType.Info);
+                    SelectUnit(sapper);
+                    RenderMap();
+                }
+                else
+                {
+                    AddMessage("Cannot build base here! Must be on suitable land with no existing structure.", MessageType.Error);
+                }
+            }
+        }
+
+        private void BuildBridgeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedUnit is Sapper sapper)
+            {
+                // Let user click adjacent tile
+                AddMessage("Click an adjacent water tile to build a bridge.", MessageType.Info);
+                isSelectingBridgeTarget = true;
+                sapperForBridge = sapper;
+            }
+        }
+
+        private void CancelBuildButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedUnit is Sapper sapper)
+            {
+                sapper.ResetBuild();
+                AddMessage("Build project cancelled.", MessageType.Info);
+                SelectUnit(sapper);
+                RenderMap();
+            }
+        }
+        private void ProcessCompletedBuilds()
+        {
+            // Process completed bases
+            while (game.CompletedBases.Count > 0)
+            {
+                var (playerId, structure) = game.CompletedBases.Dequeue();
+
+                if (playerId == game.Players[0].PlayerId) // Human player
+                {
+                    string name = PromptForBaseName(structure.Position);
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        structure.CustomName = name;
+                        AddMessage($"🏗️ New base '{name}' completed at ({structure.Position.X}, {structure.Position.Y})!", MessageType.Success);
+                    }
+                    else
+                    {
+                        AddMessage($"🏗️ New base completed at ({structure.Position.X}, {structure.Position.Y})!", MessageType.Success);
+                    }
+                }
+                else
+                {
+                    // AI base - generate a simple name
+                    structure.CustomName = $"{game.Players[playerId].Name}'s Base {game.Players[playerId].Structures.Count(s => s is Base)}";
+                    AddMessage($"🏗️ {game.Players[playerId].Name} completed a new base!", MessageType.Info);
+                }
+            }
+
+            // Process completed bridges
+            while (game.CompletedBridges.Count > 0)
+            {
+                var (playerId, position) = game.CompletedBridges.Dequeue();
+
+                if (playerId == game.Players[0].PlayerId) // Human player
+                {
+                    string name = PromptForBridgeName(position);
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        var tile = game.Map.GetTile(position);
+                        tile.BridgeName = name;
+                        AddMessage($"🌉 Bridge '{name}' completed at ({position.X}, {position.Y})!", MessageType.Success);
+                    }
+                    else
+                    {
+                        AddMessage($"🌉 Bridge completed at ({position.X}, {position.Y})!", MessageType.Success);
+                    }
+                }
+                else
+                {
+                    AddMessage($"🌉 {game.Players[playerId].Name} completed a bridge!", MessageType.Info);
+                }
+            }
+        }
+
+        private string PromptForBaseName(TilePosition position)
+        {
+            var dialog = new Window
+            {
+                Title = "Name Your Base",
+                Width = 350,
+                Height = 180,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(26, 26, 46))
+            };
+
+            var stackPanel = new StackPanel { Margin = new Thickness(20) };
+
+            var label = new TextBlock
+            {
+                Text = $"Your Sapper has completed a new base at ({position.X}, {position.Y})!",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 15)
+            };
+            stackPanel.Children.Add(label);
+
+            var nameLabel = new TextBlock
+            {
+                Text = "Enter a name for this base:",
+                Foreground = System.Windows.Media.Brushes.White,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            stackPanel.Children.Add(nameLabel);
+
+            var textBox = new TextBox
+            {
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 15),
+                MaxLength = 30
+            };
+            stackPanel.Children.Add(textBox);
+
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                Width = 80,
+                Margin = new Thickness(0, 0, 10, 0),
+                IsDefault = true
+            };
+            okButton.Click += (s, e) =>
+            {
+                dialog.DialogResult = true;
+                dialog.Close();
+            };
+
+            var skipButton = new Button
+            {
+                Content = "Skip",
+                Width = 80
+            };
+            skipButton.Click += (s, e) =>
+            {
+                textBox.Text = "";
+                dialog.DialogResult = true;
+                dialog.Close();
+            };
+
+            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(skipButton);
+            stackPanel.Children.Add(buttonPanel);
+
+            dialog.Content = stackPanel;
+
+            textBox.Focus();
+            dialog.ShowDialog();
+
+            return textBox.Text.Trim();
+        }
+
+        private string PromptForBridgeName(TilePosition position)
+        {
+            var dialog = new Window
+            {
+                Title = "Name Your Bridge",
+                Width = 350,
+                Height = 180,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(26, 26, 46))
+            };
+
+            var stackPanel = new StackPanel { Margin = new Thickness(20) };
+
+            var label = new TextBlock
+            {
+                Text = $"Your Sapper has completed a bridge at ({position.X}, {position.Y})!",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 15)
+            };
+            stackPanel.Children.Add(label);
+
+            var nameLabel = new TextBlock
+            {
+                Text = "Enter a name for this bridge:",
+                Foreground = System.Windows.Media.Brushes.White,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            stackPanel.Children.Add(nameLabel);
+
+            var textBox = new TextBox
+            {
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 15),
+                MaxLength = 30
+            };
+            stackPanel.Children.Add(textBox);
+
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                Width = 80,
+                Margin = new Thickness(0, 0, 10, 0),
+                IsDefault = true
+            };
+            okButton.Click += (s, e) =>
+            {
+                dialog.DialogResult = true;
+                dialog.Close();
+            };
+
+            var skipButton = new Button
+            {
+                Content = "Skip",
+                Width = 80
+            };
+            skipButton.Click += (s, e) =>
+            {
+                textBox.Text = "";
+                dialog.DialogResult = true;
+                dialog.Close();
+            };
+
+            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(skipButton);
+            stackPanel.Children.Add(buttonPanel);
+
+            dialog.Content = stackPanel;
+
+            textBox.Focus();
+            dialog.ShowDialog();
+
+            return textBox.Text.Trim();
         }
     }
 

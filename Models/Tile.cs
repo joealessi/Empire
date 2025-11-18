@@ -13,29 +13,46 @@ public class Tile
     public int OwnerId { get; set; }
     public Structure Structure { get; set; }
     public List<Unit> Units { get; set; }
+    public bool HasBridge { get; set; }
+    public string BridgeName { get; set; }
     
     // Movement cost by terrain type
-    public int GetMovementCost(Unit unit)
+    public double GetMovementCost(Unit unit)
     {
-        // Air units and satellites ignore terrain
-        if (unit is AirUnit || unit is Satellite)
-            return 1;
-        
+        // Bridges make water crossable for land units
+        if (HasBridge && unit is LandUnit)
+        {
+            return 1.0; // Normal movement cost across bridge
+        }
+
+        // Check if unit can traverse this terrain
+        if (unit is LandUnit)
+        {
+            if (Terrain == TerrainType.Ocean || Terrain == TerrainType.CoastalWater)
+                return double.MaxValue; // Can't cross water without bridge
+        }
+        else if (unit is SeaUnit)
+        {
+            if (Terrain != TerrainType.Ocean && Terrain != TerrainType.CoastalWater)
+                return double.MaxValue; // Can't move on land
+        }
+
+        // Return terrain-based cost
         return Terrain switch
         {
-            TerrainType.Ocean => 1,
-            TerrainType.CoastalWater => 1,
-            TerrainType.Land => 1,
-            TerrainType.Plains => 1,
-            TerrainType.Forest => 2,
-            TerrainType.Hills => 2,
-            TerrainType.Mountain => 3,
-            _ => 1
+            TerrainType.Plains => 1.0,
+            TerrainType.Land => 1.0,
+            TerrainType.Forest => 1.5,
+            TerrainType.Hills => 2.0,
+            TerrainType.Mountain => 3.0,
+            TerrainType.Ocean => 1.0,
+            TerrainType.CoastalWater => 1.0,
+            _ => 1.0
         };
     }
     
     // Keep old property for compatibility but mark it
-    public int MovementCost => GetMovementCost(null);
+    public int MovementCost => (int)GetMovementCost(null);
     
     // Defense bonus by terrain type (air units and satellites don't get terrain defense)
     public double GetDefenseBonus(Unit unit)
