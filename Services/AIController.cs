@@ -457,6 +457,12 @@ namespace EmpireGame
                 {
                     if (enemyUnit.OwnerId != aiPlayer.PlayerId)
                     {
+                        // Skip disguised spies - AI sees them as friendly Army units
+                        if (enemyUnit is Spy spy && !spy.IsRevealed)
+                        {
+                            continue;
+                        }
+                        
                         return enemyUnit;
                     }
                 }
@@ -500,6 +506,12 @@ namespace EmpireGame
                 attackerUnitName = "veteran " + attackerUnitName;
             if (defender.IsVeteran)
                 defenderUnitName = "veteran " + defenderUnitName;
+
+            // Queue combat replay if the defender is the human player
+            if (defenderOwner != null && !defenderOwner.IsAI)
+            {
+                game.PendingCombatReplays.Enqueue(combatResult);
+            }
 
             if (combatResult.AttackerWon)
             {
@@ -628,7 +640,8 @@ namespace EmpireGame
                         // END OF STRUCTURE ATTACK SECTION
 
                         // Existing enemy unit check
-                        var enemyUnit = nextTile.Units.FirstOrDefault(u => u.OwnerId != unit.OwnerId);
+                        var enemyUnit = nextTile.Units.FirstOrDefault(u => u.OwnerId != unit.OwnerId && 
+                                                                           !(u is Spy spy && !spy.IsRevealed)); // Skip disguised spies
                         if (enemyUnit != null)
                         {
                             ExecuteCombat(unit, enemyUnit, aiPlayer);
@@ -815,7 +828,8 @@ namespace EmpireGame
                             if (game.Map.IsValidPosition(checkPos))
                             {
                                 var tile = game.Map.GetTile(checkPos);
-                                if (tile.Units.Any(u => u.OwnerId != aiPlayer.PlayerId))
+                                if (tile.Units.Any(u => u.OwnerId != aiPlayer.PlayerId && 
+                                                        !(u is Spy spy && !spy.IsRevealed))) 
                                 {
                                     isSafe = false;
                                     break;

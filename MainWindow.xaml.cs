@@ -46,12 +46,14 @@ namespace EmpireGame
         private bool isSelectingBridgeTarget;
         private Sapper sapperForBridge;
 
+        private bool _suppressExitConfirmation = false;
+
         public MainWindow()
         {
             InitializeComponent();
 
             // Show start game form
-            var startForm = new StartGameForm();
+            StartGameForm startForm = new StartGameForm();
             if (startForm.ShowDialog() == true)
             {
                 gameSettings = startForm.Settings;
@@ -61,6 +63,21 @@ namespace EmpireGame
             {
                 // User cancelled, close the game
                 Close();
+            }
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            base.OnClosing(e);
+            if (!_suppressExitConfirmation && game != null)
+            {
+                var result = MessageBox.Show(
+                    "Are you sure you want to exit?",
+                    "Confirm Exit",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (result == MessageBoxResult.No)
+                    e.Cancel = true;
             }
         }
 
@@ -84,7 +101,7 @@ namespace EmpireGame
             // Update AI players with their personalities (don't create new players!)
             for (int i = 1; i < playerCount; i++)
             {
-                var aiPlayer = game.Players[i]; // Use existing player
+                Player aiPlayer = game.Players[i]; // Use existing player
 
                 // Assign personality from settings
                 if (gameSettings.AIPersonalities != null && i - 1 < gameSettings.AIPersonalities.Count)
@@ -105,7 +122,7 @@ namespace EmpireGame
 
             aiController = new AIController(game);
 
-            foreach (var player in game.Players)
+            foreach (Player player in game.Players)
             {
                 player.UpdateVision(game.Map);
             }
@@ -113,9 +130,9 @@ namespace EmpireGame
             // Verify all players have structures
             for (int i = 0; i < game.Players.Count; i++)
             {
-                var p = game.Players[i];
+                Player p = game.Players[i];
                 System.Diagnostics.Debug.WriteLine($"Player {i} ({p.Name}): {p.Structures.Count} structures, {p.Units.Count} units");
-                foreach (var structure in p.Structures)
+                foreach (Structure structure in p.Structures)
                 {
                     System.Diagnostics.Debug.WriteLine($"  - {structure.GetName()} at ({structure.Position.X}, {structure.Position.Y})");
                 }
@@ -134,7 +151,7 @@ namespace EmpireGame
             {
                 for (int y = 0; y < game.Map.Height; y++)
                 {
-                    var tile = game.Map.GetTile(new TilePosition(x, y));
+                    Tile tile = game.Map.GetTile(new TilePosition(x, y));
                     if (tile.Resource == ResourceType.Oil) totalOil++;
                     if (tile.Resource == ResourceType.Steel) totalSteel++;
                 }
@@ -162,8 +179,9 @@ namespace EmpireGame
             NextUnitButton.Visibility = Visibility.Visible;
 
             // Check for units with movement, not skipped, and not asleep
-            var unitsWithMovement = game.CurrentPlayer.Units
-                .Where(u => u.MovementPoints >= 0.5 &&
+            List<Unit> unitsWithMovement = game.CurrentPlayer.Units
+                .Where(u => u.Position.X >= 0 &&
+                            u.MovementPoints >= 0.5 &&
                             !u.IsSkippedThisTurn &&
                             !u.IsAsleep)
                 .ToList();
@@ -181,8 +199,9 @@ namespace EmpireGame
         private void NextUnitButton_Click(object sender, RoutedEventArgs e)
         {
             // Check for units with movement, not skipped, not asleep
-            var unitsWithMovement = game.CurrentPlayer.Units
-                .Where(u => u.MovementPoints > 0 &&
+            List<Unit> unitsWithMovement = game.CurrentPlayer.Units
+                .Where(u => u.Position.X >= 0 &&
+                            u.MovementPoints > 0 &&
                             !u.IsSkippedThisTurn &&
                             !u.IsAsleep)
                 .ToList();
@@ -195,7 +214,7 @@ namespace EmpireGame
                     currentUnitIndex = 0;
                 }
 
-                var unit = unitsWithMovement[currentUnitIndex];
+                Unit unit = unitsWithMovement[currentUnitIndex];
                 currentUnitIndex++;
 
                 SelectUnit(unit);
@@ -209,7 +228,7 @@ namespace EmpireGame
                     currentStructureIndex = 0;
                 }
 
-                var structure = game.CurrentPlayer.Structures[currentStructureIndex];
+                Structure structure = game.CurrentPlayer.Structures[currentStructureIndex];
                 currentStructureIndex++;
 
                 SelectStructure(structure);
@@ -278,8 +297,8 @@ namespace EmpireGame
             {
                 for (int y = 0; y < game.Map.Height; y++)
                 {
-                    var pos = new TilePosition(x, y);
-                    var tile = game.Map.GetTile(pos);
+                    TilePosition pos = new TilePosition(x, y);
+                    Tile tile = game.Map.GetTile(pos);
                     tile.Terrain = TerrainType.Ocean;
                 }
             }
@@ -576,8 +595,8 @@ namespace EmpireGame
 
                 int x = rand.Next(10, game.Map.Width - 10);
                 int y = rand.Next(10, game.Map.Height - 10);
-                var pos = new TilePosition(x, y);
-                var tile = game.Map.GetTile(pos);
+                TilePosition pos = new TilePosition(x, y);
+                Tile tile = game.Map.GetTile(pos);
 
                 if (tile.Resource != ResourceType.None)
                     continue;
@@ -600,8 +619,8 @@ namespace EmpireGame
 
                 int x = rand.Next(10, game.Map.Width - 10);
                 int y = rand.Next(10, game.Map.Height - 10);
-                var pos = new TilePosition(x, y);
-                var tile = game.Map.GetTile(pos);
+                TilePosition pos = new TilePosition(x, y);
+                Tile tile = game.Map.GetTile(pos);
 
                 if (tile.Resource != ResourceType.None)
                     continue;
@@ -618,7 +637,7 @@ namespace EmpireGame
 
             // Third pass - ANY land terrain with minimal spacing (guarantee minimum)
             attempts = 0;
-            var anyLandTerrain = new List<TerrainType>
+            List<TerrainType> anyLandTerrain = new List<TerrainType>
     {
         TerrainType.Plains, TerrainType.Land, TerrainType.Forest,
         TerrainType.Hills, TerrainType.Mountain
@@ -630,8 +649,8 @@ namespace EmpireGame
 
                 int x = rand.Next(10, game.Map.Width - 10);
                 int y = rand.Next(10, game.Map.Height - 10);
-                var pos = new TilePosition(x, y);
-                var tile = game.Map.GetTile(pos);
+                TilePosition pos = new TilePosition(x, y);
+                Tile tile = game.Map.GetTile(pos);
 
                 if (tile.Resource != ResourceType.None)
                     continue;
@@ -654,8 +673,8 @@ namespace EmpireGame
 
                 int x = rand.Next(10, game.Map.Width - 10);
                 int y = rand.Next(10, game.Map.Height - 10);
-                var pos = new TilePosition(x, y);
-                var tile = game.Map.GetTile(pos);
+                TilePosition pos = new TilePosition(x, y);
+                Tile tile = game.Map.GetTile(pos);
 
                 if (tile.Resource != ResourceType.None)
                     continue;
@@ -677,10 +696,10 @@ namespace EmpireGame
                 {
                     if (dx == 0 && dy == 0) continue;
 
-                    var checkPos = new TilePosition(pos.X + dx, pos.Y + dy);
+                    TilePosition checkPos = new TilePosition(pos.X + dx, pos.Y + dy);
                     if (game.Map.IsValidPosition(checkPos))
                     {
-                        var tile = game.Map.GetTile(checkPos);
+                        Tile tile = game.Map.GetTile(checkPos);
                         if (tile.Resource != ResourceType.None)
                             return false; // Too close to another resource
                     }
@@ -691,7 +710,7 @@ namespace EmpireGame
 
         private bool IsTooCloseToOtherContinents(TilePosition pos, List<TilePosition> centers, int minDistance)
         {
-            foreach (var center in centers)
+            foreach (TilePosition center in centers)
             {
                 int distance = Math.Abs(pos.X - center.X) + Math.Abs(pos.Y - center.Y);
                 if (distance < minDistance)
@@ -719,8 +738,8 @@ namespace EmpireGame
 
             while (frontier.Count > 0 && tilesPlaced < size)
             {
-                var current = frontier.Dequeue();
-                var tile = game.Map.GetTile(current);
+                TilePosition current = frontier.Dequeue();
+                Tile? tile = game.Map.GetTile(current);
 
                 if (tile != null)
                 {
@@ -742,7 +761,7 @@ namespace EmpireGame
 
                     for (int i = 0; i < 8; i++)
                     {
-                        var neighborPos = new TilePosition(current.X + dx[i], current.Y + dy[i]);
+                        TilePosition neighborPos = new TilePosition(current.X + dx[i], current.Y + dy[i]);
 
                         if (game.Map.IsValidPosition(neighborPos) && !visited.Contains(neighborPos))
                         {
@@ -790,8 +809,8 @@ namespace EmpireGame
                 {
                     for (int y = 1; y < game.Map.Height - 1; y++)
                     {
-                        var pos = new TilePosition(x, y);
-                        var tile = game.Map.GetTile(pos);
+                        TilePosition pos = new TilePosition(x, y);
+                        Tile tile = game.Map.GetTile(pos);
 
                         // Count land neighbors
                         int landNeighbors = 0;
@@ -801,8 +820,8 @@ namespace EmpireGame
                             {
                                 if (dx == 0 && dy == 0) continue;
 
-                                var neighborPos = new TilePosition(x + dx, y + dy);
-                                var neighbor = game.Map.GetTile(neighborPos);
+                                TilePosition neighborPos = new TilePosition(x + dx, y + dy);
+                                Tile? neighbor = game.Map.GetTile(neighborPos);
 
                                 if (neighbor != null && neighbor.Terrain != TerrainType.Ocean &&
                                     neighbor.Terrain != TerrainType.CoastalWater)
@@ -832,8 +851,8 @@ namespace EmpireGame
                     {
                         if (shouldFlip[x, y])
                         {
-                            var pos = new TilePosition(x, y);
-                            var tile = game.Map.GetTile(pos);
+                            TilePosition pos = new TilePosition(x, y);
+                            Tile tile = game.Map.GetTile(pos);
 
                             if (tile.Terrain == TerrainType.Ocean || tile.Terrain == TerrainType.CoastalWater)
                                 tile.Terrain = TerrainType.Land;
@@ -851,8 +870,8 @@ namespace EmpireGame
             {
                 for (int y = 0; y < game.Map.Height; y++)
                 {
-                    var pos = new TilePosition(x, y);
-                    var tile = game.Map.GetTile(pos);
+                    TilePosition pos = new TilePosition(x, y);
+                    Tile tile = game.Map.GetTile(pos);
 
                     if (tile.Terrain == TerrainType.Land)
                     {
@@ -877,8 +896,8 @@ namespace EmpireGame
             {
                 for (int y = 0; y < game.Map.Height; y++)
                 {
-                    var pos = new TilePosition(x, y);
-                    var tile = game.Map.GetTile(pos);
+                    TilePosition pos = new TilePosition(x, y);
+                    Tile tile = game.Map.GetTile(pos);
 
                     if (tile.Terrain == TerrainType.Ocean)
                     {
@@ -891,10 +910,10 @@ namespace EmpireGame
                             {
                                 if (dx == 0 && dy == 0) continue;
 
-                                var neighborPos = new TilePosition(x + dx, y + dy);
+                                TilePosition neighborPos = new TilePosition(x + dx, y + dy);
                                 if (game.Map.IsValidPosition(neighborPos))
                                 {
-                                    var neighbor = game.Map.GetTile(neighborPos);
+                                    Tile neighbor = game.Map.GetTile(neighborPos);
                                     if (neighbor.Terrain != TerrainType.Ocean &&
                                         neighbor.Terrain != TerrainType.CoastalWater)
                                     {
@@ -918,7 +937,7 @@ namespace EmpireGame
             // Find the largest continents for player placement
             List<(TilePosition center, int size)> continentSizes = new List<(TilePosition, int)>();
 
-            foreach (var center in continentCenters)
+            foreach (TilePosition center in continentCenters)
             {
                 int size = MeasureContinentSize(center);
                 continentSizes.Add((center, size));
@@ -944,7 +963,7 @@ namespace EmpireGame
                 }
 
                 // Create starting City
-                var cityStructure = (City)game.CreateStructure(typeof(City), startPos, i);
+                City cityStructure = (City)game.CreateStructure(typeof(City), startPos, i);
 
                 // Check if near coast for naval production and shipyard
                 bool hasWater = HasAdjacentWater(startPos);
@@ -967,10 +986,10 @@ namespace EmpireGame
 
             for (int i = 0; i < 8; i++)
             {
-                var checkPos = new TilePosition(pos.X + dx[i], pos.Y + dy[i]);
+                TilePosition checkPos = new TilePosition(pos.X + dx[i], pos.Y + dy[i]);
                 if (game.Map.IsValidPosition(checkPos))
                 {
-                    var tile = game.Map.GetTile(checkPos);
+                    Tile tile = game.Map.GetTile(checkPos);
                     if (tile.Terrain == TerrainType.Ocean || tile.Terrain == TerrainType.CoastalWater)
                     {
                         return true;
@@ -992,8 +1011,8 @@ namespace EmpireGame
 
             while (queue.Count > 0)
             {
-                var current = queue.Dequeue();
-                var tile = game.Map.GetTile(current);
+                TilePosition current = queue.Dequeue();
+                Tile? tile = game.Map.GetTile(current);
 
                 if (tile != null && tile.Terrain != TerrainType.Ocean &&
                     tile.Terrain != TerrainType.CoastalWater)
@@ -1006,7 +1025,7 @@ namespace EmpireGame
 
                     for (int i = 0; i < 4; i++)
                     {
-                        var neighborPos = new TilePosition(current.X + dx[i], current.Y + dy[i]);
+                        TilePosition neighborPos = new TilePosition(current.X + dx[i], current.Y + dy[i]);
                         if (game.Map.IsValidPosition(neighborPos) && !visited.Contains(neighborPos))
                         {
                             visited.Add(neighborPos);
@@ -1032,11 +1051,11 @@ namespace EmpireGame
                     {
                         int x = nearCenter.X + dx;
                         int y = nearCenter.Y + dy;
-                        var pos = new TilePosition(x, y);
+                        TilePosition pos = new TilePosition(x, y);
 
                         if (game.Map.IsValidPosition(pos))
                         {
-                            var tile = game.Map.GetTile(pos);
+                            Tile tile = game.Map.GetTile(pos);
                             // Only accept plains or land (not forest, hills, mountains, or water)
                             if (tile.Terrain == TerrainType.Plains || tile.Terrain == TerrainType.Land)
                             {
@@ -1063,8 +1082,8 @@ namespace EmpireGame
             {
                 for (int y = 10; y < game.Map.Height - 10; y += 5)
                 {
-                    var pos = new TilePosition(x, y);
-                    var tile = game.Map.GetTile(pos);
+                    TilePosition pos = new TilePosition(x, y);
+                    Tile tile = game.Map.GetTile(pos);
 
                     if (tile.Terrain == TerrainType.Plains ||
                         tile.Terrain == TerrainType.Land ||
@@ -1090,10 +1109,10 @@ namespace EmpireGame
             {
                 for (int dy = -3; dy <= 3; dy++)
                 {
-                    var checkPos = new TilePosition(pos.X + dx, pos.Y + dy);
+                    TilePosition checkPos = new TilePosition(pos.X + dx, pos.Y + dy);
                     if (game.Map.IsValidPosition(checkPos))
                     {
-                        var tile = game.Map.GetTile(checkPos);
+                        Tile tile = game.Map.GetTile(checkPos);
                         if (tile.Terrain == TerrainType.Ocean || tile.Terrain == TerrainType.CoastalWater)
                         {
                             return true;
@@ -1115,10 +1134,10 @@ namespace EmpireGame
                 {
                     if (dx == 0 && dy == 0) continue; // Skip base position
 
-                    var pos = new TilePosition(basePos.X + dx, basePos.Y + dy);
+                    TilePosition pos = new TilePosition(basePos.X + dx, basePos.Y + dy);
                     if (game.Map.IsValidPosition(pos))
                     {
-                        var tile = game.Map.GetTile(pos);
+                        Tile tile = game.Map.GetTile(pos);
                         // Only place units on walkable land
                         if ((tile.Terrain == TerrainType.Land ||
                              tile.Terrain == TerrainType.Plains ||
@@ -1139,7 +1158,7 @@ namespace EmpireGame
                 for (int i = positions.Count - 1; i > 0; i--)
                 {
                     int j = rand.Next(i + 1);
-                    var temp = positions[i];
+                    TilePosition temp = positions[i];
                     positions[i] = positions[j];
                     positions[j] = temp;
                 }
@@ -1147,7 +1166,7 @@ namespace EmpireGame
                 // Place 2 armies
                 for (int i = 0; i < 2 && i < positions.Count; i++)
                 {
-                    var army = new Army { Position = positions[i], OwnerId = playerId };
+                    Army army = new Army { Position = positions[i], OwnerId = playerId };
                     game.Players[playerId].Units.Add(army);
                     game.Map.GetTile(positions[i]).Units.Add(army);
                 }
@@ -1155,7 +1174,7 @@ namespace EmpireGame
                 // Place 1 tank
                 if (positions.Count > 2)
                 {
-                    var tank = new Tank { Position = positions[2], OwnerId = playerId };
+                    Tank tank = new Tank { Position = positions[2], OwnerId = playerId };
                     game.Players[playerId].Units.Add(tank);
                     game.Map.GetTile(positions[2]).Units.Add(tank);
                 }
@@ -1165,23 +1184,23 @@ namespace EmpireGame
         private void SetupTestScenario()
         {
             // Create a base for player 0
-            var base1 = (Base)game.CreateStructure(typeof(Base), new TilePosition(10, 10), 0);
+            Base base1 = (Base)game.CreateStructure(typeof(Base), new TilePosition(10, 10), 0);
             base1.CanProduceNaval = false;
             game.Players[0].Structures.Add(base1);
             game.Map.GetTile(base1.Position).Structure = base1;
 
             // Create a base for player 1 (AI)
-            var base2 = (Base)game.CreateStructure(typeof(Base), new TilePosition(90, 90), 1);
+            Base base2 = (Base)game.CreateStructure(typeof(Base), new TilePosition(90, 90), 1);
             base2.CanProduceNaval = false;
             game.Players[1].Structures.Add(base2);
             game.Map.GetTile(base2.Position).Structure = base2;
 
             // Create some starting units for player 0
-            var army1 = new Army { UnitId = 1, Position = new TilePosition(11, 10), OwnerId = 0 };
+            Army army1 = new Army { UnitId = 1, Position = new TilePosition(11, 10), OwnerId = 0 };
             game.Players[0].Units.Add(army1);
             game.Map.GetTile(army1.Position).Units.Add(army1);
 
-            var tank1 = new Tank { UnitId = 2, Position = new TilePosition(12, 10), OwnerId = 0 };
+            Tank tank1 = new Tank { UnitId = 2, Position = new TilePosition(12, 10), OwnerId = 0 };
             game.Players[0].Units.Add(tank1);
             game.Map.GetTile(tank1.Position).Units.Add(tank1);
 
@@ -1195,14 +1214,14 @@ namespace EmpireGame
             // ALWAYS render from human player's perspective (Player 0)
             Player humanPlayer = game.Players[0];
 
-            var bitmap = mapRenderer.RenderMap(humanPlayer, selectedUnit, selectedStructure);
+            WriteableBitmap bitmap = mapRenderer.RenderMap(humanPlayer, selectedUnit, selectedStructure);
 
             MapCanvas.Width = bitmap.PixelWidth;
             MapCanvas.Height = bitmap.PixelHeight;
 
             MapCanvas.Children.Clear();
 
-            var image = new System.Windows.Controls.Image
+            Image image = new System.Windows.Controls.Image
             {
                 Source = bitmap,
                 Width = bitmap.PixelWidth,
@@ -1221,8 +1240,8 @@ namespace EmpireGame
             {
                 for (int y = 0; y < game.Map.Height; y++)
                 {
-                    var pos = new TilePosition(x, y);
-                    var tile = game.Map.GetTile(pos);
+                    TilePosition pos = new TilePosition(x, y);
+                    Tile tile = game.Map.GetTile(pos);
 
                     VisibilityLevel visibility = VisibilityLevel.Hidden;
                     if (renderPlayer.FogOfWar.ContainsKey(pos))
@@ -1234,7 +1253,7 @@ namespace EmpireGame
                     {
                         try
                         {
-                            var resourceImage = new System.Windows.Controls.Image
+                            Image resourceImage = new System.Windows.Controls.Image
                             {
                                 Width = 20,
                                 Height = 20
@@ -1299,8 +1318,8 @@ namespace EmpireGame
             if (game.HasSurrendered)
                 return;
 
-            var clickPos = e.GetPosition(MapCanvas);
-            var tilePos = new TilePosition((int)(clickPos.X / TILE_SIZE), (int)(clickPos.Y / TILE_SIZE));
+            Point clickPos = e.GetPosition(MapCanvas);
+            TilePosition tilePos = new TilePosition((int)(clickPos.X / TILE_SIZE), (int)(clickPos.Y / TILE_SIZE));
 
             if (!game.Map.IsValidPosition(tilePos))
                 return;
@@ -1342,10 +1361,10 @@ namespace EmpireGame
                 return;
             }
 
-            var tile = game.Map.GetTile(tilePos);
+            Tile tile = game.Map.GetTile(tilePos);
 
             // Check for units at this position (exclude satellites and sappers - they're untouchable)
-            var friendlyUnits = tile.Units
+            List<Unit> friendlyUnits = tile.Units
                 .Where(u => u.OwnerId == game.CurrentPlayer.PlayerId &&
                             !(u is Satellite) &&
                             !(u is Sapper sapper && (sapper.IsBuildingBase || sapper.IsBuildingBridge)))
@@ -1374,8 +1393,8 @@ namespace EmpireGame
                 return;
             }
 
-            // Clear selection
-            ClearSelection();
+            // Show tile information
+            SelectTile(tilePos);
             RenderMap();
         }
 
@@ -1430,11 +1449,11 @@ namespace EmpireGame
             }
 
             // Build the complete patrol route: Start → WP1 → WP2 → WP1 → Start
-            var fullRoute = new List<TilePosition>();
+            List<TilePosition> fullRoute = new List<TilePosition>();
             fullRoute.Add(patrolStartPosition);  // Index 0 - Start
 
             // Add all waypoints (going out)
-            foreach (var wp in patrolWaypoints)
+            foreach (TilePosition wp in patrolWaypoints)
             {
                 fullRoute.Add(wp);  // WP1, WP2
             }
@@ -1459,7 +1478,7 @@ namespace EmpireGame
             AddMessage(routeDebug, MessageType.Info);
 
             // Create patrol order
-            var patrolOrder = new AutomaticOrder(unitOnPatrol, patrolStartPosition, AutomaticOrderType.Patrol);
+            AutomaticOrder patrolOrder = new AutomaticOrder(unitOnPatrol, patrolStartPosition, AutomaticOrderType.Patrol);
             patrolOrder.PatrolWaypoints = fullRoute;
 
             // Start at waypoint 1, not 0, since unit is already at position 0
@@ -1471,7 +1490,7 @@ namespace EmpireGame
             if (unitOnPatrol is AirUnit airUnit && airUnit.HomeBaseId != -1)
             {
                 Structure homeBase = null;
-                foreach (var structure in game.CurrentPlayer.Structures)
+                foreach (Structure structure in game.CurrentPlayer.Structures)
                 {
                     if (structure.StructureId == airUnit.HomeBaseId)
                     {
@@ -1482,7 +1501,7 @@ namespace EmpireGame
 
                 if (homeBase != null)
                 {
-                    var adjacentPos = FindAdjacentEmptyTile(homeBase.Position);
+                    TilePosition adjacentPos = FindAdjacentEmptyTile(homeBase.Position);
                     if (adjacentPos.X != -1)
                     {
                         if (homeBase is Base baseStructure)
@@ -1498,7 +1517,7 @@ namespace EmpireGame
                         airUnit.HomeBaseId = -1;
                         airUnit.Fuel = airUnit.MaxFuel;
 
-                        var tile = game.Map.GetTile(adjacentPos);
+                        Tile tile = game.Map.GetTile(adjacentPos);
                         tile.Units.Add(airUnit);
 
                         AddMessage($"{airUnit.GetName()} took off and beginning patrol", MessageType.Movement);
@@ -1536,8 +1555,8 @@ namespace EmpireGame
             if (selectedUnit == null)
                 return;
 
-            var clickPos = e.GetPosition(MapCanvas);
-            var tilePos = new TilePosition((int)(clickPos.X / TILE_SIZE), (int)(clickPos.Y / TILE_SIZE));
+            Point clickPos = e.GetPosition(MapCanvas);
+            TilePosition tilePos = new TilePosition((int)(clickPos.X / TILE_SIZE), (int)(clickPos.Y / TILE_SIZE));
 
             if (!game.Map.IsValidPosition(tilePos))
                 return;
@@ -1545,7 +1564,7 @@ namespace EmpireGame
             // Issue move order
             MoveUnit(selectedUnit, tilePos);
         }
-        
+
         private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
         {
             // Could show hover information here
@@ -1558,24 +1577,27 @@ namespace EmpireGame
 
             if (unit == null)
             {
-                // Hide unit info panel when no unit is selected
                 UnitInfoPanel.Visibility = Visibility.Collapsed;
                 StructureInfoPanel.Visibility = Visibility.Collapsed;
+                TileInfoPanel.Visibility = Visibility.Collapsed;
                 return;
             }
 
             UnitInfoPanel.Visibility = Visibility.Visible;
             StructureInfoPanel.Visibility = Visibility.Collapsed;
+            TileInfoPanel.Visibility = Visibility.Collapsed;
 
             UnitNameText.Text = $"{unit.GetName()} ({(unit.IsVeteran ? "Veteran" : "Regular")})";
-            UnitStatsText.Text = $"Power: {unit.Power}/{unit.MaxPower} | Toughness: {unit.Toughness}/{unit.MaxToughness}";
+            UnitStatsText.Text = $"Power: {unit.Power} | Toughness: {unit.Toughness}";
+
+            // Set unit icon and player color border
+            UpdateUnitIcon(unit);
 
             // Update Life Bar
             double lifePercent = ((double)unit.Life / unit.MaxLife) * 100;
             LifeProgressBar.Value = lifePercent;
             LifeProgressText.Text = $"{unit.Life}/{unit.MaxLife}";
 
-            // Color coding for life
             if (lifePercent > 66)
                 LifeProgressBar.Foreground = System.Windows.Media.Brushes.LimeGreen;
             else if (lifePercent > 33)
@@ -1588,7 +1610,6 @@ namespace EmpireGame
             MovementProgressBar.Value = movementPercent;
             MovementProgressText.Text = $"{unit.MovementPoints:F1}/{unit.MaxMovementPoints}";
 
-            // Color coding for movement
             if (movementPercent > 50)
                 MovementProgressBar.Foreground = System.Windows.Media.Brushes.DodgerBlue;
             else if (movementPercent > 0)
@@ -1596,7 +1617,9 @@ namespace EmpireGame
             else
                 MovementProgressBar.Foreground = System.Windows.Media.Brushes.DarkGray;
 
-            // Hide all unit-specific panels by default
+            // Hide all specialized buttons and panels by default
+            HideAllSpecializedButtons();
+
             FuelGaugePanel.Visibility = Visibility.Collapsed;
             SubmarinePanel.Visibility = Visibility.Collapsed;
             CarrierCapacityPanel.Visibility = Visibility.Collapsed;
@@ -1604,15 +1627,41 @@ namespace EmpireGame
             ArtilleryRangeText.Visibility = Visibility.Collapsed;
             AntiAircraftProximityText.Visibility = Visibility.Collapsed;
             SpyStatusText.Visibility = Visibility.Collapsed;
+            SapperBuildText.Visibility = Visibility.Collapsed;
 
-            // Handle unit-specific displays
+            // Show/hide Sleep vs Wake Up based on unit state
+            if (unit.IsAsleep)
+            {
+                CircularSleepButton.Visibility = Visibility.Collapsed;
+                CircularWakeUpButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                CircularSleepButton.Visibility = Visibility.Visible;
+                CircularWakeUpButton.Visibility = Visibility.Collapsed;
+            }
+
+            // Handle unit-specific displays and buttons
             if (unit is AirUnit airUnit)
             {
                 UpdateAirUnitDisplay(airUnit);
+                
+                // Show air unit buttons
+                if (airUnit.HomeBaseId == -1) // In flight
+                {
+                    CircularLandButton.Visibility = Visibility.Visible;
+                    CircularRTBButton.Visibility = Visibility.Visible;
+                }
+                
+                if (unit is Bomber)
+                {
+                    CircularBombButton.Visibility = Visibility.Visible;
+                }
             }
             else if (unit is Submarine submarine)
             {
                 UpdateSubmarineDisplay(submarine);
+                CircularSubmergeButton.Visibility = Visibility.Visible;
             }
             else if (unit is Carrier carrier)
             {
@@ -1640,55 +1689,143 @@ namespace EmpireGame
             }
             else if (unit is Sapper sapper)
             {
-                BuildBaseButton.Visibility = Visibility.Visible;
-                BuildBridgeButton.Visibility = Visibility.Visible;
-
                 if (sapper.IsBuildingBase || sapper.IsBuildingBridge)
                 {
-                    CancelBuildButton.Visibility = Visibility.Visible;
+                    CircularCancelBuildButton.Visibility = Visibility.Visible;
                     SapperBuildText.Visibility = Visibility.Visible;
 
                     string buildType = sapper.IsBuildingBase ? "Base" : "Bridge";
                     int turnsNeeded = sapper.IsBuildingBase ? 2 : 1;
                     int turnsRemaining = turnsNeeded - sapper.BuildProgress;
                     SapperBuildText.Text = $"🏗️ Building {buildType}: {turnsRemaining} turn(s) remaining";
-
-                    BuildBaseButton.IsEnabled = false;
-                    BuildBridgeButton.IsEnabled = false;
                 }
                 else
                 {
-                    CancelBuildButton.Visibility = Visibility.Collapsed;
-                    SapperBuildText.Visibility = Visibility.Collapsed;
-                    BuildBaseButton.IsEnabled = true;
-                    BuildBridgeButton.IsEnabled = true;
+                    CircularBuildBaseButton.Visibility = Visibility.Visible;
+                    CircularBuildBridgeButton.Visibility = Visibility.Visible;
                 }
             }
-            else
-            {
-                BuildBaseButton.Visibility = Visibility.Collapsed;
-                BuildBridgeButton.Visibility = Visibility.Collapsed;
-                CancelBuildButton.Visibility = Visibility.Collapsed;
-                SapperBuildText.Visibility = Visibility.Collapsed;
-            }
 
-            // Show/Hide state buttons based on unit state
-            if (selectedUnit.IsAsleep)
+            // Show Park button for land units on friendly structures
+            if (unit is LandUnit)
             {
-                SkipTurnButton.Visibility = Visibility.Collapsed;
-                SleepButton.Visibility = Visibility.Collapsed;
-                SentryButton.Visibility = Visibility.Collapsed;
-                WakeUpButton.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                SkipTurnButton.Visibility = Visibility.Visible;
-                SleepButton.Visibility = Visibility.Visible;
-                SentryButton.Visibility = Visibility.Visible;
-                WakeUpButton.Visibility = Visibility.Collapsed;
+                Tile currentTile = game.Map.GetTile(unit.Position);
+                if (currentTile.Structure != null &&
+                    currentTile.Structure.OwnerId == game.CurrentPlayer.PlayerId &&
+                    (currentTile.Structure is Base || currentTile.Structure is City))
+                {
+                    CircularParkButton.Visibility = Visibility.Visible;
+                }
             }
 
             UpdateNextButton();
+        }
+
+        private void HideAllSpecializedButtons()
+        {
+            CircularLandButton.Visibility = Visibility.Collapsed;
+            CircularRTBButton.Visibility = Visibility.Collapsed;
+            CircularBombButton.Visibility = Visibility.Collapsed;
+            CircularSubmergeButton.Visibility = Visibility.Collapsed;
+            CircularParkButton.Visibility = Visibility.Collapsed;
+            CircularBuildBaseButton.Visibility = Visibility.Collapsed;
+            CircularBuildBridgeButton.Visibility = Visibility.Collapsed;
+            CircularCancelBuildButton.Visibility = Visibility.Collapsed;
+        }
+
+        private void UpdateUnitIcon(Unit unit)
+        {
+            // Map unit class names to icon file names (same mapping as MapRenderer)
+            Dictionary<string, string> iconFileNameMap = new Dictionary<string, string>
+            {
+                {"Army", "Army"},
+                {"Tank", "Tank"},
+                {"Artillery", "Artillery"},
+                {"AntiAircraft", "AntiAircraft"},
+                {"Spy", "Spy"},
+                {"Fighter", "Fighter"},
+                {"Bomber", "Bomber"},
+                {"Tanker", "Fighter"}, // Uses Fighter icon
+                {"Carrier", "AircraftCarrier"},
+                {"Battleship", "Battleship"},
+                {"Destroyer", "Destroyer"},
+                {"Submarine", "Submarine"},
+                {"PatrolBoat", "PatrolBoat"},
+                {"Transport", "PatrolBoat"}, // Uses PatrolBoat icon
+                {"Sapper", "Sapper"}
+            };
+
+            string unitTypeName = unit.GetType().Name;
+            string fileName = iconFileNameMap.ContainsKey(unitTypeName) ? iconFileNameMap[unitTypeName] : unitTypeName;
+
+            // Build path to icon file (same structure as MapRenderer)
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string folderName = unit.IsVeteran ? "Veteran" : "Units";
+            string iconPath =
+                System.IO.Path.Combine(appDirectory, "Resources", "Empire_Icons", folderName, $"{fileName}.png");
+
+            try
+            {
+                if (System.IO.File.Exists(iconPath))
+                {
+                    BitmapImage iconSource = new BitmapImage();
+                    iconSource.BeginInit();
+                    iconSource.UriSource = new Uri(iconPath, UriKind.Absolute);
+                    iconSource.CacheOption = BitmapCacheOption.OnLoad;
+                    iconSource.EndInit();
+                    iconSource.Freeze();
+                    UnitIconBrush.ImageSource = iconSource;
+                }
+                else
+                {
+                    // Fallback - try without Veteran/Units subfolder
+                    string fallbackPath =
+                        System.IO.Path.Combine(appDirectory, "Resources", "Empire_Icons", $"{fileName}.png");
+                    if (System.IO.File.Exists(fallbackPath))
+                    {
+                        BitmapImage iconSource = new BitmapImage();
+                        iconSource.BeginInit();
+                        iconSource.UriSource = new Uri(fallbackPath, UriKind.Absolute);
+                        iconSource.CacheOption = BitmapCacheOption.OnLoad;
+                        iconSource.EndInit();
+                        iconSource.Freeze();
+                        UnitIconBrush.ImageSource = iconSource;
+                    }
+                    else
+                    {
+                        UnitIconBrush.ImageSource = null;
+                        System.Diagnostics.Debug.WriteLine($"Unit icon not found: {iconPath}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                UnitIconBrush.ImageSource = null;
+                System.Diagnostics.Debug.WriteLine($"Failed to load unit icon: {ex.Message}");
+            }
+
+            // Set player color border
+            Color[] playerColors = new Color[]
+            {
+                Color.FromRgb(0, 120, 255), // Player 0 - Blue
+                Color.FromRgb(255, 60, 60), // Player 1 - Red
+                Color.FromRgb(60, 255, 60), // Player 2 - Green
+                Color.FromRgb(255, 255, 60), // Player 3 - Yellow
+                Color.FromRgb(255, 140, 0), // Player 4 - Orange
+                Color.FromRgb(160, 60, 255), // Player 5 - Purple
+                Color.FromRgb(0, 255, 255), // Player 6 - Cyan
+                Color.FromRgb(255, 180, 200) // Player 7 - Pink
+            };
+
+            int playerId = unit.OwnerId;
+            if (playerId >= 0 && playerId < playerColors.Length)
+            {
+                UnitIconBorder.BorderBrush = new SolidColorBrush(playerColors[playerId]);
+            }
+            else
+            {
+                UnitIconBorder.BorderBrush = System.Windows.Media.Brushes.Gray;
+            }
         }
 
         private void SelectStructure(Structure structure)
@@ -1701,7 +1838,7 @@ namespace EmpireGame
 
             StructureNameText.Text = structure.GetName();
             StructureLifeText.Text = $"Life: {structure.Life}/{structure.MaxLife}";
-    
+
             // Color code life based on percentage
             double lifePercent = (double)structure.Life / structure.MaxLife;
             if (lifePercent > 0.7)
@@ -1770,7 +1907,7 @@ namespace EmpireGame
                 AirportCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
             }
 
-            foreach (var aircraft in baseStructure.Airport)
+            foreach (AirUnit aircraft in baseStructure.Airport)
             {
                 string status = "";
                 if (baseStructure.UnitsBeingRepaired.ContainsKey(aircraft))
@@ -1796,7 +1933,7 @@ namespace EmpireGame
                     ShipyardCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
                 }
 
-                foreach (var ship in baseStructure.Shipyard)
+                foreach (SeaUnit ship in baseStructure.Shipyard)
                 {
                     string status = "";
                     if (baseStructure.UnitsBeingRepaired.ContainsKey(ship))
@@ -1810,7 +1947,7 @@ namespace EmpireGame
 
             // Update Motor Pool
             MotorPoolList.Items.Clear();
-            foreach (var unit in baseStructure.MotorPool)
+            foreach (Unit unit in baseStructure.MotorPool)
             {
                 MotorPoolList.Items.Add($"{unit.GetName()} - Life: {unit.Life}/{unit.MaxLife}");
             }
@@ -1828,7 +1965,7 @@ namespace EmpireGame
                 BarracksCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
             }
 
-            foreach (var army in baseStructure.Barracks)
+            foreach (LandUnit army in baseStructure.Barracks)
             {
                 BarracksList.Items.Add($"{army.GetName()} - Life: {army.Life}/{army.MaxLife}");
             }
@@ -1849,7 +1986,7 @@ namespace EmpireGame
                 AirportCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
             }
 
-            foreach (var aircraft in city.Airport)
+            foreach (AirUnit aircraft in city.Airport)
             {
                 string status = "";
                 if (city.UnitsBeingRepaired.ContainsKey(aircraft))
@@ -1862,7 +1999,7 @@ namespace EmpireGame
 
             // Update Motor Pool
             MotorPoolList.Items.Clear();
-            foreach (var unit in city.MotorPool)
+            foreach (Unit unit in city.MotorPool)
             {
                 MotorPoolList.Items.Add($"{unit.GetName()} - Life: {unit.Life}/{unit.MaxLife}");
             }
@@ -1880,7 +2017,7 @@ namespace EmpireGame
                 BarracksCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
             }
 
-            foreach (var army in city.Barracks)
+            foreach (LandUnit army in city.Barracks)
             {
                 BarracksList.Items.Add($"{army.GetName()} - Life: {army.Life}/{army.MaxLife}");
             }
@@ -1889,15 +2026,15 @@ namespace EmpireGame
 
         private void AirportList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var aircraft = GetSelectedAircraft();
+            AirUnit? aircraft = GetSelectedAircraft();
             TakeOffButton.IsEnabled = aircraft != null && !IsBeingRepaired(aircraft);
-            BombingRunButton.IsEnabled = aircraft is Bomber && !IsBeingRepaired(aircraft);
+            CircularBombButton.IsEnabled = aircraft is Bomber && !IsBeingRepaired(aircraft);
             RepairAircraftButton.IsEnabled = aircraft != null && aircraft.Life < aircraft.MaxLife && !IsBeingRepaired(aircraft);
         }
 
         private void ShipyardList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var ship = GetSelectedShip();
+            SeaUnit? ship = GetSelectedShip();
             LaunchShipButton.IsEnabled = ship != null && !IsBeingRepaired(ship);
             RepairShipButton.IsEnabled = ship != null && ship.Life < ship.MaxLife && !IsBeingRepaired(ship);
         }
@@ -1931,7 +2068,7 @@ namespace EmpireGame
 
         private void RepairAircraftButton_Click(object sender, RoutedEventArgs e)
         {
-            var aircraft = GetSelectedAircraft();
+            AirUnit? aircraft = GetSelectedAircraft();
             if (aircraft == null || selectedStructure == null)
                 return;
 
@@ -1958,7 +2095,7 @@ namespace EmpireGame
 
         private void RepairShipButton_Click(object sender, RoutedEventArgs e)
         {
-            var ship = GetSelectedShip();
+            SeaUnit? ship = GetSelectedShip();
             if (ship == null || selectedStructure == null)
                 return;
 
@@ -1982,11 +2119,11 @@ namespace EmpireGame
 
         private void LaunchShipButton_Click(object sender, RoutedEventArgs e)
         {
-            var ship = GetSelectedShip();
+            SeaUnit? ship = GetSelectedShip();
             if (ship == null || selectedStructure == null)
                 return;
 
-            var adjacentPos = FindAdjacentWaterTile(selectedStructure.Position);
+            TilePosition adjacentPos = FindAdjacentWaterTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
@@ -2001,7 +2138,7 @@ namespace EmpireGame
 
             ship.Position = adjacentPos;
 
-            var tile = game.Map.GetTile(adjacentPos);
+            Tile tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(ship);
 
             AddMessage($"{ship.GetName()} launched from {selectedStructure.GetName()}", MessageType.Success);
@@ -2018,11 +2155,11 @@ namespace EmpireGame
 
             for (int i = 0; i < 8; i++)
             {
-                var pos = new TilePosition(centerPos.X + dx[i], centerPos.Y + dy[i]);
+                TilePosition pos = new TilePosition(centerPos.X + dx[i], centerPos.Y + dy[i]);
 
                 if (game.Map.IsValidPosition(pos))
                 {
-                    var tile = game.Map.GetTile(pos);
+                    Tile tile = game.Map.GetTile(pos);
 
                     if (tile.Units.Count == 0 &&
                         tile.Structure == null &&
@@ -2083,7 +2220,7 @@ namespace EmpireGame
             return null;
         }
 
-        private Army GetSelectedArmyUnit()
+        private LandUnit GetSelectedArmyUnit()
         {
             if (BarracksList.SelectedIndex < 0 || selectedStructure == null)
                 return null;
@@ -2102,13 +2239,14 @@ namespace EmpireGame
             return null;
         }
 
+
         private void TakeOffButton_Click(object sender, RoutedEventArgs e)
         {
-            var aircraft = GetSelectedAircraft();
+            AirUnit? aircraft = GetSelectedAircraft();
             if (aircraft == null || selectedStructure == null)
                 return;
 
-            var adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
+            TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
@@ -2129,7 +2267,7 @@ namespace EmpireGame
             aircraft.HomeBaseId = -1;
             aircraft.Fuel = aircraft.MaxFuel;
 
-            var tile = game.Map.GetTile(adjacentPos);
+            Tile tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(aircraft);
 
             AddMessage($"{aircraft.GetName()} took off from {selectedStructure.GetName()}", MessageType.Movement);
@@ -2141,12 +2279,12 @@ namespace EmpireGame
 
         private void DeployMotorButton_Click(object sender, RoutedEventArgs e)
         {
-            var unit = GetSelectedMotorUnit();
+            Unit? unit = GetSelectedMotorUnit();
             if (unit == null || selectedStructure == null)
                 return;
 
             // Find an adjacent empty tile
-            var adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
+            TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
@@ -2167,7 +2305,7 @@ namespace EmpireGame
             // Place on map
             unit.Position = adjacentPos;
 
-            var tile = game.Map.GetTile(adjacentPos);
+            Tile tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(unit);
 
             // Update display
@@ -2178,12 +2316,12 @@ namespace EmpireGame
 
         private void DeployArmyButton_Click(object sender, RoutedEventArgs e)
         {
-            var unit = GetSelectedArmyUnit();
+            LandUnit? unit = GetSelectedArmyUnit();
             if (unit == null || selectedStructure == null)
                 return;
 
             // Find an adjacent empty tile
-            var adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
+            TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
@@ -2204,7 +2342,7 @@ namespace EmpireGame
             // Place on map
             unit.Position = adjacentPos;
 
-            var tile = game.Map.GetTile(adjacentPos);
+            Tile tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(unit);
 
             // Update display
@@ -2215,12 +2353,12 @@ namespace EmpireGame
 
         private void BombingRunButton_Click(object sender, RoutedEventArgs e)
         {
-            var bomber = GetSelectedAircraft() as Bomber;
+            Bomber? bomber = GetSelectedAircraft() as Bomber;
             if (bomber == null)
                 return;
 
             // First deploy the bomber to an adjacent tile
-            var adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
+            TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
             {
@@ -2243,7 +2381,7 @@ namespace EmpireGame
             bomber.HomeBaseId = -1;
             bomber.Fuel = bomber.MaxFuel;
 
-            var tile = game.Map.GetTile(adjacentPos);
+            Tile tile = game.Map.GetTile(adjacentPos);
             tile.Units.Add(bomber);
 
             // Now set up bombing run UI
@@ -2258,7 +2396,7 @@ namespace EmpireGame
             AvailableEscortsList.Items.Clear();
             if (selectedStructure is Base baseStruct)
             {
-                foreach (var aircraft in baseStruct.Airport)
+                foreach (AirUnit aircraft in baseStruct.Airport)
                 {
                     if (aircraft is Fighter)
                     {
@@ -2267,7 +2405,7 @@ namespace EmpireGame
                 }
 
                 // Check for tankers
-                var tankers = baseStruct.Airport.Where(a => a is Tanker).ToList();
+                List<AirUnit> tankers = baseStruct.Airport.Where(a => a is Tanker).ToList();
                 if (tankers.Count > 0)
                 {
                     IncludeTankerCheckbox.IsEnabled = true;
@@ -2281,7 +2419,7 @@ namespace EmpireGame
             }
             else if (selectedStructure is City cityStruct)
             {
-                foreach (var aircraft in cityStruct.Airport)
+                foreach (AirUnit aircraft in cityStruct.Airport)
                 {
                     if (aircraft is Fighter)
                     {
@@ -2289,7 +2427,7 @@ namespace EmpireGame
                     }
                 }
 
-                var tankers = cityStruct.Airport.Where(a => a is Tanker).ToList();
+                List<AirUnit> tankers = cityStruct.Airport.Where(a => a is Tanker).ToList();
                 if (tankers.Count > 0)
                 {
                     IncludeTankerCheckbox.IsEnabled = true;
@@ -2316,11 +2454,11 @@ namespace EmpireGame
 
             for (int i = 0; i < 8; i++)
             {
-                var pos = new TilePosition(centerPos.X + dx[i], centerPos.Y + dy[i]);
+                TilePosition pos = new TilePosition(centerPos.X + dx[i], centerPos.Y + dy[i]);
 
                 if (game.Map.IsValidPosition(pos))
                 {
-                    var tile = game.Map.GetTile(pos);
+                    Tile tile = game.Map.GetTile(pos);
 
                     // Check if tile is empty and has valid terrain
                     if (tile.Units.Count == 0 &&
@@ -2342,7 +2480,7 @@ namespace EmpireGame
         {
             ProductionQueueList.Items.Clear();
             int index = 0;
-            foreach (var order in baseStructure.ProductionQueue)
+            foreach (UnitProductionOrder order in baseStructure.ProductionQueue)
             {
                 if (index == 0)
                 {
@@ -2362,7 +2500,7 @@ namespace EmpireGame
         {
             ProductionQueueList.Items.Clear();
             int index = 0;
-            foreach (var order in city.ProductionQueue)
+            foreach (UnitProductionOrder order in city.ProductionQueue)
             {
                 if (index == 0)
                 {
@@ -2382,9 +2520,9 @@ namespace EmpireGame
         {
             UnitTypesCombo.Items.Clear();
 
-            var baseStructure = structure as Base;
-            var city = structure as City;
-            var player = game.CurrentPlayer;
+            Base? baseStructure = structure as Base;
+            City? city = structure as City;
+            Player player = game.CurrentPlayer;
 
             void AddUnit(string name, Type type, int gold, int steel, int oil)
             {
@@ -2443,7 +2581,7 @@ namespace EmpireGame
 
                 costString += capacityNote;
 
-                var item = new ComboBoxItem
+                ComboBoxItem item = new ComboBoxItem
                 {
                     Content = costString,
                     Tag = new UnitProductionOrder(type, gold, steel, oil, name),
@@ -2490,7 +2628,7 @@ namespace EmpireGame
                 else if (canBuild)
                     costString += " ✓";
 
-                var item = new ComboBoxItem
+                ComboBoxItem item = new ComboBoxItem
                 {
                     Content = costString,
                     Tag = new SatelliteProductionOrder(type, gold, steel, oil, name, orbitType),
@@ -2547,29 +2685,216 @@ namespace EmpireGame
             selectedStructure = null;
             UnitInfoPanel.Visibility = Visibility.Collapsed;
             StructureInfoPanel.Visibility = Visibility.Collapsed;
+            TileInfoPanel.Visibility = Visibility.Collapsed;  
+            CircularParkButton.Visibility = Visibility.Collapsed;
+        }
+
+        private void SelectTile(TilePosition tilePos)
+        {
+            selectedUnit = null;
+            selectedStructure = null;
+
+            UnitInfoPanel.Visibility = Visibility.Collapsed;
+            StructureInfoPanel.Visibility = Visibility.Collapsed;
+            TileInfoPanel.Visibility = Visibility.Visible;
+
+            Tile tile = game.Map.GetTile(tilePos);
+
+            // Display terrain information
+            string terrainName = GetTerrainDisplayName(tile.Terrain);
+            TileTerrainNameText.Text = terrainName;
+
+            // Movement cost for land units (most common reference)
+            double movementCost = tile.GetMovementCost(new Army { OwnerId = 0, Position = tilePos });
+            if (movementCost == double.MaxValue)
+            {
+                TileMovementCostText.Text = "Impassable (Land)";
+                TileMovementCostText.Foreground = System.Windows.Media.Brushes.Red;
+            }
+            else
+            {
+                TileMovementCostText.Text = $"{movementCost} Movement Point{(movementCost == 1.0 ? "" : "s")}";
+                TileMovementCostText.Foreground = System.Windows.Media.Brushes.LightGray;
+            }
+
+            // Defense bonus
+            double defenseBonus = tile.GetDefenseBonus(new Army { OwnerId = 0, Position = tilePos });
+            if (defenseBonus > 1.0)
+            {
+                TileDefenseBonusText.Text = $"+{((defenseBonus - 1.0) * 100):F0}% Defense Bonus";
+                TileDefenseBonusText.Foreground = System.Windows.Media.Brushes.LightBlue;
+                TileDefenseBonusText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                TileDefenseBonusText.Visibility = Visibility.Collapsed;
+            }
+
+            // Resources
+            if (tile.Resource != ResourceType.None)
+            {
+                TileResourcePanel.Visibility = Visibility.Visible;
+                string resourceName = tile.Resource == ResourceType.Oil ? "Oil" : "Steel";
+                TileResourceText.Text = $"⚡ {resourceName} Resource (+1 per turn)";
+            }
+            else
+            {
+                TileResourcePanel.Visibility = Visibility.Collapsed;
+            }
+
+            // Ownership
+            if (tile.OwnerId >= 0 && tile.OwnerId < game.Players.Count)
+            {
+                Player owner = game.Players[tile.OwnerId];
+                TileOwnerText.Text = $"Controlled by: {owner.Name}";
+                TileOwnerText.Foreground = GetPlayerBrush(tile.OwnerId);
+                TileOwnerText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                TileOwnerText.Text = "Neutral Territory";
+                TileOwnerText.Foreground = System.Windows.Media.Brushes.Gray;
+                TileOwnerText.Visibility = Visibility.Visible;
+            }
+
+            // Bridge info
+            if (tile.HasBridge)
+            {
+                TileBridgeText.Text = $"🌉 {tile.BridgeName}";
+                TileBridgeText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                TileBridgeText.Visibility = Visibility.Collapsed;
+            }
+
+            // Enemy units on this tile
+            List<Unit> enemyUnits = tile.Units.Where(u => u.OwnerId != game.CurrentPlayer.PlayerId && !(u is Satellite)).ToList();
+
+            if (enemyUnits.Count > 0)
+            {
+                EnemyUnitsPanel.Visibility = Visibility.Visible;
+                EnemyUnitsList.Items.Clear();
+
+                foreach (Unit unit in enemyUnits)
+                {
+                    Player owner = game.Players[unit.OwnerId];
+                    string unitInfo = $"{unit.GetName()} ({owner.Name})";
+
+                    // Show life if visible
+                    VisibilityLevel visibility = game.CurrentPlayer.FogOfWar.ContainsKey(tilePos)
+                        ? game.CurrentPlayer.FogOfWar[tilePos]
+                        : VisibilityLevel.Hidden;
+
+                    if (visibility == VisibilityLevel.Visible)
+                    {
+                        unitInfo += $" - Life: {unit.Life}/{unit.MaxLife}";
+                        if (unit.IsVeteran)
+                            unitInfo += " ⭐";
+                    }
+
+                    EnemyUnitsList.Items.Add(unitInfo);
+                }
+            }
+            else
+            {
+                EnemyUnitsPanel.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private string GetTerrainDisplayName(TerrainType terrain)
+        {
+            return terrain switch
+            {
+                TerrainType.Ocean => "Deep Ocean",
+                TerrainType.CoastalWater => "Coastal Water",
+                TerrainType.Land => "Grassland",
+                TerrainType.Plains => "Plains",
+                TerrainType.Forest => "Forest",
+                TerrainType.Hills => "Hills",
+                TerrainType.Mountain => "Mountain",
+                _ => terrain.ToString()
+            };
+        }
+
+        private System.Windows.Media.Brush GetPlayerBrush(int playerId)
+        {
+            Color[] playerColors = new Color[]
+            {
+                Color.FromRgb(0, 120, 255),      // Player 0 - Blue
+                Color.FromRgb(255, 60, 60),      // Player 1 - Red
+                Color.FromRgb(60, 255, 60),      // Player 2 - Green
+                Color.FromRgb(255, 255, 60),     // Player 3 - Yellow
+                Color.FromRgb(255, 140, 0),      // Player 4 - Orange
+                Color.FromRgb(160, 60, 255),     // Player 5 - Purple
+                Color.FromRgb(0, 255, 255),      // Player 6 - Cyan
+                Color.FromRgb(255, 180, 200)     // Player 7 - Pink
+            };
+
+            if (playerId < 0 || playerId >= playerColors.Length)
+                return System.Windows.Media.Brushes.Gray;
+
+            Color color = playerColors[playerId];
+            return new SolidColorBrush(Color.FromRgb(color.R, color.G, color.B));
         }
 
 
         private async void MoveUnit(Unit unit, TilePosition destination)
         {
+            if (unit.Position.X < 0)
+                return; // unit is in storage; deploy it from the structure panel first
+
             if (!game.Map.IsValidPosition(destination))
                 return;
 
-            var destinationTile = game.Map.GetTile(destination);
+            Tile destinationTile = game.Map.GetTile(destination);
 
             // Check if destination has an enemy unit
-            var enemyUnit = destinationTile.Units.FirstOrDefault(u => u.OwnerId != game.CurrentPlayer.PlayerId);
+            Unit? enemyUnit = destinationTile.Units.FirstOrDefault(u => u.OwnerId != game.CurrentPlayer.PlayerId);
+
+            double movementCost = 0;
 
             if (enemyUnit != null)
             {
+                // Check if artillery has already attacked this turn
+                if (unit is Artillery artilleryUnit)
+                {
+                    if (artilleryUnit.HasAttackedThisTurn)
+                    {
+                        AddMessage("Artillery can only attack once per turn!", MessageType.Warning);
+                        return;
+                    }
+                }
+
+                // Check if unit has enough movement points to attack
+                movementCost = destinationTile.GetMovementCost(unit);
+                if (unit.MovementPoints < movementCost)
+                {
+                    AddMessage($"Not enough movement points to attack! Need {movementCost}, have {unit.MovementPoints:F1}", MessageType.Warning);
+                    return;
+                }
+
                 // COMBAT!
                 TilePosition originalPosition = unit.Position;
 
+                // Reveal spy if attacking
+                if (unit is Spy attackingSpy && !attackingSpy.IsRevealed)
+                {
+                    attackingSpy.IsRevealed = true;
+                    AddMessage("🎭 Spy's disguise blown! Now revealed to all enemies.", MessageType.Warning);
+                }
+
                 // Calculate combat result
-                var combatResult = game.CalculateCombat(unit, enemyUnit, originalPosition);
+                CombatResult combatResult = game.CalculateCombat(unit, enemyUnit, originalPosition);
+
+                // Mark artillery as having attacked
+                if (unit is Artillery artilleryAttacker)
+                {
+                    artilleryAttacker.HasAttackedThisTurn = true;
+                }
 
                 // Show combat window
-                var combatWindow = new CombatWindow(combatResult);
+                CombatWindow combatWindow = new CombatWindow(combatResult);
                 combatWindow.Owner = this;
                 bool? result = combatWindow.ShowDialog();
 
@@ -2589,13 +2914,14 @@ namespace EmpireGame
                 }
                 else if (combatResult.AttackerWon)
                 {
-                    // Attacker won - move to destination, remove defender
-                    var startTile = game.Map.GetTile(unit.Position);
-                    startTile.Units.Remove(unit);
+                    // Check if this was an artillery ranged attack - if so, attacker stays in place
+                    int attackDistance = Math.Abs(originalPosition.X - destination.X) +
+                                         Math.Abs(originalPosition.Y - destination.Y);
+                    bool wasArtilleryRangedAttack = unit is Artillery && attackDistance > 1;
 
                     // Remove dead defender
                     destinationTile.Units.Remove(enemyUnit);
-                    var defender = game.Players.FirstOrDefault(p => p.PlayerId == enemyUnit.OwnerId);
+                    Player? defender = game.Players.FirstOrDefault(p => p.PlayerId == enemyUnit.OwnerId);
                     if (defender != null)
                     {
                         defender.Units.Remove(enemyUnit);
@@ -2605,27 +2931,33 @@ namespace EmpireGame
                     // Track kill for human player
                     game.CurrentPlayer.RecordEnemyKill();
 
-                    // Move attacker to destination
-                    unit.Position = destination;
-                    destinationTile.Units.Add(unit);
-                    destinationTile.OwnerId = unit.OwnerId;
-
-                    // Check for structure capture
-                    if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
+                    if (!wasArtilleryRangedAttack)
                     {
-                        var capturedStructure = destinationTile.Structure;
-                        var oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
-                        if (oldOwner != null)
-                        {
-                            oldOwner.RecordStructureLoss(capturedStructure);
-                            oldOwner.Structures.Remove(capturedStructure);
-                            AddMessage($"⚠️ {oldOwner.Name} lost {capturedStructure.GetName()}!", MessageType.Warning);
-                        }
+                        // Melee attacker advances to the destination tile
+                        Tile startTile = game.Map.GetTile(unit.Position);
+                        startTile.Units.Remove(unit);
 
-                        capturedStructure.OwnerId = unit.OwnerId;
-                        game.CurrentPlayer.Structures.Add(capturedStructure);
-                        game.CurrentPlayer.RecordStructureCapture();
-                        AddMessage($"🏆 You captured {capturedStructure.GetName()}!", MessageType.Success);
+                        unit.Position = destination;
+                        destinationTile.Units.Add(unit);
+                        destinationTile.OwnerId = unit.OwnerId;
+
+                        // Check for structure capture
+                        if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
+                        {
+                            Structure capturedStructure = destinationTile.Structure;
+                            Player? oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
+                            if (oldOwner != null)
+                            {
+                                oldOwner.RecordStructureLoss(capturedStructure);
+                                oldOwner.Structures.Remove(capturedStructure);
+                                AddMessage($"⚠️ {oldOwner.Name} lost {capturedStructure.GetName()}!", MessageType.Warning);
+                            }
+
+                            capturedStructure.OwnerId = unit.OwnerId;
+                            game.CurrentPlayer.Structures.Add(capturedStructure);
+                            game.CurrentPlayer.RecordStructureCapture();
+                            AddMessage($"🏆 You captured {capturedStructure.GetName()}!", MessageType.Success);
+                        }
                     }
 
                     unit.MovementPoints = 0;
@@ -2646,7 +2978,7 @@ namespace EmpireGame
                     // Check if defender was in a structure's storage
                     if (enemyUnit is AirUnit defeatedAirUnit && defeatedAirUnit.HomeBaseId != -1)
                     {
-                        var homeBase = defender?.Structures.FirstOrDefault(s => s.StructureId == defeatedAirUnit.HomeBaseId);
+                        Structure? homeBase = defender?.Structures.FirstOrDefault(s => s.StructureId == defeatedAirUnit.HomeBaseId);
                         if (homeBase is Base baseStructure)
                         {
                             baseStructure.Airport.Remove(defeatedAirUnit);
@@ -2657,59 +2989,25 @@ namespace EmpireGame
                         }
                     }
                 }
-                else
-                {
-                    // Defender won - remove attacker
-                    var startTile = game.Map.GetTile(unit.Position);
-                    startTile.Units.Remove(unit);
-                    game.CurrentPlayer.Units.Remove(unit);
-                    game.CurrentPlayer.RecordUnitLoss(enemyUnit.OwnerId);
-
-                    selectedUnit = null;
-                    SelectUnit(null);
-
-                    string unitName = unit.GetName().ToLower();
-                    string enemyName = enemyUnit.GetName().ToLower();
-                    var enemyOwner = game.Players.FirstOrDefault(p => p.PlayerId == enemyUnit.OwnerId);
-                    string enemyOwnerName = enemyOwner?.Name ?? "Enemy";
-
-                    if (unit.IsVeteran)
-                        unitName = "veteran " + unitName;
-                    if (enemyUnit.IsVeteran)
-                        enemyName = "veteran " + enemyName;
-
-                    AddMessage($"⚔️ Your {unitName} was defeated by {enemyOwnerName}'s {enemyName}!", MessageType.Combat);
-
-                    // Check if attacker was in a structure's storage
-                    if (unit is AirUnit defeatedAttackerAirUnit && defeatedAttackerAirUnit.HomeBaseId != -1)
-                    {
-                        var homeBase = game.CurrentPlayer.Structures.FirstOrDefault(s => s.StructureId == defeatedAttackerAirUnit.HomeBaseId);
-                        if (homeBase is Base baseStructure)
-                        {
-                            baseStructure.Airport.Remove(defeatedAttackerAirUnit);
-                        }
-                        else if (homeBase is City city)
-                        {
-                            city.Airport.Remove(defeatedAttackerAirUnit);
-                        }
-                    }
-                }
-
                 // Update vision and refresh map
                 game.CurrentPlayer.UpdateVision(game.Map);
                 RenderMap();
                 return;
             }
 
-            // Check if destination is occupied by friendly unit
-            if (destinationTile.Units.Any(u => u.OwnerId == game.CurrentPlayer.PlayerId))
+            // Check if destination is occupied by friendly units (max 3 stackable units)
+            List<Unit> friendlyUnitsAtDestination = destinationTile.Units
+                .Where(u => u.OwnerId == game.CurrentPlayer.PlayerId && !(u is Satellite))
+                .ToList();
+
+            if (friendlyUnitsAtDestination.Count >= MAX_UNITS_PER_TILE)
             {
-                AddMessage("Tile is occupied by a friendly unit!");
+                AddMessage($"Cannot stack more than {MAX_UNITS_PER_TILE} units on one tile!", MessageType.Warning);
                 return;
             }
 
             // Check movement cost
-            double movementCost = destinationTile.GetMovementCost(unit);
+            movementCost = destinationTile.GetMovementCost(unit);
             if (unit.MovementPoints < movementCost)
             {
                 AddMessage("Not enough movement points!");
@@ -2717,7 +3015,7 @@ namespace EmpireGame
             }
 
             // Calculate path and check if reachable
-            var path = game.Map.FindPath(unit.Position, destination, unit);
+            List<TilePosition> path = game.Map.FindPath(unit.Position, destination, unit);
             if (path.Count == 0)
             {
                 AddMessage("Cannot reach that location!");
@@ -2728,7 +3026,7 @@ namespace EmpireGame
             double totalCost = 0;
             for (int i = 1; i < path.Count; i++)
             {
-                var tile = game.Map.GetTile(path[i]);
+                Tile tile = game.Map.GetTile(path[i]);
                 totalCost += tile.GetMovementCost(unit);
             }
 
@@ -2754,17 +3052,18 @@ namespace EmpireGame
                         }
 
                         // Land the aircraft
-                        var startTile = game.Map.GetTile(unit.Position);
+                        Tile startTile = game.Map.GetTile(unit.Position);
                         startTile.Units.Remove(unit);
 
                         baseStructure.Airport.Add(landingAirUnit);
                         landingAirUnit.HomeBaseId = baseStructure.StructureId;
                         landingAirUnit.Fuel = landingAirUnit.MaxFuel;
                         landingAirUnit.MovementPoints = 0;
+                        landingAirUnit.Position = new TilePosition(-1, -1);
 
                         AddMessage($"{landingAirUnit.GetName()} landed at base.");
-                        selectedUnit = null;
-                        SelectUnit(null);
+                        SelectStructure(baseStructure);
+                        game.CurrentPlayer.UpdateVision(game.Map);
                         RenderMap();
                         return;
                     }
@@ -2776,17 +3075,18 @@ namespace EmpireGame
                             return;
                         }
 
-                        var startTile = game.Map.GetTile(unit.Position);
+                        Tile startTile = game.Map.GetTile(unit.Position);
                         startTile.Units.Remove(unit);
 
                         city.Airport.Add(landingAirUnit);
                         landingAirUnit.HomeBaseId = city.StructureId;
                         landingAirUnit.Fuel = landingAirUnit.MaxFuel;
                         landingAirUnit.MovementPoints = 0;
+                        landingAirUnit.Position = new TilePosition(-1, -1);
 
                         AddMessage($"{landingAirUnit.GetName()} landed at city.");
-                        selectedUnit = null;
-                        SelectUnit(null);
+                        SelectStructure(city);
+                        game.CurrentPlayer.UpdateVision(game.Map);
                         RenderMap();
                         return;
                     }
@@ -2797,6 +3097,8 @@ namespace EmpireGame
             await AnimateUnitMovement(unit, path);
 
             unit.MovementPoints -= totalCost;
+            if (unit.MovementPoints < 1.0)
+                unit.MovementPoints = 0;
 
             // Claim tile ownership
             destinationTile.OwnerId = unit.OwnerId;
@@ -2804,8 +3106,8 @@ namespace EmpireGame
             // Check for structure capture on movement (no combat)
             if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
             {
-                var capturedStructure = destinationTile.Structure;
-                var oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
+                Structure capturedStructure = destinationTile.Structure;
+                Player? oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
                 if (oldOwner != null)
                 {
                     oldOwner.RecordStructureLoss(capturedStructure);
@@ -2828,11 +3130,11 @@ namespace EmpireGame
         {
             for (int i = 1; i < path.Count; i++)
             {
-                var oldTile = game.Map.GetTile(unit.Position);
+                Tile oldTile = game.Map.GetTile(unit.Position);
                 oldTile.Units.Remove(unit);
 
                 unit.Position = path[i];
-                var newTile = game.Map.GetTile(path[i]);
+                Tile newTile = game.Map.GetTile(path[i]);
                 newTile.Units.Add(unit);
 
                 RenderMap();
@@ -2850,7 +3152,7 @@ namespace EmpireGame
                 return;
 
             // Create a selection window
-            var selectionWindow = new Window
+            Window selectionWindow = new Window
             {
                 Title = $"Select Unit at ({position.X}, {position.Y})",
                 Width = 350,
@@ -2859,12 +3161,12 @@ namespace EmpireGame
                 Owner = this
             };
 
-            var stackPanel = new StackPanel { Margin = new Thickness(10) };
+            StackPanel stackPanel = new StackPanel { Margin = new Thickness(10) };
 
             // Count only stackable units (satellites don't count)
             int stackableUnits = units.Count(u => !(u is Satellite));
 
-            var label = new TextBlock
+            TextBlock label = new TextBlock
             {
                 Text = $"{stackableUnits} units at this location (max 3):",
                 FontWeight = FontWeights.Bold,
@@ -2875,7 +3177,7 @@ namespace EmpireGame
             // Show warning if at stack limit
             if (stackableUnits >= MAX_UNITS_PER_TILE)
             {
-                var warningLabel = new TextBlock
+                TextBlock warningLabel = new TextBlock
                 {
                     Text = "⚠ Stack limit reached!",
                     Foreground = System.Windows.Media.Brushes.Red,
@@ -2885,9 +3187,9 @@ namespace EmpireGame
                 stackPanel.Children.Add(warningLabel);
             }
 
-            var listBox = new ListBox { Height = 180, Margin = new Thickness(0, 0, 0, 10) };
+            ListBox listBox = new ListBox { Height = 180, Margin = new Thickness(0, 0, 0, 10) };
 
-            foreach (var unit in units)
+            foreach (Unit unit in units)
             {
                 string unitInfo = $"{unit.GetName()} ({(unit.IsVeteran ? "Veteran" : "Regular")}) - " +
                                  $"Life: {unit.Life}/{unit.MaxLife}, Moves: {unit.MovementPoints:F1}/{unit.MaxMovementPoints}";
@@ -2897,7 +3199,7 @@ namespace EmpireGame
                     unitInfo += $", Fuel: {airUnit.Fuel}/{airUnit.MaxFuel}";
                 }
 
-                var item = new ListBoxItem
+                ListBoxItem item = new ListBoxItem
                 {
                     Content = unitInfo,
                     Tag = unit
@@ -2913,13 +3215,13 @@ namespace EmpireGame
 
             stackPanel.Children.Add(listBox);
 
-            var buttonPanel = new StackPanel
+            StackPanel buttonPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
 
-            var selectButton = new Button
+            Button selectButton = new Button
             {
                 Content = "Select",
                 Width = 80,
@@ -2939,7 +3241,7 @@ namespace EmpireGame
                 }
             };
 
-            var cancelButton = new Button
+            Button cancelButton = new Button
             {
                 Content = "Cancel",
                 Width = 80,
@@ -3053,7 +3355,7 @@ namespace EmpireGame
                 return;
             }
 
-            var tile = game.Map.GetTile(tilePos);
+            Tile tile = game.Map.GetTile(tilePos);
 
             //// Check if player can see this location
             //if (!game.CurrentPlayer.FogOfWar.ContainsKey(tilePos) ||
@@ -3086,7 +3388,7 @@ namespace EmpireGame
         private void HandleBomberTargetSelection(TilePosition targetPos)
         {
             // Calculate path and validate range
-            var path = game.Map.FindPath(bomberForMission.Position, targetPos, bomberForMission);
+            List<TilePosition> path = game.Map.FindPath(bomberForMission.Position, targetPos, bomberForMission);
 
             if (path.Count == 0)
             {
@@ -3115,10 +3417,6 @@ namespace EmpireGame
         }
 
         // Button Click Handlers
-        private void MoveButton_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("Right-click on map to move unit");
-        }
 
         private void PatrolButton_Click(object sender, RoutedEventArgs e)
         {
@@ -3135,7 +3433,7 @@ namespace EmpireGame
                 if (airUnit.HomeBaseId != -1)
                 {
                     // Find the base
-                    foreach (var structure in game.CurrentPlayer.Structures)
+                    foreach (Structure structure in game.CurrentPlayer.Structures)
                     {
                         if (structure.StructureId == airUnit.HomeBaseId)
                         {
@@ -3193,20 +3491,12 @@ namespace EmpireGame
             }
         }
 
-        private void AttackButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (selectedUnit != null && selectedUnit.MovementPoints > 0 && selectedUnit.Attack > 0)
-            {
-                AddMessage("Right-click on an enemy unit to attack.", MessageType.Info);
-            }
-        }
-
         private void BuildUnitButton_Click(object sender, RoutedEventArgs e)
         {
             if (UnitTypesCombo.SelectedItem == null)
                 return;
 
-            var selectedItem = (ComboBoxItem)UnitTypesCombo.SelectedItem;
+            ComboBoxItem? selectedItem = (ComboBoxItem)UnitTypesCombo.SelectedItem;
 
             if (!selectedItem.IsEnabled)
             {
@@ -3215,7 +3505,7 @@ namespace EmpireGame
             }
 
             // The tag already contains a properly constructed UnitProductionOrder
-            var order = (UnitProductionOrder)selectedItem.Tag;
+            UnitProductionOrder? order = (UnitProductionOrder)selectedItem.Tag;
 
             // Check capacity one more time before adding to queue
             bool canBuild = false;
@@ -3286,13 +3576,34 @@ namespace EmpireGame
             if (game.HasSurrendered)
                 return;
 
+            // Check if any units still have movement points remaining
+            List<Unit> unitsWithMovement = game.CurrentPlayer.Units
+                .Where(u => u.MovementPoints >= 0.5 &&
+                            !u.IsSkippedThisTurn &&
+                            !u.IsAsleep &&
+                            !(u is Satellite))
+                .ToList();
+
+            if (unitsWithMovement.Count > 0)
+            {
+                string unitWord = unitsWithMovement.Count == 1 ? "unit has" : "units have";
+                MessageBoxResult answer = MessageBox.Show(
+                    $"{unitsWithMovement.Count} {unitWord} movement points remaining. End turn anyway?",
+                    "Units Still Have Moves",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (answer == MessageBoxResult.No)
+                    return;
+            }
+
             currentUnitIndex = 0;
             currentStructureIndex = 0;
 
             game.NextTurn();
 
             // Update statistics for human player
-            var humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
+            Player? humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
             if (humanPlayer != null)
             {
                 humanPlayer.UpdateStatistics(game.Map);
@@ -3304,7 +3615,7 @@ namespace EmpireGame
             // Display any production messages
             while (game.ProductionMessages.Count > 0)
             {
-                var message = game.ProductionMessages.Dequeue();
+                string message = game.ProductionMessages.Dequeue();
                 AddMessage(message, MessageType.Success);
             }
 
@@ -3339,26 +3650,26 @@ namespace EmpireGame
                 // Display any production messages from AI turns too
                 while (game.ProductionMessages.Count > 0)
                 {
-                    var message = game.ProductionMessages.Dequeue();
+                    string message = game.ProductionMessages.Dequeue();
                     AddMessage(message, MessageType.Success);
                 }
 
                 // For AI players, auto-place any unplaced geosync satellites
                 if (game.CurrentPlayer.IsAI)
                 {
-                    var unplacedGeosync = game.CurrentPlayer.Units
+                    List<GeosynchronousSatellite> unplacedGeosync = game.CurrentPlayer.Units
                         .OfType<GeosynchronousSatellite>()
                         .Where(s => s.Position.X == -1 && s.Position.Y == -1)
                         .ToList();
 
-                    foreach (var satellite in unplacedGeosync)
+                    foreach (GeosynchronousSatellite satellite in unplacedGeosync)
                     {
-                        var randomPos = new TilePosition(
+                        TilePosition randomPos = new TilePosition(
                             new Random().Next(0, game.Map.Width),
                             new Random().Next(0, game.Map.Height));
 
                         satellite.Position = randomPos;
-                        var tile = game.Map.GetTile(randomPos);
+                        Tile tile = game.Map.GetTile(randomPos);
                         tile.Units.Add(satellite);
                     }
                 }
@@ -3368,6 +3679,16 @@ namespace EmpireGame
             if (!game.CurrentPlayer.IsAI && game.AutomaticOrdersQueue.Count > 0)
             {
                 await ProcessAutomaticOrdersWithVisuals();
+            }
+
+            // Show combat replays for any AI attacks against the human player
+            while (game.PendingCombatReplays.Count > 0)
+            {
+                CombatResult pendingCombat = game.PendingCombatReplays.Dequeue();
+                RenderMap();
+                CombatWindow combatWindow = new CombatWindow(pendingCombat);
+                combatWindow.Owner = this;
+                combatWindow.ShowDialog();
             }
 
             // Process completed builds and prompt for names
@@ -3382,18 +3703,17 @@ namespace EmpireGame
 
             System.Diagnostics.Debug.WriteLine($"Turn {game.TurnNumber} - Current Player: {game.CurrentPlayer.Name} - Message Queue: {messageLog.GetMessages().Count}");
         }
-
         private void RenderMapFromHumanPerspective()
         {
             Player humanPlayer = game.Players[0];
-            var bitmap = mapRenderer.RenderMap(humanPlayer, selectedUnit, selectedStructure);
+            WriteableBitmap bitmap = mapRenderer.RenderMap(humanPlayer, selectedUnit, selectedStructure);
 
             MapCanvas.Width = bitmap.PixelWidth;
             MapCanvas.Height = bitmap.PixelHeight;
 
             MapCanvas.Children.Clear();
 
-            var image = new System.Windows.Controls.Image
+            Image image = new System.Windows.Controls.Image
             {
                 Source = bitmap,
                 Width = bitmap.PixelWidth,
@@ -3449,7 +3769,7 @@ namespace EmpireGame
 
             // List docked aircraft
             CarrierContentsList.Items.Clear();
-            foreach (var aircraft in carrier.DockedAircraft)
+            foreach (AirUnit aircraft in carrier.DockedAircraft)
             {
                 CarrierContentsList.Items.Add($"{aircraft.GetName()} - Fuel: {aircraft.Fuel}/{aircraft.MaxFuel}");
             }
@@ -3472,7 +3792,7 @@ namespace EmpireGame
 
             // List embarked units
             CarrierContentsList.Items.Clear();
-            foreach (var embarkedUnit in transport.EmbarkedUnits)
+            foreach (LandUnit embarkedUnit in transport.EmbarkedUnits)
             {
                 CarrierContentsList.Items.Add($"{embarkedUnit.GetName()} - Life: {embarkedUnit.Life}/{embarkedUnit.MaxLife}");
             }
@@ -3481,7 +3801,7 @@ namespace EmpireGame
         private void UpdatePatrolBoatDisplay(PatrolBoat patrolBoat)
         {
             // Check if in deep water
-            var tile = game.Map.GetTile(patrolBoat.Position);
+            Tile tile = game.Map.GetTile(patrolBoat.Position);
             bool isDeepWater = !tile.IsCoastalWater(game.Map) && tile.Terrain == TerrainType.Ocean;
 
             if (isDeepWater)
@@ -3501,7 +3821,7 @@ namespace EmpireGame
         {
             // Check proximity to friendly base
             bool nearBase = false;
-            foreach (var structure in game.CurrentPlayer.Structures)
+            foreach (Structure structure in game.CurrentPlayer.Structures)
             {
                 if (structure is Base || structure is City)
                 {
@@ -3559,7 +3879,7 @@ namespace EmpireGame
                     AddMessage($"{airUnit.GetName()} patrol cancelled", MessageType.Info);
                 }
 
-                var nearestBase = airUnit.GetNearestBase(game.Map, game.CurrentPlayer);
+                Structure? nearestBase = airUnit.GetNearestBase(game.Map, game.CurrentPlayer);
                 if (nearestBase != null)
                 {
                     game.AddAutomaticOrder(airUnit, nearestBase.Position, AutomaticOrderType.ReturnToBase);
@@ -3571,7 +3891,7 @@ namespace EmpireGame
                     game.CurrentPlayer.UpdateVision(game.Map);
                     RenderMap();
 
-                    var tile = game.Map.GetTile(airUnit.Position);
+                    Tile tile = game.Map.GetTile(airUnit.Position);
                     if (!tile.Units.Contains(airUnit))
                     {
                         ClearSelection();
@@ -3590,11 +3910,85 @@ namespace EmpireGame
             }
         }
 
+       private void ParkVehicleButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedUnit == null)
+                return;
+
+            Tile currentTile = game.Map.GetTile(selectedUnit.Position);
+            
+            // Check if unit is on a friendly base/city
+            if (currentTile.Structure != null && 
+                currentTile.Structure.OwnerId == game.CurrentPlayer.PlayerId &&
+                (currentTile.Structure is Base || currentTile.Structure is City))
+            {
+                Structure structure = currentTile.Structure;
+                
+                // Infantry units (Army, Sapper, Spy) go to barracks
+                if (selectedUnit is Army || selectedUnit is Sapper || selectedUnit is Spy)
+                {
+                    if (structure is Base baseStructure)
+                    {
+                        if (baseStructure.Barracks.Count >= Base.MAX_BARRACKS_CAPACITY)
+                        {
+                            AddMessage("Barracks is full!", MessageType.Warning);
+                            return;
+                        }
+                        
+                        currentTile.Units.Remove(selectedUnit);
+                        selectedUnit.Position = new TilePosition(-1, -1);
+                        baseStructure.Barracks.Add(selectedUnit as LandUnit);
+                        AddMessage($"{selectedUnit.GetName()} moved to barracks at {structure.GetName()}", MessageType.Success);
+                    }
+                    else if (structure is City city)
+                    {
+                        if (city.Barracks.Count >= City.MAX_BARRACKS_CAPACITY)
+                        {
+                            AddMessage("Barracks is full!", MessageType.Warning);
+                            return;
+                        }
+
+                        currentTile.Units.Remove(selectedUnit);
+                        selectedUnit.Position = new TilePosition(-1, -1);
+                        city.Barracks.Add(selectedUnit as LandUnit);
+                        AddMessage($"{selectedUnit.GetName()} moved to barracks at {structure.GetName()}", MessageType.Success);
+                    }
+                }
+                // Vehicles (Tank, Artillery, AntiAircraft) go to motor pool
+                else if (selectedUnit is Tank || selectedUnit is Artillery || selectedUnit is AntiAircraft)
+                {
+                    if (structure is Base baseStructure)
+                    {
+                        currentTile.Units.Remove(selectedUnit);
+                        selectedUnit.Position = new TilePosition(-1, -1);
+                        baseStructure.MotorPool.Add(selectedUnit);
+                        AddMessage($"{selectedUnit.GetName()} parked in motor pool at {structure.GetName()}", MessageType.Success);
+                    }
+                    else if (structure is City city)
+                    {
+                        currentTile.Units.Remove(selectedUnit);
+                        selectedUnit.Position = new TilePosition(-1, -1);
+                        city.MotorPool.Add(selectedUnit);
+                        AddMessage($"{selectedUnit.GetName()} parked in motor pool at {structure.GetName()}", MessageType.Success);
+                    }
+                }
+
+                ClearSelection();
+                SelectStructure(structure);
+                game.CurrentPlayer.UpdateVision(game.Map);
+                RenderMap();
+            }
+            else
+            {
+                AddMessage("Must be on a friendly base or city to park unit!", MessageType.Warning);
+            }
+        }
+
         private void LandAtBaseButton_Click(object sender, RoutedEventArgs e)
         {
             if (selectedUnit is AirUnit airUnit)
             {
-                var adjacentStructures = new List<Structure>();
+                List<Structure> adjacentStructures = new List<Structure>();
 
                 for (int dx = -1; dx <= 1; dx++)
                 {
@@ -3602,10 +3996,10 @@ namespace EmpireGame
                     {
                         if (dx == 0 && dy == 0) continue;
 
-                        var checkPos = new TilePosition(airUnit.Position.X + dx, airUnit.Position.Y + dy);
+                        TilePosition checkPos = new TilePosition(airUnit.Position.X + dx, airUnit.Position.Y + dy);
                         if (game.Map.IsValidPosition(checkPos))
                         {
-                            var tile = game.Map.GetTile(checkPos);
+                            Tile tile = game.Map.GetTile(checkPos);
                             if (tile.Structure != null &&
                                 tile.Structure.OwnerId == game.CurrentPlayer.PlayerId &&
                                 (tile.Structure is Base || tile.Structure is City))
@@ -3618,9 +4012,9 @@ namespace EmpireGame
 
                 if (adjacentStructures.Count > 0)
                 {
-                    var structure = adjacentStructures[0];
+                    Structure structure = adjacentStructures[0];
 
-                    var tile = game.Map.GetTile(airUnit.Position);
+                    Tile tile = game.Map.GetTile(airUnit.Position);
                     tile.Units.Remove(airUnit);
 
                     if (structure is Base baseStructure)
@@ -3683,7 +4077,7 @@ namespace EmpireGame
         private void SurrenderButton_Click(object sender, RoutedEventArgs e)
         {
             // Confirm surrender
-            var result = MessageBox.Show(
+            MessageBoxResult result = MessageBox.Show(
                 "Are you sure you want to surrender?\n\n" +
                 "This will reveal the entire map showing all units and structures.\n" +
                 "You will no longer be able to issue commands.",
@@ -3717,26 +4111,24 @@ namespace EmpireGame
         private void DisableGameControls()
         {
             // Disable unit commands
-            if (MoveButton != null) MoveButton.IsEnabled = false;
-            if (PatrolButton != null) PatrolButton.IsEnabled = false;
-            if (AttackButton != null) AttackButton.IsEnabled = false;
-            if (SkipTurnButton != null) SkipTurnButton.IsEnabled = false;
-            if (SleepButton != null) SleepButton.IsEnabled = false;
-            if (SentryButton != null) SentryButton.IsEnabled = false;
-            if (WakeUpButton != null) WakeUpButton.IsEnabled = false;
+            if (CircularPatrolButton != null) CircularPatrolButton.IsEnabled = false;
+            if (CircularSkipButton != null) CircularSkipButton.IsEnabled = false;
+            if (CircularSleepButton != null) CircularSleepButton.IsEnabled = false;
+            if (CircularSentryButton != null) CircularSentryButton.IsEnabled = false;
+            if (CircularWakeUpButton != null) CircularWakeUpButton.IsEnabled = false;
 
             // Disable structure commands
             if (BuildUnitButton != null) BuildUnitButton.IsEnabled = false;
             if (TakeOffButton != null) TakeOffButton.IsEnabled = false;
-            if (LandAtBaseButton != null) LandAtBaseButton.IsEnabled = false;
-            if (ReturnToBaseButton != null) ReturnToBaseButton.IsEnabled = false;
-            if (BombingRunButton != null) BombingRunButton.IsEnabled = false;
+            if (CircularLandButton != null) CircularLandButton.IsEnabled = false;
+            if (CircularRTBButton != null) CircularRTBButton.IsEnabled = false;
+            if (CircularBombButton != null) CircularBombButton.IsEnabled = false;
             if (RepairAircraftButton != null) RepairAircraftButton.IsEnabled = false;
             if (LaunchShipButton != null) LaunchShipButton.IsEnabled = false;
             if (RepairShipButton != null) RepairShipButton.IsEnabled = false;
             if (DeployMotorButton != null) DeployMotorButton.IsEnabled = false;
             if (DeployArmyButton != null) DeployArmyButton.IsEnabled = false;
-            if (ToggleSubmergeButton != null) ToggleSubmergeButton.IsEnabled = false;
+            if (CircularSubmergeButton != null) CircularSubmergeButton.IsEnabled = false;
 
             // Disable game flow buttons
             EndTurnButton.IsEnabled = false;
@@ -3757,12 +4149,10 @@ namespace EmpireGame
         private void EnableGameControls()
         {
             // Re-enable unit commands
-            if (MoveButton != null) MoveButton.IsEnabled = true;
-            if (PatrolButton != null) PatrolButton.IsEnabled = true;
-            if (AttackButton != null) AttackButton.IsEnabled = true;
-            if (SkipTurnButton != null) SkipTurnButton.IsEnabled = true;
-            if (SleepButton != null) SleepButton.IsEnabled = true;
-            if (SentryButton != null) SentryButton.IsEnabled = true;
+            if (CircularPatrolButton != null) CircularPatrolButton.IsEnabled = true;
+            if (CircularSkipButton != null) CircularSkipButton.IsEnabled = true;
+            if (CircularSleepButton != null) CircularSleepButton.IsEnabled = true;
+            if (CircularSentryButton != null) CircularSentryButton.IsEnabled = true;
 
             // Re-enable structure commands
             if (BuildUnitButton != null) BuildUnitButton.IsEnabled = true;
@@ -3783,7 +4173,7 @@ namespace EmpireGame
         private void NewGameButton_Click(object sender, RoutedEventArgs e)
         {
             // Confirm new game
-            var result = MessageBox.Show(
+            MessageBoxResult result = MessageBox.Show(
                 "Start a new game?",
                 "New Game",
                 MessageBoxButton.YesNo,
@@ -3818,10 +4208,10 @@ namespace EmpireGame
         }
         private void UpdateResourceDisplay()
         {
-            var player = game.CurrentPlayer;
+            Player player = game.CurrentPlayer;
 
             // Get income
-            var (goldIncome, steelIncome, oilIncome) = player.GetResourceIncome(game.Map);
+            (int goldIncome, int steelIncome, int oilIncome) = player.GetResourceIncome(game.Map);
 
             // Update display
             GoldText.Text = player.Gold.ToString();
@@ -3839,19 +4229,19 @@ namespace EmpireGame
             if (game.AutomaticOrdersQueue.Count == 0)
                 return;
 
-            var ordersToProcess = game.AutomaticOrdersQueue.ToList();
+            List<AutomaticOrder> ordersToProcess = game.AutomaticOrdersQueue.ToList();
             game.AutomaticOrdersQueue.Clear();
 
-            var enemiesSpottedUnits = new List<Unit>();
+            List<Unit> enemiesSpottedUnits = new List<Unit>();
 
-            foreach (var order in ordersToProcess)
+            foreach (AutomaticOrder order in ordersToProcess)
             {
                 // Skip if unit is dead or belongs to a different player
                 if (order.Unit.Life <= 0 || order.Unit.OwnerId != game.CurrentPlayer.PlayerId)
                     continue;
 
                 // Process the order with visual updates
-                var (shouldContinue, enemySpotted) = await game.ProcessAutomaticOrder(
+                (bool shouldContinue, bool enemySpotted) = await game.ProcessAutomaticOrder(
                     order,
                     (unit) =>
                     {
@@ -3908,7 +4298,7 @@ namespace EmpireGame
 
         private void AddMessage(string message, MessageType type = MessageType.Info)
         {
-            var brush = type switch
+            SolidColorBrush brush = type switch
             {
                 MessageType.Success => System.Windows.Media.Brushes.LimeGreen,
                 MessageType.Warning => System.Windows.Media.Brushes.Orange,
@@ -4005,7 +4395,7 @@ namespace EmpireGame
 
         private void CheckForGameOver()
         {
-            var humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
+            Player? humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
             if (humanPlayer != null && game.IsPlayerEliminated(humanPlayer))
             {
                 ShowGameOver(false);
@@ -4014,20 +4404,20 @@ namespace EmpireGame
 
         private void ShowGameOver(bool victory)
         {
-            var humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
+            Player? humanPlayer = game.Players.FirstOrDefault(p => !p.IsAI);
             if (humanPlayer != null)
             {
                 humanPlayer.Statistics.TurnsSurvived = game.TurnNumber;
                 humanPlayer.Statistics.Victory = victory;
 
-                var gameOverWindow = new GameOverWindow(humanPlayer.Statistics);
+                GameOverWindow gameOverWindow = new GameOverWindow(humanPlayer.Statistics);
                 gameOverWindow.Owner = this;
                 gameOverWindow.ShowDialog();
 
                 if (gameOverWindow.ReturnToMainMenu)
                 {
                     // Return to main menu
-                    var startForm = new StartGameForm();
+                    StartGameForm startForm = new StartGameForm();
                     if (startForm.ShowDialog() == true)
                     {
                         gameSettings = startForm.Settings;
@@ -4035,11 +4425,13 @@ namespace EmpireGame
                     }
                     else
                     {
+                        _suppressExitConfirmation = true;
                         Application.Current.Shutdown();
                     }
                 }
                 else
                 {
+                    _suppressExitConfirmation = true;
                     Application.Current.Shutdown();
                 }
             }
@@ -4081,12 +4473,12 @@ namespace EmpireGame
         {
             if (MessageLogItems != null)
             {
-                foreach (var item in MessageLogItems.Items)
+                foreach (object? item in MessageLogItems.Items)
                 {
-                    var container = MessageLogItems.ItemContainerGenerator.ContainerFromItem(item) as ContentPresenter;
+                    ContentPresenter? container = MessageLogItems.ItemContainerGenerator.ContainerFromItem(item) as ContentPresenter;
                     if (container != null)
                     {
-                        var textBlock = FindVisualChild<TextBlock>(container);
+                        TextBlock? textBlock = FindVisualChild<TextBlock>(container);
                         if (textBlock != null)
                         {
                             textBlock.FontSize = messageLogFontSize;
@@ -4104,11 +4496,11 @@ namespace EmpireGame
         {
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             {
-                var child = VisualTreeHelper.GetChild(parent, i);
+                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
                 if (child is T typedChild)
                     return typedChild;
 
-                var result = FindVisualChild<T>(child);
+                T? result = FindVisualChild<T>(child);
                 if (result != null)
                     return result;
             }
@@ -4158,7 +4550,7 @@ namespace EmpireGame
             // Process completed bases
             while (game.CompletedBases.Count > 0)
             {
-                var (playerId, structure) = game.CompletedBases.Dequeue();
+                (int playerId, Structure structure) = game.CompletedBases.Dequeue();
 
                 if (playerId == game.Players[0].PlayerId) // Human player
                 {
@@ -4184,14 +4576,14 @@ namespace EmpireGame
             // Process completed bridges
             while (game.CompletedBridges.Count > 0)
             {
-                var (playerId, position) = game.CompletedBridges.Dequeue();
+                (int playerId, TilePosition position) = game.CompletedBridges.Dequeue();
 
                 if (playerId == game.Players[0].PlayerId) // Human player
                 {
                     string name = PromptForBridgeName(position);
                     if (!string.IsNullOrWhiteSpace(name))
                     {
-                        var tile = game.Map.GetTile(position);
+                        Tile tile = game.Map.GetTile(position);
                         tile.BridgeName = name;
                         AddMessage($"🌉 Bridge '{name}' completed at ({position.X}, {position.Y})!", MessageType.Success);
                     }
@@ -4209,7 +4601,7 @@ namespace EmpireGame
 
         private string PromptForBaseName(TilePosition position)
         {
-            var dialog = new Window
+            Window dialog = new Window
             {
                 Title = "Name Your Base",
                 Width = 350,
@@ -4219,9 +4611,9 @@ namespace EmpireGame
                 Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(26, 26, 46))
             };
 
-            var stackPanel = new StackPanel { Margin = new Thickness(20) };
+            StackPanel stackPanel = new StackPanel { Margin = new Thickness(20) };
 
-            var label = new TextBlock
+            TextBlock label = new TextBlock
             {
                 Text = $"Your Sapper has completed a new base at ({position.X}, {position.Y})!",
                 TextWrapping = TextWrapping.Wrap,
@@ -4231,7 +4623,7 @@ namespace EmpireGame
             };
             stackPanel.Children.Add(label);
 
-            var nameLabel = new TextBlock
+            TextBlock nameLabel = new TextBlock
             {
                 Text = "Enter a name for this base:",
                 Foreground = System.Windows.Media.Brushes.White,
@@ -4239,7 +4631,7 @@ namespace EmpireGame
             };
             stackPanel.Children.Add(nameLabel);
 
-            var textBox = new TextBox
+            TextBox textBox = new TextBox
             {
                 FontSize = 14,
                 Margin = new Thickness(0, 0, 0, 15),
@@ -4247,13 +4639,13 @@ namespace EmpireGame
             };
             stackPanel.Children.Add(textBox);
 
-            var buttonPanel = new StackPanel
+            StackPanel buttonPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
 
-            var okButton = new Button
+            Button okButton = new Button
             {
                 Content = "OK",
                 Width = 80,
@@ -4266,7 +4658,7 @@ namespace EmpireGame
                 dialog.Close();
             };
 
-            var skipButton = new Button
+            Button skipButton = new Button
             {
                 Content = "Skip",
                 Width = 80
@@ -4292,7 +4684,7 @@ namespace EmpireGame
 
         private string PromptForBridgeName(TilePosition position)
         {
-            var dialog = new Window
+            Window dialog = new Window
             {
                 Title = "Name Your Bridge",
                 Width = 350,
@@ -4302,9 +4694,9 @@ namespace EmpireGame
                 Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(26, 26, 46))
             };
 
-            var stackPanel = new StackPanel { Margin = new Thickness(20) };
+            StackPanel stackPanel = new StackPanel { Margin = new Thickness(20) };
 
-            var label = new TextBlock
+            TextBlock label = new TextBlock
             {
                 Text = $"Your Sapper has completed a bridge at ({position.X}, {position.Y})!",
                 TextWrapping = TextWrapping.Wrap,
@@ -4314,7 +4706,7 @@ namespace EmpireGame
             };
             stackPanel.Children.Add(label);
 
-            var nameLabel = new TextBlock
+            TextBlock nameLabel = new TextBlock
             {
                 Text = "Enter a name for this bridge:",
                 Foreground = System.Windows.Media.Brushes.White,
@@ -4322,7 +4714,7 @@ namespace EmpireGame
             };
             stackPanel.Children.Add(nameLabel);
 
-            var textBox = new TextBox
+            TextBox textBox = new TextBox
             {
                 FontSize = 14,
                 Margin = new Thickness(0, 0, 0, 15),
@@ -4330,13 +4722,13 @@ namespace EmpireGame
             };
             stackPanel.Children.Add(textBox);
 
-            var buttonPanel = new StackPanel
+            StackPanel buttonPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
 
-            var okButton = new Button
+            Button okButton = new Button
             {
                 Content = "OK",
                 Width = 80,
@@ -4349,7 +4741,7 @@ namespace EmpireGame
                 dialog.Close();
             };
 
-            var skipButton = new Button
+            Button skipButton = new Button
             {
                 Content = "Skip",
                 Width = 80

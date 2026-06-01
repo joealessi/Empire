@@ -9,7 +9,7 @@
     // Unit storage with capacity limits
     public List<AirUnit> Airport { get; set; }
     public List<Unit> MotorPool { get; set; }
-    public List<Army> Barracks { get; set; }
+    public List<LandUnit> Barracks { get; set; }
     public List<SeaUnit> Shipyard { get; set; }
     
     public const int MAX_BARRACKS_CAPACITY = 10;
@@ -29,7 +29,7 @@
         CurrentProductionProgress = 0;
         Airport = new List<AirUnit>();
         MotorPool = new List<Unit>();
-        Barracks = new List<Army>();
+        Barracks = new List<LandUnit>();
         Shipyard = new List<SeaUnit>();
         UnitsBeingRepaired = new Dictionary<Unit, int>();
         CanProduceNaval = false;
@@ -92,10 +92,12 @@
     public int GetBarracksSpaceUsed()
     {
         int used = Barracks.Count;
-        // Count armies under construction
+        // Count infantry units under construction
         foreach (var order in ProductionQueue)
         {
-            if (order.UnitType == typeof(Army))
+            if (order.UnitType == typeof(Army) || 
+                order.UnitType == typeof(Sapper) || 
+                order.UnitType == typeof(Spy))
             {
                 used++;
             }
@@ -115,7 +117,7 @@
         {
             return HasShipyard && GetShipyardSpaceUsed() < MAX_SHIPYARD_CAPACITY;
         }
-        else if (unitType == typeof(Army))
+        else if (unitType == typeof(Army) || unitType == typeof(Sapper) || unitType == typeof(Spy))
         {
             return GetBarracksSpaceUsed() < MAX_BARRACKS_CAPACITY;
         }

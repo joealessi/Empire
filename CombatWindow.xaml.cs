@@ -92,7 +92,7 @@ namespace EmpireGame
                 
                 if (File.Exists(iconPath))
                 {
-                    var bitmap = new BitmapImage();
+                    BitmapImage bitmap = new BitmapImage();
                     bitmap.BeginInit();
                     bitmap.UriSource = new Uri(iconPath, UriKind.Absolute);
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
@@ -161,10 +161,10 @@ namespace EmpireGame
             newLifeBlock.Opacity = 0;
 
             // Animate old text dropping down and fading out
-            var oldTransform = new TranslateTransform();
+            TranslateTransform oldTransform = new TranslateTransform();
             oldLifeBlock.RenderTransform = oldTransform;
 
-            var dropAnimation = new DoubleAnimation
+            DoubleAnimation dropAnimation = new DoubleAnimation
             {
                 From = 0,
                 To = 30,
@@ -172,7 +172,7 @@ namespace EmpireGame
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
             };
 
-            var fadeOutAnimation = new DoubleAnimation
+            DoubleAnimation fadeOutAnimation = new DoubleAnimation
             {
                 From = 1,
                 To = 0,
@@ -180,7 +180,7 @@ namespace EmpireGame
             };
 
             // Animate new text fading in
-            var fadeInAnimation = new DoubleAnimation
+            DoubleAnimation fadeInAnimation = new DoubleAnimation
             {
                 From = 0,
                 To = 1,
@@ -195,7 +195,7 @@ namespace EmpireGame
 
         private async Task PlayCombat()
         {
-            foreach (var round in combatResult.Rounds)
+            foreach (CombatRound round in combatResult.Rounds)
             {
                 if (skipAnimation)
                 {
@@ -304,11 +304,11 @@ namespace EmpireGame
             {
                 RoundResult.Text = $"{GetPlayerName(combatResult.Attacker.OwnerId)} {combatResult.Attacker.GetName()} WINS!";
                 RoundResult.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Attacker.OwnerId));
-                
+
                 if (combatResult.Attacker.IsVeteran)
                 {
                     await Task.Delay(500);
-                    var veteranText = new TextBlock
+                    TextBlock veteranText = new TextBlock
                     {
                         Text = "★ VETERAN ★",
                         FontSize = 20,
@@ -316,19 +316,24 @@ namespace EmpireGame
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Margin = new Thickness(0, 10, 0, 0)
                     };
-                    ((Grid)Content).Children.Add(veteranText);
-                    Grid.SetRow(veteranText, 2);
+
+                    Grid? rootGrid = (Content is Border border) ? border.Child as Grid : Content as Grid;
+                    if (rootGrid != null)
+                    {
+                        rootGrid.Children.Add(veteranText);
+                        Grid.SetRow(veteranText, 2);
+                    }
                 }
             }
             else
             {
                 RoundResult.Text = $"{GetPlayerName(combatResult.Defender.OwnerId)} {combatResult.Defender.GetName()} WINS!";
                 RoundResult.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Defender.OwnerId));
-                
+
                 if (combatResult.Defender.IsVeteran)
                 {
                     await Task.Delay(500);
-                    var veteranText = new TextBlock
+                    TextBlock veteranText = new TextBlock
                     {
                         Text = "★ VETERAN ★",
                         FontSize = 20,
@@ -336,12 +341,16 @@ namespace EmpireGame
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Margin = new Thickness(0, 10, 0, 0)
                     };
-                    ((Grid)Content).Children.Add(veteranText);
-                    Grid.SetRow(veteranText, 2);
+
+                    Grid? rootGrid = (Content is Border border) ? border.Child as Grid : Content as Grid;
+                    if (rootGrid != null)
+                    {
+                        rootGrid.Children.Add(veteranText);
+                        Grid.SetRow(veteranText, 2);
+                    }
                 }
             }
         }
-
         private void RetreatButton_Click(object sender, RoutedEventArgs e)
         {
             if (currentRoundIndex > 0 && combatResult.Attacker.Life > 0)

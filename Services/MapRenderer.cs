@@ -295,9 +295,46 @@ namespace EmpireGame
                             // Render tile
                             RenderTile(pBackBuffer, stride, x, y, tile, visibility);
 
-                            // Render contents if visible
+  // Render contents if visible
                             if (visibility == VisibilityLevel.Visible)
                             {
+                                // Check if this tile has an enemy in attack range of selected unit
+                                bool isEnemyInRange = false;
+                                if (selectedUnit != null && selectedUnit.OwnerId == currentPlayer.PlayerId)
+                                {
+                                    int attackRange = GetAttackRange(selectedUnit);
+                                    if (IsInAttackRange(selectedUnit.Position, tilePos, attackRange))
+                                    {
+                                        // Check if tile has enemy units
+                                        foreach (var u in tile.Units)
+                                        {
+                                            if (u.OwnerId != currentPlayer.PlayerId && !(u is Satellite))
+                                            {
+                                                // Skip disguised spies - they appear friendly
+                                                if (u is Spy spy && !spy.IsRevealed)
+                                                    continue;
+                                                    
+                                                isEnemyInRange = true;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // Also check for enemy structures
+                                        if (!isEnemyInRange && tile.Structure != null && 
+                                            tile.Structure.OwnerId != currentPlayer.PlayerId)
+                                        {
+                                            isEnemyInRange = true;
+                                        }
+                                    }
+                                }
+
+                                // Draw red highlight for enemies in range BEFORE rendering unit
+                                if (isEnemyInRange)
+                                {
+                                    DrawAttackRangeHighlight(pBackBuffer, stride, x * tileSize, y * tileSize, 
+                                        Color.FromRgb(255, 50, 50));
+                                }
+
                                 // Render structure
                                 if (tile.Structure != null)
                                 {
@@ -311,7 +348,7 @@ namespace EmpireGame
                                 }
                             }
 
-                            // Highlight selected unit or structure
+                            // Highlight selected unit or structure (yellow border)
                             if (selectedUnit != null && selectedUnit.Position.Equals(tilePos))
                             {
                                 DrawHighlight(pBackBuffer, stride, x * tileSize, y * tileSize, Color.FromRgb(255, 255, 0));
@@ -319,7 +356,17 @@ namespace EmpireGame
                             else if (selectedStructure != null && selectedStructure.Position.Equals(tilePos))
                             {
                                 DrawHighlight(pBackBuffer, stride, x * tileSize, y * tileSize, Color.FromRgb(255, 255, 0));
-                            }
+                            }                        }
+                    }
+                    // Draw attack range circle for selected unit
+                    if (selectedUnit != null && selectedUnit.OwnerId == currentPlayer.PlayerId)
+                    {
+                        int attackRange = GetAttackRange(selectedUnit);
+                        if (attackRange > 1) // Only draw circle for ranged units like artillery
+                        {
+                            DrawAttackRangeCircle(pBackBuffer, stride, 
+                                selectedUnit.Position.X, selectedUnit.Position.Y, 
+                                attackRange, Color.FromRgb(255, 100, 100));
                         }
                     }
                 }
@@ -840,6 +887,64 @@ namespace EmpireGame
             }
         }
 
+        private unsafe void DrawAttackRangeHighlight(IntPtr pBackBuffer, int stride, int x, int y, Color tintColor)
+        {
+            // Semi-transparent red tint over the tile
+            for (int py = 0; py < tileSize; py++)
+            {
+                for (int px = 0; px < tileSize; px++)
+                {
+                    int screenX = x + px;
+                    int screenY = y + py;
+
+                    byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                    
+                    // Blend existing color with red tint (30% red overlay)
+                    pixel[0] = (byte)Math.Min(255, pixel[0] * 0.7 + tintColor.B * 0.3);
+                    pixel[1] = (byte)Math.Min(255, pixel[1] * 0.7 + tintColor.G * 0.3);
+                    pixel[2] = (byte)Math.Min(255, pixel[2] * 0.7 + tintColor.R * 0.3);
+                }
+            }
+        }
+
+        private unsafe void DrawAttackRangeCircle(IntPtr pBackBuffer, int stride, int centerTileX, int centerTileY, int rangeInTiles, Color color)
+        {
+            // Draw a thin circle around the attack range
+            // Using tile-based coordinates, draw at the edge of range
+
+            int pixelRadius = rangeInTiles * tileSize + tileSize / 2;
+            int centerX = centerTileX * tileSize + tileSize / 2;
+            int centerY = centerTileY * tileSize + tileSize / 2;
+
+            // Draw circle outline using Bresenham-style approach
+            for (int angle = 0; angle < 360; angle++)
+            {
+                double radians = angle * Math.PI / 180.0;
+                int px = centerX + (int)(pixelRadius * Math.Cos(radians));
+                int py = centerY + (int)(pixelRadius * Math.Sin(radians));
+
+                // Draw a small dot at each point (thickness of 2 pixels)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        int screenX = px + dx;
+                        int screenY = py + dy;
+
+                        if (screenX >= 0 && screenX < bitmap.PixelWidth &&
+                            screenY >= 0 && screenY < bitmap.PixelHeight)
+                        {
+                            byte* pixel = (byte*)pBackBuffer + screenY * stride + screenX * 4;
+                            pixel[0] = color.B;
+                            pixel[1] = color.G;
+                            pixel[2] = color.R;
+                            pixel[3] = 255;
+                        }
+                    }
+                }
+            }
+        }
+
         private unsafe void DrawBorder(IntPtr pBackBuffer, int stride, int x, int y, int width, int height, Color color)
         {
             for (int px = 0; px < width; px++)
@@ -894,6 +999,21 @@ namespace EmpireGame
                 return Colors.Gray;
 
             return PlayerColors[playerId];
+        }
+
+        private int GetAttackRange(Unit unit)
+        {
+            if (unit is Artillery artillery)
+                return artillery.AttackRange;
+            
+            // Most units have melee range (adjacent tiles only)
+            return 1;
+        }
+
+        private bool IsInAttackRange(TilePosition from, TilePosition to, int range)
+        {
+            int distance = Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y);
+            return distance <= range && distance > 0;
         }
 
         private unsafe void RenderBridge(IntPtr pBackBuffer, int stride, int tileX, int tileY)

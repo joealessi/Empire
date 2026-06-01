@@ -1,6 +1,7 @@
 ﻿public class Artillery : LandUnit
 {
     public int AttackRange { get; set; }
+    public bool HasAttackedThisTurn { get; set; }  
 
     public Artillery()
     {
@@ -10,7 +11,8 @@
         Life = MaxLife;
         Attack = 8;
         Defense = 1;
-        AttackRange = 4; // Can attack from 2 tiles away
+        AttackRange = 4;
+        HasAttackedThisTurn = false;  // ADD THIS LINE
     }
 
     public override bool CanMoveOn(TerrainType terrain)

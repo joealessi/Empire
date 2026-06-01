@@ -10,6 +10,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\Empire_Icons\Bomb.png" />
+    <None Remove="Resources\Empire_Icons\BuildBase.png" />
+    <None Remove="Resources\Empire_Icons\BuildBridge.png" />
+    <None Remove="Resources\Empire_Icons\BuildCity.png" />
+    <None Remove="Resources\Empire_Icons\CancelBuild.png" />
+    <None Remove="Resources\Empire_Icons\Land.png" />
+    <None Remove="Resources\Empire_Icons\Park.png" />
+    <None Remove="Resources\Empire_Icons\Patrol.png" />
+    <None Remove="Resources\Empire_Icons\RTB.png" />
+    <None Remove="Resources\Empire_Icons\Sentry.png" />
+    <None Remove="Resources\Empire_Icons\Skip.png" />
+    <None Remove="Resources\Empire_Icons\Sleep.png" />
+    <None Remove="Resources\Empire_Icons\Submerge.png" />
     <None Remove="Resources\Empire_Icons\Units\AircraftCarrier.png" />
     <None Remove="Resources\Empire_Icons\Units\AntiAircraft.png" />
     <None Remove="Resources\Empire_Icons\Units\Army.png" />
@@ -44,6 +57,7 @@
     <None Remove="Resources\Empire_Icons\Veteran\Spy.png" />
     <None Remove="Resources\Empire_Icons\Veteran\Submarine.png" />
     <None Remove="Resources\Empire_Icons\Veteran\Tank.png" />
+    <None Remove="Resources\Empire_Icons\Wake.png" />
     <None Remove="Resources\fast-forward.png" />
     <None Remove="Resources\gold_16.png" />
     <None Remove="Resources\gold_31.png" />
@@ -123,6 +137,45 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Resources\Empire_Icons\Bomb.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\BuildBase.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\BuildBridge.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\BuildCity.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\CancelBuild.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Land.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Park.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Patrol.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\RTB.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Sentry.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Skip.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Sleep.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Submerge.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Empire_Icons\Units\AircraftCarrier.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -223,6 +276,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Empire_Icons\Veteran\Tank.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Wake.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\fast-forward.png">

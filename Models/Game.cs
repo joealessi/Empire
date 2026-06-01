@@ -14,6 +14,7 @@ public class Game
 
     public Queue<(int playerId, Structure structure)> CompletedBases { get; set; }
     public Queue<(int playerId, TilePosition position)> CompletedBridges { get; set; }
+    public Queue<CombatResult> PendingCombatReplays { get; set; }
 
     public bool HasSurrendered { get; set; }
 
@@ -41,6 +42,7 @@ public class Game
         ProductionMessages = new Queue<string>();
         CompletedBases = new Queue<(int, Structure)>();
         CompletedBridges = new Queue<(int, TilePosition)>();
+        PendingCombatReplays = new Queue<CombatResult>();
     }
 
     public void NextTurn()
@@ -66,11 +68,11 @@ public class Game
             // Check sentry units BEFORE processing their turn
             CheckSentryUnits(player);
 
-            // NEW: Calculate and apply resource income
+            // Calculate and apply resource income
             player.CalculateResourceIncome(Map);
 
-            // Consume fuel for air units
-            foreach (var unit in player.Units.ToList()) // Use ToList() to avoid modification during iteration
+            // Per-unit processing
+            foreach (var unit in player.Units.ToList())
             {
                 if (unit is AirUnit airUnit)
                 {
@@ -85,18 +87,17 @@ public class Game
 
                 // Process automated orders
                 ProcessUnitOrders(unit);
-
-                // Process sapper building projects
-                ProcessSapperBuilding(player);
             }
 
-            // Remove crashed/dead units after fuel consumption
+            // Process sapper building projects (once per player, not per unit)
+            ProcessSapperBuilding(player);
+
+            // Remove crashed/dead units after fuel consumption (once per player)
             RemoveDeadUnits(player);
 
-            // Process production queues
+            // Process production queues and structure healing (once per player)
             foreach (var structure in player.Structures)
             {
-                // Process structure healing
                 ProcessStructureHealing(player);
 
                 if (structure is Base baseStructure)
@@ -203,8 +204,8 @@ public class Game
             PatrolBoat => 4,
             Transport => 3,
             Tank => 2,
-            Artillery => 2,
-            AntiAircraft => 2,
+            Artillery => 6,
+            AntiAircraft => 6,
             Spy => 3,
             Army => 1,
             OrbitingSatellite orbitSat => orbitSat.VisionRadius,
@@ -489,14 +490,18 @@ public class Game
                 baseStructure.MotorPool.Add(unit);
                 placed = true;
             }
-            else if (unit is Army army)
+            else if (unit is Army || unit is Sapper || unit is Spy)
             {
                 if (baseStructure.Barracks.Count < Base.MAX_BARRACKS_CAPACITY)
                 {
-                    baseStructure.Barracks.Add(army);
+                    baseStructure.Barracks.Add(unit as LandUnit);
                     placed = true;
                 }
             }
+
+            // Mark storage units as off-map so they can't be accidentally moved
+            if (placed && !(unit is OrbitingSatellite))
+                unit.Position = new TilePosition(-1, -1);
 
             // If couldn't place in storage, put on adjacent tile
             if (!placed)
@@ -596,14 +601,18 @@ public class Game
                 city.MotorPool.Add(unit);
                 placed = true;
             }
-            else if (unit is Army army)
+            else if (unit is Army || unit is Sapper || unit is Spy)
             {
                 if (city.Barracks.Count < City.MAX_BARRACKS_CAPACITY)
                 {
-                    city.Barracks.Add(army);
+                    city.Barracks.Add(unit as LandUnit);
                     placed = true;
                 }
             }
+
+            // Mark storage units as off-map so they can't be accidentally moved
+            if (placed && !(unit is OrbitingSatellite))
+                unit.Position = new TilePosition(-1, -1);
 
             // If couldn't place in storage, put on adjacent tile
             if (!placed)
@@ -1159,6 +1168,18 @@ public class Game
         var random = new Random();
         var defenderTile = Map.GetTile(defender.Position);
 
+        // Check if artillery is attacking from range
+        bool isArtilleryRangedAttack = false;
+        if (attacker is Artillery artillery)
+        {
+            int distance = Math.Abs(attackerOriginalPosition.X - defender.Position.X) +
+                          Math.Abs(attackerOriginalPosition.Y - defender.Position.Y);
+            if (distance > 1)
+            {
+                isArtilleryRangedAttack = true;
+            }
+        }
+
         while (attacker.Life > 0 && defender.Life > 0)
         {
             var round = new CombatRound();
@@ -1177,29 +1198,35 @@ public class Game
             round.AttackerRoll = attackerRoll;
             round.AttackerScore = attackerRoll + attackerBonus - defender.Defense;
 
-            // Calculate defender's score
-            int defenderRoll = random.Next(1, 101);
-            int defenderBonus = defender.Attack;
+            // Calculate defender's score (only if not artillery ranged attack)
+            int defenderRoll = 0;
+            int defenderBonus = 0;
 
-            // Veteran bonus
-            if (defender.IsVeteran)
-                defenderBonus += 5;
+            if (!isArtilleryRangedAttack)  // ADD THIS CHECK
+            {
+                defenderRoll = random.Next(1, 101);
+                defenderBonus = defender.Attack;
 
-            // Terrain bonus for defender
-            defenderBonus += GetTerrainDefenseBonus(defenderTile.Terrain);
+                // Veteran bonus
+                if (defender.IsVeteran)
+                    defenderBonus += 5;
 
-            // Structure defense bonus
-            if (defenderTile.Structure != null)
-                defenderBonus += 10;
+                // Terrain bonus for defender
+                defenderBonus += GetTerrainDefenseBonus(defenderTile.Terrain);
 
-            // Type matchup bonuses for defender (when counter-attacking)
-            defenderBonus += GetAttackBonus(defender, attacker);
+                // Structure defense bonus
+                if (defenderTile.Structure != null)
+                    defenderBonus += 10;
+
+                // Type matchup bonuses for defender (when counter-attacking)
+                defenderBonus += GetAttackBonus(defender, attacker);
+            }
 
             round.DefenderRoll = defenderRoll;
             round.DefenderScore = defenderRoll + defenderBonus - attacker.Defense;
 
             // Determine winner of this round
-            if (round.AttackerScore > round.DefenderScore)
+            if (isArtilleryRangedAttack || round.AttackerScore > round.DefenderScore)  // MODIFY THIS LINE
             {
                 defender.Life--;
                 round.AttackerWon = true;
@@ -1213,8 +1240,11 @@ public class Game
             }
             else
             {
-                // Tie - both take damage
-                attacker.Life--;
+                // Tie - both take damage (but not for ranged artillery)
+                if (!isArtilleryRangedAttack)
+                {
+                    attacker.Life--;
+                }
                 defender.Life--;
                 round.Tie = true;
             }
@@ -1257,12 +1287,12 @@ public class Game
         var random = new Random();
         int attackerPower = attacker.Attack;
         int defenseBonus = structure.GetDefenseBonus();
-    
+
         var round = new CombatRound();
-    
+
         round.AttackerRoll = random.Next(1, 101);
         round.AttackerScore = round.AttackerRoll + attackerPower;
-    
+
         int structureDefense = (int)(defenseBonus * (structure.Life / (double)structure.MaxLife));
         round.DefenderRoll = random.Next(1, 101);
         round.DefenderScore = round.DefenderRoll + structureDefense;
@@ -1419,29 +1449,29 @@ public class Game
     private void CompleteBuildBase(Sapper sapper, Player player)
     {
         var tile = Map.GetTile(sapper.BuildTarget);
-    
+
         if (tile.Structure == null)
         {
             var newBase = CreateStructure(typeof(Base), sapper.BuildTarget, player.PlayerId) as Base;
-        
+
             // Check if near coast for naval production
             bool hasWater = HasAdjacentWater(sapper.BuildTarget);
             newBase.CanProduceNaval = hasWater;
             newBase.HasShipyard = hasWater;
-        
+
             player.Structures.Add(newBase);
             tile.Structure = newBase;
             tile.OwnerId = player.PlayerId;
-        
+
             // Queue the base for naming
             CompletedBases.Enqueue((player.PlayerId, newBase));
-        
+
             // Remove the sapper from the game (it's destroyed)
             var sapperTile = Map.GetTile(sapper.Position);
             sapperTile.Units.Remove(sapper);
             player.Units.Remove(sapper);
         }
-    
+
         sapper.ResetBuild();
     }
 
@@ -1449,15 +1479,15 @@ public class Game
     {
         var tile = Map.GetTile(sapper.BuildTarget);
         tile.HasBridge = true;
-    
+
         // Queue the bridge for naming
         CompletedBridges.Enqueue((player.PlayerId, sapper.BuildTarget));
-    
+
         // Remove the sapper from the game (it's destroyed)
         var sapperTile = Map.GetTile(sapper.Position);
         sapperTile.Units.Remove(sapper);
         player.Units.Remove(sapper);
-    
+
         sapper.ResetBuild();
     }
 

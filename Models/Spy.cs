@@ -4,7 +4,7 @@
 
     public Spy()
     {
-        MaxMovementPoints = 2;
+        MaxMovementPoints = 3;
         MovementPoints = MaxMovementPoints;
         MaxLife = 1;
         Life = MaxLife;

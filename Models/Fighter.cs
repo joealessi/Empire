@@ -6,7 +6,7 @@
         MovementPoints = MaxMovementPoints;
         MaxLife = 2;
         Life = MaxLife;
-        MaxFuel = 20;
+        MaxFuel = 6;
         Fuel = MaxFuel;
         HomeBaseId = -1;
         Attack = 3;

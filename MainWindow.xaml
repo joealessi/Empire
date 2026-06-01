@@ -167,11 +167,411 @@
         <!-- RIGHT COLUMN: UNIT/STRUCTURE INFO -->
         <ScrollViewer Grid.Column="3" VerticalScrollBarVisibility="Auto" Background="#16213e">
             <StackPanel Margin="10">
-                <!-- Unit Info Panel -->
+                <!-- Tile Info Panel (for empty tiles and enemy units) -->
+                <Border x:Name="TileInfoPanel" Visibility="Collapsed" Background="#1e2a3a" BorderBrush="#0f3460" BorderThickness="2" Padding="10" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock x:Name="TileTerrainNameText" Text="Terrain" FontSize="18" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Movement:" Foreground="White" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="TileMovementCostText" Text="1 Movement Point" Foreground="LightGray" Margin="0,0,0,10"/>
+
+                        <TextBlock x:Name="TileDefenseBonusText" Text="+20% Defense Bonus" Foreground="LightBlue" Margin="0,0,0,10" Visibility="Collapsed"/>
+
+                        <StackPanel x:Name="TileResourcePanel" Visibility="Collapsed" Margin="0,0,0,10">
+                            <TextBlock x:Name="TileResourceText" Text="⚡ Resource" Foreground="Gold" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <TextBlock x:Name="TileOwnerText" Text="Neutral Territory" Foreground="Gray" Margin="0,0,0,5"/>
+
+                        <TextBlock x:Name="TileBridgeText" Text="🌉 Bridge" Foreground="Brown" Margin="0,0,0,10" Visibility="Collapsed"/>
+
+                        <StackPanel x:Name="EnemyUnitsPanel" Visibility="Collapsed" Margin="0,10,0,0">
+                            <TextBlock Text="Enemy Units:" FontWeight="Bold" Foreground="Red" Margin="0,0,0,5"/>
+                            <ListBox x:Name="EnemyUnitsList" Height="100" Background="#0a0e27" Foreground="White" BorderBrush="#0f3460"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Unit Info Panel with Circular Controls -->
                 <Border x:Name="UnitInfoPanel" Visibility="Collapsed" Background="#1e2a3a" BorderBrush="#0f3460" BorderThickness="2" Padding="10" Margin="0,0,0,10">
                     <StackPanel>
-                        <TextBlock x:Name="UnitNameText" Text="Unit Name" FontSize="18" FontWeight="Bold" Foreground="White" Margin="0,0,0,5"/>
-                        <TextBlock x:Name="UnitStatsText" Text="Stats" Foreground="LightGray" Margin="0,0,0,10"/>
+                        <!-- Unit Name -->
+                        <TextBlock x:Name="UnitNameText" Text="Unit Name" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="UnitStatsText" Text="Stats" Foreground="LightGray" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+                        <!-- Circular Action Control Container -->
+                        <Canvas x:Name="CircularControlCanvas" Width="200" Height="200" HorizontalAlignment="Center" Margin="0,10,0,10">
+                            <!-- Central Unit Icon -->
+                            <Border x:Name="UnitIconBorder" Width="80" Height="80" CornerRadius="40" BorderThickness="4" Canvas.Left="60" Canvas.Top="60">
+                                <Border.Background>
+                                    <ImageBrush x:Name="UnitIconBrush" Stretch="UniformToFill"/>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- 12 o'clock - Skip -->
+                            <Button x:Name="CircularSkipButton" Width="44" Height="44" Click="SkipTurnButton_Click" 
+                                    Canvas.Left="78" Canvas.Top="5" ToolTip="Skip Turn">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a4a5a" Stroke="#3d6b7b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Skip.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 3 o'clock - Sleep -->
+                            <Button x:Name="CircularSleepButton" Width="44" Height="44" Click="SleepButton_Click" 
+                                    Canvas.Left="151" Canvas.Top="78" ToolTip="Sleep">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a4a5a" Stroke="#3d6b7b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Sleep.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 3 o'clock - Wake Up (same position, toggled visibility) -->
+                            <Button x:Name="CircularWakeUpButton" Width="44" Height="44" Click="WakeUpButton_Click" 
+                                    Canvas.Left="151" Canvas.Top="78" ToolTip="Wake Up" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#4a6a2a" Stroke="#6b8b3d" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Wake.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 6 o'clock - Sentry -->
+                            <Button x:Name="CircularSentryButton" Width="44" Height="44" Click="SentryButton_Click" 
+                                    Canvas.Left="78" Canvas.Top="151" ToolTip="Sentry">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a4a5a" Stroke="#3d6b7b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Sentry.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 9 o'clock - Patrol -->
+                            <Button x:Name="CircularPatrolButton" Width="44" Height="44" Click="PatrolButton_Click" 
+                                    Canvas.Left="5" Canvas.Top="78" ToolTip="Patrol">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a4a5a" Stroke="#3d6b7b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Patrol.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 1:30 position - Land (Air units) -->
+                            <Button x:Name="CircularLandButton" Width="44" Height="44" Click="LandAtBaseButton_Click" 
+                                    Canvas.Left="130" Canvas.Top="20" ToolTip="Land at Base" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a5a4a" Stroke="#3d7b6b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Land.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 4:30 position - RTB (Air units) -->
+                            <Button x:Name="CircularRTBButton" Width="44" Height="44" Click="ReturnToBaseButton_Click" 
+                                    Canvas.Left="130" Canvas.Top="136" ToolTip="Return to Base" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#5a4a2a" Stroke="#7b6b3d" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/RTB.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 7:30 position - Bomb (Bomber only) -->
+                            <Button x:Name="CircularBombButton" Width="44" Height="44" Click="BombingRunButton_Click" 
+                                    Canvas.Left="26" Canvas.Top="136" ToolTip="Bombing Run" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#5a2a2a" Stroke="#7b3d3d" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Bomb.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 10:30 position - Submerge (Submarine only) -->
+                            <Button x:Name="CircularSubmergeButton" Width="44" Height="44" Click="ToggleSubmergeButton_Click" 
+                                    Canvas.Left="26" Canvas.Top="20" ToolTip="Toggle Submerge" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a3a5a" Stroke="#3d5b7b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Submerge.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 7:30 position - Park (Land units on structures) -->
+                            <Button x:Name="CircularParkButton" Width="44" Height="44" Click="ParkVehicleButton_Click" 
+                                    Canvas.Left="26" Canvas.Top="136" ToolTip="Park in Structure" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#4a4a2a" Stroke="#6b6b3d" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/Park.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 1:30 position - Build Base (Sapper) -->
+                            <Button x:Name="CircularBuildBaseButton" Width="44" Height="44" Click="BuildBaseButton_Click" 
+                                    Canvas.Left="130" Canvas.Top="20" ToolTip="Build Base" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#4a5a2a" Stroke="#6b7b3d" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/BuildBase.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 4:30 position - Build Bridge (Sapper) -->
+                            <Button x:Name="CircularBuildBridgeButton" Width="44" Height="44" Click="BuildBridgeButton_Click" 
+                                    Canvas.Left="130" Canvas.Top="136" ToolTip="Build Bridge" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#4a4a5a" Stroke="#6b6b7b" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/BuildBridge.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 10:30 position - Cancel Build (Sapper) -->
+                            <Button x:Name="CircularCancelBuildButton" Width="44" Height="44" Click="CancelBuildButton_Click" 
+                                    Canvas.Left="26" Canvas.Top="20" ToolTip="Cancel Build" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#5a2a2a" Stroke="#7b3d3d" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <Image Source="Resources/Empire_Icons/CancelBuild.png" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Canvas>
 
                         <!-- Life Bar -->
                         <TextBlock Text="Life:" Foreground="White" Margin="0,0,0,2"/>
@@ -219,24 +619,6 @@
                         <TextBlock x:Name="AntiAircraftProximityText" Visibility="Collapsed" Foreground="LightBlue" TextWrapping="Wrap" Margin="0,0,0,5"/>
                         <TextBlock x:Name="SpyStatusText" Visibility="Collapsed" Foreground="Magenta" TextWrapping="Wrap" Margin="0,0,0,5"/>
                         <TextBlock x:Name="SapperBuildText" Visibility="Collapsed" Foreground="Cyan" TextWrapping="Wrap" Margin="0,0,0,5" FontWeight="Bold"/>
-
-                        <!-- Unit Commands -->
-                        <WrapPanel Margin="0,10,0,0">
-                            <Button x:Name="MoveButton" Content="Move" Width="70" Margin="2" Click="MoveButton_Click"/>
-                            <Button x:Name="PatrolButton" Content="Patrol" Width="70" Margin="2" Click="PatrolButton_Click"/>
-                            <Button x:Name="AttackButton" Content="Attack" Width="70" Margin="2" Click="AttackButton_Click"/>
-                            <Button x:Name="SkipTurnButton" Content="Skip" Width="70" Margin="2" Click="SkipTurnButton_Click"/>
-                            <Button x:Name="SleepButton" Content="Sleep" Width="70" Margin="2" Click="SleepButton_Click"/>
-                            <Button x:Name="SentryButton" Content="Sentry" Width="70" Margin="2" Click="SentryButton_Click"/>
-                            <Button x:Name="WakeUpButton" Content="Wake Up" Width="70" Margin="2" Click="WakeUpButton_Click" Visibility="Collapsed"/>
-                            <Button x:Name="LandAtBaseButton" Content="Land" Width="70" Margin="2" Click="LandAtBaseButton_Click"/>
-                            <Button x:Name="ReturnToBaseButton" Content="RTB" Width="70" Margin="2" Click="ReturnToBaseButton_Click"/>
-                            <Button x:Name="BombingRunButton" Content="Bomb" Width="70" Margin="2" Click="BombingRunButton_Click"/>
-                            <Button x:Name="ToggleSubmergeButton" Content="Submerge" Width="70" Margin="2" Click="ToggleSubmergeButton_Click"/>
-                            <Button x:Name="BuildBaseButton" Content="Build Base" Width="80" Margin="2" Click="BuildBaseButton_Click" Visibility="Collapsed"/>
-                            <Button x:Name="BuildBridgeButton" Content="Build Bridge" Width="80" Margin="2" Click="BuildBridgeButton_Click" Visibility="Collapsed"/>
-                            <Button x:Name="CancelBuildButton" Content="Cancel Build" Width="80" Margin="2" Click="CancelBuildButton_Click" Visibility="Collapsed"/>
-                        </WrapPanel>
                     </StackPanel>
                 </Border>
 

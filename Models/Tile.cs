@@ -25,6 +25,10 @@ public class Tile
             return 1.0; // Normal movement cost across bridge
         }
 
+        // Air units fly above terrain - always 1 movement point per tile
+        if (unit is AirUnit)
+            return 1.0;
+
         // Check if unit can traverse this terrain
         if (unit is LandUnit)
         {
