@@ -569,123 +569,99 @@ namespace EmpireGame
 
         private void PlaceResourceType(ResourceType resourceType, int count, Random rand)
         {
-            int placed = 0;
-            int attempts = 0;
-            int maxAttempts = count * 100;
+            // Thematic terrain preference (soft — only used to break near-ties so we keep
+            // oil-on-lowland / steel-on-highland flavor without sacrificing even spread).
+            HashSet<TerrainType> preferred = resourceType == ResourceType.Oil
+                ? new HashSet<TerrainType> { TerrainType.Plains, TerrainType.Land }
+                : new HashSet<TerrainType> { TerrainType.Hills, TerrainType.Mountain };
 
-            // Preferred terrain for each resource
-            List<TerrainType> preferredTerrain;
-            List<TerrainType> fallbackTerrain;
-
-            if (resourceType == ResourceType.Oil)
+            HashSet<TerrainType> land = new HashSet<TerrainType>
             {
-                preferredTerrain = new List<TerrainType> { TerrainType.Plains, TerrainType.Land };
-                fallbackTerrain = new List<TerrainType> { TerrainType.Forest, TerrainType.Hills };
+                TerrainType.Land, TerrainType.Plains, TerrainType.Forest,
+                TerrainType.Hills, TerrainType.Mountain
+            };
+
+            // Keep resources off the very edge, scaled to map size so small maps don't get
+            // a huge barren border (the old hard-coded 10-tile border crammed 50x50 maps).
+            int margin = Math.Max(2, Math.Min(game.Map.Width, game.Map.Height) / 25);
+
+            // Positions already holding this resource type — we spread these evenly.
+            var sameType = new List<TilePosition>();
+
+            for (int i = 0; i < count; i++)
+            {
+                // Mitchell's best-candidate sampling: sample several valid spots and keep the
+                // one farthest from the nearest existing tile of the same resource. Repeated,
+                // this yields a near-uniform spread of each resource type across the whole map.
+                TilePosition? best = null;
+                double bestScore = double.NegativeInfinity;
+
+                for (int s = 0; s < 40; s++)
+                {
+                    TilePosition? cand = RandomEmptyLandTile(land, margin, rand);
+                    if (cand == null) break; // no empty land remaining
+
+                    double score = NearestDistance(cand.Value, sameType);
+                    if (preferred.Contains(game.Map.GetTile(cand.Value).Terrain))
+                        score += 2.0; // small bonus so thematic terrain wins close ties
+
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        best = cand;
+                    }
+                }
+
+                if (best == null) break; // map effectively full
+                game.Map.GetTile(best.Value).Resource = resourceType;
+                sameType.Add(best.Value);
             }
-            else // Steel
-            {
-                preferredTerrain = new List<TerrainType> { TerrainType.Hills, TerrainType.Mountain };
-                fallbackTerrain = new List<TerrainType> { TerrainType.Plains, TerrainType.Land, TerrainType.Forest };
-            }
+        }
 
-            // First pass - try preferred terrain with spacing
-            while (placed < count && attempts < maxAttempts)
-            {
-                attempts++;
+        // Picks a random empty land tile (off the edge), preferring spots not crowding any
+        // existing resource; relaxes the spacing requirement only as a last resort so we
+        // never fail to find a tile while the map still has room.
+        private TilePosition? RandomEmptyLandTile(HashSet<TerrainType> land, int margin, Random rand)
+        {
+            int w = game.Map.Width, h = game.Map.Height;
 
-                int x = rand.Next(10, game.Map.Width - 10);
-                int y = rand.Next(10, game.Map.Height - 10);
+            for (int t = 0; t < 60; t++)
+            {
+                int x = rand.Next(margin, w - margin);
+                int y = rand.Next(margin, h - margin);
                 TilePosition pos = new TilePosition(x, y);
                 Tile tile = game.Map.GetTile(pos);
-
-                if (tile.Resource != ResourceType.None)
-                    continue;
-
-                if (!preferredTerrain.Contains(tile.Terrain))
-                    continue;
-
-                if (!IsWellSpacedFromOtherResources(pos, 8))
-                    continue;
-
-                tile.Resource = resourceType;
-                placed++;
+                if (tile.Resource != ResourceType.None) continue;
+                if (!land.Contains(tile.Terrain)) continue;
+                if (!IsWellSpacedFromOtherResources(pos, 2)) continue; // no two resources touching
+                return pos;
             }
 
-            // Second pass - use fallback terrain with spacing
-            attempts = 0;
-            while (placed < count && attempts < maxAttempts)
+            // Relaxed: any empty land tile off the edge (ignore the 2-tile gap).
+            for (int t = 0; t < 250; t++)
             {
-                attempts++;
-
-                int x = rand.Next(10, game.Map.Width - 10);
-                int y = rand.Next(10, game.Map.Height - 10);
+                int x = rand.Next(margin, w - margin);
+                int y = rand.Next(margin, h - margin);
                 TilePosition pos = new TilePosition(x, y);
                 Tile tile = game.Map.GetTile(pos);
-
-                if (tile.Resource != ResourceType.None)
-                    continue;
-
-                if (!fallbackTerrain.Contains(tile.Terrain))
-                    continue;
-
-                if (!IsWellSpacedFromOtherResources(pos, 5))  // Reduced spacing
-                    continue;
-
-                tile.Resource = resourceType;
-                placed++;
+                if (tile.Resource == ResourceType.None && land.Contains(tile.Terrain))
+                    return pos;
             }
+            return null;
+        }
 
-            // Third pass - ANY land terrain with minimal spacing (guarantee minimum)
-            attempts = 0;
-            List<TerrainType> anyLandTerrain = new List<TerrainType>
-    {
-        TerrainType.Plains, TerrainType.Land, TerrainType.Forest,
-        TerrainType.Hills, TerrainType.Mountain
-    };
-
-            while (placed < 10 && attempts < maxAttempts) // Guarantee at least 10
+        // Distance (in tiles) from pos to the nearest position in the list; large if empty.
+        private double NearestDistance(TilePosition pos, List<TilePosition> others)
+        {
+            if (others.Count == 0) return double.MaxValue;
+            double min = double.MaxValue;
+            foreach (TilePosition o in others)
             {
-                attempts++;
-
-                int x = rand.Next(10, game.Map.Width - 10);
-                int y = rand.Next(10, game.Map.Height - 10);
-                TilePosition pos = new TilePosition(x, y);
-                Tile tile = game.Map.GetTile(pos);
-
-                if (tile.Resource != ResourceType.None)
-                    continue;
-
-                if (!anyLandTerrain.Contains(tile.Terrain))
-                    continue;
-
-                if (!IsWellSpacedFromOtherResources(pos, 3))  // Very minimal spacing
-                    continue;
-
-                tile.Resource = resourceType;
-                placed++;
+                double dx = pos.X - o.X, dy = pos.Y - o.Y;
+                double d = Math.Sqrt(dx * dx + dy * dy);
+                if (d < min) min = d;
             }
-
-            // Fourth pass - FORCE placement if still under 10 (no spacing requirement)
-            attempts = 0;
-            while (placed < 10 && attempts < maxAttempts * 2)
-            {
-                attempts++;
-
-                int x = rand.Next(10, game.Map.Width - 10);
-                int y = rand.Next(10, game.Map.Height - 10);
-                TilePosition pos = new TilePosition(x, y);
-                Tile tile = game.Map.GetTile(pos);
-
-                if (tile.Resource != ResourceType.None)
-                    continue;
-
-                if (!anyLandTerrain.Contains(tile.Terrain))
-                    continue;
-
-                // No spacing check - just place it!
-                tile.Resource = resourceType;
-                placed++;
-            }
+            return min;
         }
 
         private bool IsWellSpacedFromOtherResources(TilePosition pos, int minDistance)
@@ -2524,8 +2500,9 @@ namespace EmpireGame
             City? city = structure as City;
             Player player = game.CurrentPlayer;
 
-            void AddUnit(string name, Type type, int gold, int steel, int oil)
+            void AddUnit(string name, Type type)
             {
+                var (gold, steel, oil) = UnitProductionOrder.GetCost(type);
                 bool canBuild = false;
                 string capacityNote = "";
 
@@ -2597,8 +2574,10 @@ namespace EmpireGame
                 UnitTypesCombo.Items.Add(item);
             }
 
-            void AddSatelliteUnit(string name, Type type, int gold, int steel, int oil, OrbitType orbitType)
+            void AddSatelliteUnit(string name, Type type, OrbitType orbitType)
             {
+                var (gold, steel, oil) = UnitProductionOrder.GetCost(type);
+
                 // Satellites can be built at bases and cities (no capacity limit)
                 bool canBuild = (baseStructure != null || city != null);
 
@@ -2644,38 +2623,38 @@ namespace EmpireGame
                 UnitTypesCombo.Items.Add(item);
             }
 
-            // Add all units with resource costs
-            AddUnit("Army", typeof(Army), 2, 0, 0);
-            AddUnit("Tank", typeof(Tank), 2, 1, 0);
-            AddUnit("Artillery", typeof(Artillery), 2, 1, 0);
-            AddUnit("Sapper", typeof(Sapper), 2, 1, 0);
-            AddUnit("Anti-Aircraft", typeof(AntiAircraft), 2, 1, 0);
-            AddUnit("Spy", typeof(Spy), 3, 0, 0);
-            AddUnit("Fighter", typeof(Fighter), 3, 1, 1);
-            AddUnit("Bomber", typeof(Bomber), 4, 2, 1);
-            AddUnit("Tanker", typeof(Tanker), 3, 1, 1);
+            // Add all units (costs come from UnitProductionOrder.Costs)
+            AddUnit("Army", typeof(Army));
+            AddUnit("Tank", typeof(Tank));
+            AddUnit("Artillery", typeof(Artillery));
+            AddUnit("Sapper", typeof(Sapper));
+            AddUnit("Anti-Aircraft", typeof(AntiAircraft));
+            AddUnit("Spy", typeof(Spy));
+            AddUnit("Fighter", typeof(Fighter));
+            AddUnit("Bomber", typeof(Bomber));
+            AddUnit("Tanker", typeof(Tanker));
 
             // Add Orbiting Satellites - one entry for each orbit type that player hasn't deployed yet
             if (!player.DeployedOrbitTypes.Contains(OrbitType.Horizontal))
-                AddSatelliteUnit("Orbit Sat (Horizontal)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.Horizontal);
+                AddSatelliteUnit("Orbit Sat (Horizontal)", typeof(OrbitingSatellite), OrbitType.Horizontal);
             if (!player.DeployedOrbitTypes.Contains(OrbitType.Vertical))
-                AddSatelliteUnit("Orbit Sat (Vertical)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.Vertical);
+                AddSatelliteUnit("Orbit Sat (Vertical)", typeof(OrbitingSatellite), OrbitType.Vertical);
             if (!player.DeployedOrbitTypes.Contains(OrbitType.RightDiagonal))
-                AddSatelliteUnit("Orbit Sat (Right Diag)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.RightDiagonal);
+                AddSatelliteUnit("Orbit Sat (Right Diag)", typeof(OrbitingSatellite), OrbitType.RightDiagonal);
             if (!player.DeployedOrbitTypes.Contains(OrbitType.LeftDiagonal))
-                AddSatelliteUnit("Orbit Sat (Left Diag)", typeof(OrbitingSatellite), 6, 3, 2, OrbitType.LeftDiagonal);
+                AddSatelliteUnit("Orbit Sat (Left Diag)", typeof(OrbitingSatellite), OrbitType.LeftDiagonal);
 
             // Add Geosynchronous Satellite (no restrictions)
-            AddUnit("Geosync Satellite", typeof(GeosynchronousSatellite), 10, 5, 4);
+            AddUnit("Geosync Satellite", typeof(GeosynchronousSatellite));
 
             if (baseStructure != null && baseStructure.HasShipyard)
             {
-                AddUnit("Patrol Boat", typeof(PatrolBoat), 2, 1, 0);
-                AddUnit("Destroyer", typeof(Destroyer), 3, 2, 1);
-                AddUnit("Submarine", typeof(Submarine), 3, 1, 1);
-                AddUnit("Carrier", typeof(Carrier), 5, 3, 2);
-                AddUnit("Battleship", typeof(Battleship), 5, 3, 2);
-                AddUnit("Transport", typeof(Transport), 2, 1, 1);
+                AddUnit("Patrol Boat", typeof(PatrolBoat));
+                AddUnit("Destroyer", typeof(Destroyer));
+                AddUnit("Submarine", typeof(Submarine));
+                AddUnit("Carrier", typeof(Carrier));
+                AddUnit("Battleship", typeof(Battleship));
+                AddUnit("Transport", typeof(Transport));
             }
         }
 

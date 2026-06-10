@@ -102,9 +102,10 @@ namespace EmpireGame
         {
             bool canProduceNaval = structure is Base baseStructure && baseStructure.CanProduceNaval;
 
-            // Helper to check affordability
-            bool CanAfford(int gold, int steel, int oil)
+            // Helper to check affordability against the canonical cost table
+            bool CanAfford(Type unitType)
             {
+                var (gold, steel, oil) = UnitProductionOrder.GetCost(unitType);
                 return aiPlayer.Gold >= gold && aiPlayer.Steel >= steel && aiPlayer.Oil >= oil;
             }
 
@@ -134,71 +135,71 @@ namespace EmpireGame
             {
                 case AIPlaystyle.Aggressive:
                     // Focus on offensive units
-                    if (tankCount < 5 && CanAfford(2, 1, 0))
-                        return new UnitProductionOrder(typeof(Tank), 2, 1, 0, "Tank");
-                    if (bomberCount < 3 && CanAfford(5, 1, 2))
-                        return new UnitProductionOrder(typeof(Bomber), 5, 1, 2, "Bomber");
-                    if (armyCount < 8 && CanAfford(2, 0, 0))
-                        return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
+                    if (tankCount < 5 && CanAfford(typeof(Tank)))
+                        return new UnitProductionOrder(typeof(Tank), "Tank");
+                    if (bomberCount < 3 && CanAfford(typeof(Bomber)))
+                        return new UnitProductionOrder(typeof(Bomber), "Bomber");
+                    if (armyCount < 8 && CanAfford(typeof(Army)))
+                        return new UnitProductionOrder(typeof(Army), "Army");
                     break;
 
                 case AIPlaystyle.Defensive:
                     // Focus on defensive units
-                    if (aaCount < 3 && CanAfford(2, 1, 0))
-                        return new UnitProductionOrder(typeof(AntiAircraft), 2, 1, 0, "AntiAircraft");
-                    if (artilleryCount < 3 && CanAfford(2, 1, 0))
-                        return new UnitProductionOrder(typeof(Artillery), 2, 1, 0, "Artillery");
-                    if (fighterCount < 4 && CanAfford(3, 0, 1))
-                        return new UnitProductionOrder(typeof(Fighter), 3, 0, 1, "Fighter");
-                    if (armyCount < 6 && CanAfford(2, 0, 0))
-                        return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
+                    if (aaCount < 3 && CanAfford(typeof(AntiAircraft)))
+                        return new UnitProductionOrder(typeof(AntiAircraft), "AntiAircraft");
+                    if (artilleryCount < 3 && CanAfford(typeof(Artillery)))
+                        return new UnitProductionOrder(typeof(Artillery), "Artillery");
+                    if (fighterCount < 4 && CanAfford(typeof(Fighter)))
+                        return new UnitProductionOrder(typeof(Fighter), "Fighter");
+                    if (armyCount < 6 && CanAfford(typeof(Army)))
+                        return new UnitProductionOrder(typeof(Army), "Army");
                     break;
 
                 case AIPlaystyle.Naval:
                     // Focus on naval units
                     if (canProduceNaval)
                     {
-                        if (carrierCount < 2 && CanAfford(8, 2, 2))
-                            return new UnitProductionOrder(typeof(Carrier), 8, 2, 2, "Carrier");
-                        if (battleshipCount < 3 && CanAfford(6, 2, 1))
-                            return new UnitProductionOrder(typeof(Battleship), 6, 2, 1, "Battleship");
-                        if (destroyerCount < 4 && CanAfford(4, 1, 1))
-                            return new UnitProductionOrder(typeof(Destroyer), 4, 1, 1, "Destroyer");
-                        if (submarineCount < 3 && CanAfford(4, 1, 1))
-                            return new UnitProductionOrder(typeof(Submarine), 4, 1, 1, "Submarine");
-                        if (transportCount < 2 && CanAfford(3, 1, 1))
-                            return new UnitProductionOrder(typeof(Transport), 3, 1, 1, "Transport");
+                        if (carrierCount < 2 && CanAfford(typeof(Carrier)))
+                            return new UnitProductionOrder(typeof(Carrier), "Carrier");
+                        if (battleshipCount < 3 && CanAfford(typeof(Battleship)))
+                            return new UnitProductionOrder(typeof(Battleship), "Battleship");
+                        if (destroyerCount < 4 && CanAfford(typeof(Destroyer)))
+                            return new UnitProductionOrder(typeof(Destroyer), "Destroyer");
+                        if (submarineCount < 3 && CanAfford(typeof(Submarine)))
+                            return new UnitProductionOrder(typeof(Submarine), "Submarine");
+                        if (transportCount < 2 && CanAfford(typeof(Transport)))
+                            return new UnitProductionOrder(typeof(Transport), "Transport");
                     }
                     // Still need some land units
-                    if (armyCount < 4 && CanAfford(2, 0, 0))
-                        return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
+                    if (armyCount < 4 && CanAfford(typeof(Army)))
+                        return new UnitProductionOrder(typeof(Army), "Army");
                     break;
 
                 case AIPlaystyle.Aerial:
                     // Focus on air units
-                    if (fighterCount < 5 && CanAfford(3, 0, 1))
-                        return new UnitProductionOrder(typeof(Fighter), 3, 0, 1, "Fighter");
-                    if (bomberCount < 4 && CanAfford(5, 1, 2))
-                        return new UnitProductionOrder(typeof(Bomber), 5, 1, 2, "Bomber");
-                    if (tankerCount < 2 && CanAfford(3, 0, 1))
-                        return new UnitProductionOrder(typeof(Tanker), 3, 0, 1, "Tanker");
-                    if (carrierCount < 2 && canProduceNaval && CanAfford(8, 2, 2))
-                        return new UnitProductionOrder(typeof(Carrier), 8, 2, 2, "Carrier");
+                    if (fighterCount < 5 && CanAfford(typeof(Fighter)))
+                        return new UnitProductionOrder(typeof(Fighter), "Fighter");
+                    if (bomberCount < 4 && CanAfford(typeof(Bomber)))
+                        return new UnitProductionOrder(typeof(Bomber), "Bomber");
+                    if (tankerCount < 2 && CanAfford(typeof(Tanker)))
+                        return new UnitProductionOrder(typeof(Tanker), "Tanker");
+                    if (carrierCount < 2 && canProduceNaval && CanAfford(typeof(Carrier)))
+                        return new UnitProductionOrder(typeof(Carrier), "Carrier");
                     // Need some land units for bases
-                    if (armyCount < 3 && CanAfford(2, 0, 0))
-                        return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
+                    if (armyCount < 3 && CanAfford(typeof(Army)))
+                        return new UnitProductionOrder(typeof(Army), "Army");
                     break;
 
                 case AIPlaystyle.Buildup:
                     // Balanced buildup with emphasis on economy
-                    if (spyCount == 0 && CanAfford(2, 0, 0))
-                        return new UnitProductionOrder(typeof(Spy), 2, 0, 0, "Spy");
-                    if (armyCount < 4 && CanAfford(2, 0, 0))
-                        return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
-                    if (tankCount < 2 && CanAfford(2, 1, 0))
-                        return new UnitProductionOrder(typeof(Tank), 2, 1, 0, "Tank");
-                    if (fighterCount < 2 && CanAfford(3, 0, 1))
-                        return new UnitProductionOrder(typeof(Fighter), 3, 0, 1, "Fighter");
+                    if (spyCount == 0 && CanAfford(typeof(Spy)))
+                        return new UnitProductionOrder(typeof(Spy), "Spy");
+                    if (armyCount < 4 && CanAfford(typeof(Army)))
+                        return new UnitProductionOrder(typeof(Army), "Army");
+                    if (tankCount < 2 && CanAfford(typeof(Tank)))
+                        return new UnitProductionOrder(typeof(Tank), "Tank");
+                    if (fighterCount < 2 && CanAfford(typeof(Fighter)))
+                        return new UnitProductionOrder(typeof(Fighter), "Fighter");
                     break;
             }
 
@@ -206,48 +207,48 @@ namespace EmpireGame
             int baseCount = aiPlayer.Structures.Count(s => s is Base);
             if (baseCount < 2)
             {
-                if (sapperCount == 0 && CanAfford(2, 1, 0))
+                if (sapperCount == 0 && CanAfford(typeof(Sapper)))
                 {
-                    return new UnitProductionOrder(typeof(Sapper), 2, 1, 0, "Sapper");
+                    return new UnitProductionOrder(typeof(Sapper), "Sapper");
                 }
             }
 
             // Ensure we have at least one spy for intelligence
-            if (spyCount == 0 && CanAfford(2, 0, 0))
-                return new UnitProductionOrder(typeof(Spy), 2, 0, 0, "Spy");
+            if (spyCount == 0 && CanAfford(typeof(Spy)))
+                return new UnitProductionOrder(typeof(Spy), "Spy");
 
             // Balanced army composition as fallback
             if (totalLandUnits < 10)
             {
-                if (armyCount < 6 && CanAfford(2, 0, 0))
-                    return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
-                if (tankCount < 3 && CanAfford(2, 1, 0))
-                    return new UnitProductionOrder(typeof(Tank), 2, 1, 0, "Tank");
-                if (artilleryCount < 2 && CanAfford(2, 1, 0))
-                    return new UnitProductionOrder(typeof(Artillery), 2, 1, 0, "Artillery");
+                if (armyCount < 6 && CanAfford(typeof(Army)))
+                    return new UnitProductionOrder(typeof(Army), "Army");
+                if (tankCount < 3 && CanAfford(typeof(Tank)))
+                    return new UnitProductionOrder(typeof(Tank), "Tank");
+                if (artilleryCount < 2 && CanAfford(typeof(Artillery)))
+                    return new UnitProductionOrder(typeof(Artillery), "Artillery");
             }
 
             // Air support
             if (totalAirUnits < 5)
             {
-                if (fighterCount < 3 && CanAfford(3, 0, 1))
-                    return new UnitProductionOrder(typeof(Fighter), 3, 0, 1, "Fighter");
-                if (bomberCount < 2 && CanAfford(5, 1, 2))
-                    return new UnitProductionOrder(typeof(Bomber), 5, 1, 2, "Bomber");
+                if (fighterCount < 3 && CanAfford(typeof(Fighter)))
+                    return new UnitProductionOrder(typeof(Fighter), "Fighter");
+                if (bomberCount < 2 && CanAfford(typeof(Bomber)))
+                    return new UnitProductionOrder(typeof(Bomber), "Bomber");
             }
 
             // Naval units if we can produce them
             if (canProduceNaval && totalNavalUnits < 5)
             {
-                if (patrolBoatCount < 2 && CanAfford(2, 1, 0))
-                    return new UnitProductionOrder(typeof(PatrolBoat), 2, 1, 0, "PatrolBoat");
-                if (destroyerCount < 2 && CanAfford(4, 1, 1))
-                    return new UnitProductionOrder(typeof(Destroyer), 4, 1, 1, "Destroyer");
+                if (patrolBoatCount < 2 && CanAfford(typeof(PatrolBoat)))
+                    return new UnitProductionOrder(typeof(PatrolBoat), "PatrolBoat");
+                if (destroyerCount < 2 && CanAfford(typeof(Destroyer)))
+                    return new UnitProductionOrder(typeof(Destroyer), "Destroyer");
             }
 
             // Default: build army if we can afford it
-            if (CanAfford(2, 0, 0))
-                return new UnitProductionOrder(typeof(Army), 2, 0, 0, "Army");
+            if (CanAfford(typeof(Army)))
+                return new UnitProductionOrder(typeof(Army), "Army");
 
             return null;
         }
