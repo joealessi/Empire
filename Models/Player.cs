@@ -86,6 +86,10 @@ public class Player
         var tiles = map.GetTilesInRadius(position, range);
         foreach (var tile in tiles)
         {
+            // Mountains block line of sight - only reveal tiles the viewer can actually see
+            if (!map.HasLineOfSight(position, tile.Position))
+                continue;
+
             FogOfWar[tile.Position] = VisibilityLevel.Visible;
         }
     }

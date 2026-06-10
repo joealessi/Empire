@@ -95,11 +95,12 @@ public class Game
             // Remove crashed/dead units after fuel consumption (once per player)
             RemoveDeadUnits(player);
 
-            // Process production queues and structure healing (once per player)
+            // Process structure healing (once per player)
+            ProcessStructureHealing(player);
+
+            // Process production queues (once per structure)
             foreach (var structure in player.Structures)
             {
-                ProcessStructureHealing(player);
-
                 if (structure is Base baseStructure)
                 {
                     ProcessProduction(baseStructure, player);
@@ -945,7 +946,7 @@ public class Game
                         order.CurrentWaypointIndex++;
                         if (order.CurrentWaypointIndex >= order.PatrolWaypoints.Count)
                         {
-                            order.CurrentWaypointIndex = 1;
+                            order.CurrentWaypointIndex = 0;
                         }
 
                         order.CurrentPath.Clear();
@@ -1180,6 +1181,9 @@ public class Game
             }
         }
 
+        // Ranged artillery always hits for this much damage, reduced by defensive terrain/structures.
+        const int artilleryBaseDamage = 2;
+
         while (attacker.Life > 0 && defender.Life > 0)
         {
             var round = new CombatRound();
@@ -1198,11 +1202,11 @@ public class Game
             round.AttackerRoll = attackerRoll;
             round.AttackerScore = attackerRoll + attackerBonus - defender.Defense;
 
-            // Calculate defender's score (only if not artillery ranged attack)
+            // Calculate defender's score
             int defenderRoll = 0;
             int defenderBonus = 0;
 
-            if (!isArtilleryRangedAttack)  // ADD THIS CHECK
+            if (!isArtilleryRangedAttack)
             {
                 defenderRoll = random.Next(1, 101);
                 defenderBonus = defender.Attack;
@@ -1220,13 +1224,35 @@ public class Game
 
                 // Type matchup bonuses for defender (when counter-attacking)
                 defenderBonus += GetAttackBonus(defender, attacker);
+
+                round.DefenderRoll = defenderRoll;
+                round.DefenderScore = defenderRoll + defenderBonus - attacker.Defense;
+            }
+            else
+            {
+                // Ranged artillery always hits; the defender does not roll or
+                // counter-attack. Defensive terrain only reduces the damage dealt.
+                round.DefenderRoll = 0;
+                round.DefenderScore = 0;
             }
 
-            round.DefenderRoll = defenderRoll;
-            round.DefenderScore = defenderRoll + defenderBonus - attacker.Defense;
-
             // Determine winner of this round
-            if (isArtilleryRangedAttack || round.AttackerScore > round.DefenderScore)  // MODIFY THIS LINE
+            if (isArtilleryRangedAttack)
+            {
+                // Artillery always hits. Damage is reduced by defensive terrain and
+                // structures, but is never less than 1.
+                int damage = artilleryBaseDamage;
+                if (GetTerrainDefenseBonus(defenderTile.Terrain) > 0)
+                    damage--;
+                if (defenderTile.Structure != null)
+                    damage--;
+                damage = Math.Max(1, damage);
+
+                defender.Life = Math.Max(0, defender.Life - damage);
+                round.AttackerWon = true;
+                round.Tie = false;
+            }
+            else if (round.AttackerScore > round.DefenderScore)
             {
                 defender.Life--;
                 round.AttackerWon = true;
@@ -1240,11 +1266,8 @@ public class Game
             }
             else
             {
-                // Tie - both take damage (but not for ranged artillery)
-                if (!isArtilleryRangedAttack)
-                {
-                    attacker.Life--;
-                }
+                // Tie - both take damage
+                attacker.Life--;
                 defender.Life--;
                 round.Tie = true;
             }
@@ -1253,6 +1276,11 @@ public class Game
             round.DefenderLifeAfter = defender.Life;
 
             result.Rounds.Add(round);
+
+            // Ranged artillery fires a single volley and cannot be counter-attacked,
+            // so it never enters repeated rounds.
+            if (isArtilleryRangedAttack)
+                break;
         }
 
         // Determine overall winner
@@ -1309,7 +1337,7 @@ public class Game
         }
 
         round.AttackerLifeAfter = attacker.Life;
-        round.DefenderLifeAfter = 0;
+        round.DefenderLifeAfter = structure.Life;
 
         result.Rounds.Add(round);
         result.AttackerWon = structure.Life <= 0;
