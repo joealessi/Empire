@@ -1904,7 +1904,7 @@ namespace EmpireGame
             }
             else
             {
-                AirportCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+                AirportCapacityText.Foreground = System.Windows.Media.Brushes.LightBlue;
             }
 
             foreach (AirUnit aircraft in baseStructure.Airport)
@@ -1930,7 +1930,7 @@ namespace EmpireGame
                 }
                 else
                 {
-                    ShipyardCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+                    ShipyardCapacityText.Foreground = System.Windows.Media.Brushes.LightBlue;
                 }
 
                 foreach (SeaUnit ship in baseStructure.Shipyard)
@@ -1962,7 +1962,7 @@ namespace EmpireGame
             }
             else
             {
-                BarracksCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+                BarracksCapacityText.Foreground = System.Windows.Media.Brushes.LightBlue;
             }
 
             foreach (LandUnit army in baseStructure.Barracks)
@@ -1983,7 +1983,7 @@ namespace EmpireGame
             }
             else
             {
-                AirportCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+                AirportCapacityText.Foreground = System.Windows.Media.Brushes.LightBlue;
             }
 
             foreach (AirUnit aircraft in city.Airport)
@@ -2014,7 +2014,7 @@ namespace EmpireGame
             }
             else
             {
-                BarracksCapacityText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+                BarracksCapacityText.Foreground = System.Windows.Media.Brushes.LightBlue;
             }
 
             foreach (LandUnit army in city.Barracks)
@@ -2592,7 +2592,7 @@ namespace EmpireGame
                 if (!canAfford)
                     item.Foreground = System.Windows.Media.Brushes.Red;
                 else if (canBuild)
-                    item.Foreground = System.Windows.Media.Brushes.DarkGreen;
+                    item.Foreground = System.Windows.Media.Brushes.LimeGreen;
 
                 UnitTypesCombo.Items.Add(item);
             }
@@ -2639,7 +2639,7 @@ namespace EmpireGame
                 if (!canAfford)
                     item.Foreground = System.Windows.Media.Brushes.Red;
                 else if (canBuild)
-                    item.Foreground = System.Windows.Media.Brushes.DarkGreen;
+                    item.Foreground = System.Windows.Media.Brushes.LimeGreen;
 
                 UnitTypesCombo.Items.Add(item);
             }
@@ -3306,7 +3306,7 @@ namespace EmpireGame
                 int turnsNeeded = (int)Math.Ceiling((double)distanceInTiles / airUnit.MaxMovementPoints);
 
                 FuelDistanceText.Text = $"Distance to nearest base: {distanceInTiles} tiles ({turnsNeeded} turn{(turnsNeeded != 1 ? "s" : "")})";
-                FuelDistanceText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+                FuelDistanceText.Foreground = System.Windows.Media.Brushes.LightBlue;
 
                 // Show warning based on fuel vs turns needed
                 if (airUnit.Fuel < turnsNeeded)
@@ -3327,7 +3327,7 @@ namespace EmpireGame
                 {
                     int margin = airUnit.Fuel - turnsNeeded;
                     FuelWarningText.Text = $"Fuel margin: {margin} turns (adequate)";
-                    FuelWarningText.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+                    FuelWarningText.Foreground = System.Windows.Media.Brushes.Gold;
                     FuelWarningText.Visibility = Visibility.Visible;
                 }
                 else
@@ -3743,7 +3743,7 @@ namespace EmpireGame
             if (submarine.IsSubmerged)
             {
                 SubmarineStatusText.Text = "🌊 Status: Submerged (Stealth Active)";
-                SubmarineStatusText.Foreground = System.Windows.Media.Brushes.Navy;
+                SubmarineStatusText.Foreground = System.Windows.Media.Brushes.Cyan;
             }
             else
             {
@@ -3838,7 +3838,7 @@ namespace EmpireGame
             if (nearBase)
             {
                 AntiAircraftProximityText.Text = "✓ Within Range of Base (Can Attack Aircraft)";
-                AntiAircraftProximityText.Foreground = System.Windows.Media.Brushes.DarkGreen;
+                AntiAircraftProximityText.Foreground = System.Windows.Media.Brushes.LimeGreen;
             }
             else
             {
@@ -3859,7 +3859,7 @@ namespace EmpireGame
             else
             {
                 SpyStatusText.Text = "✓ Disguise Active (Appears as Army to enemies)";
-                SpyStatusText.Foreground = System.Windows.Media.Brushes.DarkGreen;
+                SpyStatusText.Foreground = System.Windows.Media.Brushes.LimeGreen;
             }
 
             SpyStatusText.Visibility = Visibility.Visible;
