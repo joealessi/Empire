@@ -71,12 +71,8 @@ namespace EmpireGame
             base.OnClosing(e);
             if (!_suppressExitConfirmation && game != null)
             {
-                var result = MessageBox.Show(
-                    "Are you sure you want to exit?",
-                    "Confirm Exit",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (result == MessageBoxResult.No)
+                var result = MessageDialog.Confirm(this, "Are you sure you want to exit?", "Confirm Exit");
+                if (!result)
                     e.Cancel = true;
             }
         }
@@ -2232,7 +2228,7 @@ namespace EmpireGame
 
             if (damageToRepair == 0)
             {
-                MessageBox.Show("Unit is already at full health!");
+                MessageDialog.Show(this, "Unit is already at full health!", "Repair");
                 return;
             }
 
@@ -2242,7 +2238,7 @@ namespace EmpireGame
                 baseStructure.UnitsBeingRepaired[ship] = damageToRepair;
             }
 
-            MessageBox.Show($"Repair started. Will take {damageToRepair} turn(s).");
+            MessageDialog.Show(this, $"Repair started. Will take {damageToRepair} turn(s).", "Repair");
             SelectStructure(selectedStructure);
         }
 
@@ -2417,7 +2413,7 @@ namespace EmpireGame
 
             if (adjacentPos.X == -1)
             {
-                MessageBox.Show("No space to deploy unit!");
+                MessageDialog.Warn(this, "No space to deploy unit!", "Deploy");
                 return;
             }
 
@@ -2454,7 +2450,7 @@ namespace EmpireGame
 
             if (adjacentPos.X == -1)
             {
-                MessageBox.Show("No space to deploy unit!");
+                MessageDialog.Warn(this, "No space to deploy unit!", "Deploy");
                 return;
             }
 
@@ -2491,7 +2487,7 @@ namespace EmpireGame
 
             if (adjacentPos.X == -1)
             {
-                MessageBox.Show("No airspace to take off into!");
+                MessageDialog.Warn(this, "No airspace to take off into!", "Launch");
                 return;
             }
 
@@ -2569,7 +2565,7 @@ namespace EmpireGame
                 }
             }
 
-            MessageBox.Show("Select target on map for bombing run");
+            MessageDialog.Show(this, "Select a target on the map for the bombing run.", "Bombing Run");
 
             game.CurrentPlayer.UpdateVision(game.Map);
             RenderMap();
@@ -3589,14 +3585,14 @@ namespace EmpireGame
 
             if (path.Count == 0)
             {
-                MessageBox.Show("No valid path to target!");
+                MessageDialog.Warn(this, "No valid path to target!", "Bombing Run");
                 return;
             }
 
             int totalDistance = path.Count * 2; // Round trip
             if (totalDistance > bomberForMission.MaxFuel)
             {
-                MessageBox.Show("Target out of range!");
+                MessageDialog.Warn(this, "Target out of range!", "Bombing Run");
                 return;
             }
 
@@ -3605,7 +3601,7 @@ namespace EmpireGame
             bomberForMission.FlightPath = path;
             bomberForMission.CurrentOrders.Type = OrderType.BombingRun;
 
-            MessageBox.Show($"Bombing mission set to {targetPos.X}, {targetPos.Y}");
+            MessageDialog.Show(this, $"Bombing mission set to ({targetPos.X}, {targetPos.Y}).", "Bombing Run", MessageDialog.IconSuccess);
 
             isSelectingBomberTarget = false;
             bomberForMission = null;
@@ -3677,7 +3673,7 @@ namespace EmpireGame
             if (selectedUnit != null)
             {
                 selectedUnit.SetSentry();
-                MessageBox.Show($"{selectedUnit.GetName()} is on sentry. It will wake when enemies are spotted.");
+                MessageDialog.Show(this, $"{selectedUnit.GetName()} is on sentry. It will wake when enemies are spotted.", "Sentry");
 
                 NextUnitButton_Click(sender, e);
             }
@@ -3692,7 +3688,7 @@ namespace EmpireGame
 
             if (!selectedItem.IsEnabled)
             {
-                MessageBox.Show("Cannot build this unit - either at capacity or insufficient resources!");
+                MessageDialog.Warn(this, "Cannot build this unit — either at capacity or insufficient resources!", "Build Unit");
                 return;
             }
 
@@ -3712,14 +3708,14 @@ namespace EmpireGame
 
             if (!canBuild)
             {
-                MessageBox.Show("Cannot build this unit - facility is at capacity!");
+                MessageDialog.Warn(this, "Cannot build this unit — facility is at capacity!", "Build Unit");
                 return;
             }
 
             // Check if player has sufficient resources (whatever the unit costs).
             if (order.Cost.Any(kv => game.CurrentPlayer.GetResource(kv.Key) < kv.Value))
             {
-                MessageBox.Show("Insufficient resources to build " + order.DisplayName + "!");
+                MessageDialog.Warn(this, "Insufficient resources to build " + order.DisplayName + "!", "Build Unit");
                 return;
             }
 
@@ -3727,7 +3723,7 @@ namespace EmpireGame
             int popCost = UnitProductionOrder.PopulationCost(order.UnitType);
             if (popCost > 0 && selectedStructure.Population - popCost < 1)
             {
-                MessageBox.Show($"Not enough populace to build {order.DisplayName}!\n\nNeed {popCost + 1} (have {selectedStructure.Population:0.#}); populace can't drop below 1.");
+                MessageDialog.Warn(this, $"Not enough populace to build {order.DisplayName}!\n\nNeed {popCost + 1} (have {selectedStructure.Population:0.#}); populace can't drop below 1.", "Build Unit");
                 return;
             }
 
@@ -3763,7 +3759,7 @@ namespace EmpireGame
 
         private void LaunchMissionButton_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Click on map to select bomber target");
+            MessageDialog.Show(this, "Click on the map to select a bomber target.", "Bombing Run");
         }
 
         private void CancelMissionButton_Click(object sender, RoutedEventArgs e)
@@ -3789,13 +3785,11 @@ namespace EmpireGame
             if (unitsWithMovement.Count > 0)
             {
                 string unitWord = unitsWithMovement.Count == 1 ? "unit has" : "units have";
-                MessageBoxResult answer = MessageBox.Show(
+                bool answer = MessageDialog.Confirm(this,
                     $"{unitsWithMovement.Count} {unitWord} movement points remaining. End turn anyway?",
-                    "Units Still Have Moves",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
+                    "Units Still Have Moves");
 
-                if (answer == MessageBoxResult.No)
+                if (!answer)
                     return;
             }
 
@@ -3935,12 +3929,12 @@ namespace EmpireGame
 
         private void SaveGameButton_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Save not yet implemented");
+            MessageDialog.Show(this, "Save not yet implemented.", "Save Game");
         }
 
         private void LoadGameButton_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Load not yet implemented");
+            MessageDialog.Show(this, "Load not yet implemented.", "Load Game");
         }
 
         private void UpdateSubmarineDisplay(Submarine submarine)
@@ -4277,22 +4271,22 @@ namespace EmpireGame
             {
                 submarine.IsSubmerged = !submarine.IsSubmerged;
                 UpdateSubmarineDisplay(submarine);
-                MessageBox.Show(submarine.IsSubmerged ? "Submarine submerged" : "Submarine surfaced");
+                MessageDialog.Show(this,
+                    submarine.IsSubmerged ? "Submarine submerged." : "Submarine surfaced.",
+                    "Submarine");
             }
         }
 
         private void SurrenderButton_Click(object sender, RoutedEventArgs e)
         {
             // Confirm surrender
-            MessageBoxResult result = MessageBox.Show(
+            bool result = MessageDialog.Confirm(this,
                 "Are you sure you want to surrender?\n\n" +
                 "This will reveal the entire map showing all units and structures.\n" +
                 "You will no longer be able to issue commands.",
-                "Surrender?",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                "Surrender?");
 
-            if (result == MessageBoxResult.Yes)
+            if (result)
             {
                 // Reveal the entire map
                 game.RevealEntireMap();
@@ -4304,14 +4298,12 @@ namespace EmpireGame
                 DisableGameControls();
 
                 // Show surrender message
-                MessageBox.Show(
+                MessageDialog.Show(this,
                     "You have surrendered.\n\n" +
                     "The entire map is now visible.\n" +
                     "Red units belong to your opponents.\n\n" +
                     "Click 'New Game' to play again.",
-                    "Surrendered",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                    "Surrendered");
             }
         }
 
@@ -4380,13 +4372,9 @@ namespace EmpireGame
         private void NewGameButton_Click(object sender, RoutedEventArgs e)
         {
             // Confirm new game
-            MessageBoxResult result = MessageBox.Show(
-                "Start a new game?",
-                "New Game",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+            bool result = MessageDialog.Confirm(this, "Start a new game?", "New Game");
 
-            if (result == MessageBoxResult.Yes)
+            if (result)
             {
                 // Restart the game
                 InitializeGame();
@@ -4509,10 +4497,9 @@ namespace EmpireGame
             if (enemiesSpottedUnits.Count > 0)
             {
                 string unitNames = string.Join(", ", enemiesSpottedUnits.Select(u => u.GetName()));
-                MessageBox.Show($"⚠ ENEMY SPOTTED!\n\n{unitNames} detected enemy forces and halted automatic movement.\n\nThe unit(s) are now under your control.",
-                                "Enemy Contact",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning);
+                MessageDialog.Warn(this,
+                    $"⚠ ENEMY SPOTTED!\n\n{unitNames} detected enemy forces and halted automatic movement.\n\nThe unit(s) are now under your control.",
+                    "Enemy Contact");
 
                 // Select the first unit that spotted an enemy
                 if (enemiesSpottedUnits.Count > 0)
