@@ -3902,7 +3902,9 @@ namespace EmpireGame
             UpdateResourceDisplay();
             RenderMap();
 
-            System.Diagnostics.Debug.WriteLine($"Turn {game.TurnNumber} - Current Player: {game.CurrentPlayer.Name} - Message Queue: {messageLog.GetMessages().Count}");
+            // Auto-select the first unit with movement so the player is oriented immediately
+            currentUnitIndex = 0;
+            NextUnitButton_Click(null, null);
         }
         private void RenderMapFromHumanPerspective()
         {
