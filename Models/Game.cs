@@ -712,7 +712,7 @@ public class Game
         }
     }
 
-    private TilePosition FindAdjacentEmptyTile(TilePosition centerPos)
+    public TilePosition FindAdjacentEmptyTile(TilePosition centerPos)
     {
         int[] dx = { -1, 0, 1, 0, -1, 1, -1, 1 };
         int[] dy = { 0, 1, 0, -1, -1, -1, 1, 1 };

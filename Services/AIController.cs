@@ -50,6 +50,48 @@ namespace EmpireGame
             HandleProduction(aiPlayer);
             HandleUnits(aiPlayer);
             HandleMining(aiPlayer);
+            HandleCivicUpgrades(aiPlayer);
+        }
+
+        // Spends surplus populace on civic upgrades chosen by the leader's personality
+        // (keeping a buffer so the AI can still raise armies). At most one per structure/turn.
+        private void HandleCivicUpgrades(Player ai)
+        {
+            string[] priority;
+            switch (playstyle)
+            {
+                case AIPlaystyle.Aggressive: priority = new[] { "mil1", "mil2", "industry", "conscript" }; break;
+                case AIPlaystyle.Defensive:  priority = new[] { "fortify", "watchtower", "mil1", "repair" }; break;
+                case AIPlaystyle.Buildup:    priority = new[] { "housing", "treasury", "industry" }; break;
+                case AIPlaystyle.Naval:      priority = new[] { "treasury", "industry" }; break;
+                case AIPlaystyle.Aerial:     priority = new[] { "industry", "watchtower" }; break;
+                default:                     priority = new[] { "industry", "housing", "mil1" }; break; // Balanced
+            }
+
+            foreach (var s in ai.Structures.ToList())
+            {
+                if (!(s is Base || s is City)) continue;
+                foreach (var key in priority)
+                    if (TryBuyUpgrade(key, s, ai)) break;
+            }
+        }
+
+        private bool TryBuyUpgrade(string key, Structure s, Player ai)
+        {
+            const int buffer = 6; // keep populace in reserve so the AI can still build armies
+            switch (key)
+            {
+                case "industry":   return s.Population >= CivicUpgrades.CostIndustry + buffer && CivicUpgrades.BuyIndustry(s);
+                case "fortify":    return s.Population >= CivicUpgrades.CostFortify + buffer && CivicUpgrades.BuyFortify(s);
+                case "watchtower": return s.Population >= CivicUpgrades.CostWatchtower + buffer && CivicUpgrades.BuyWatchtower(s);
+                case "housing":    return s.Population >= CivicUpgrades.CostHousing + buffer && CivicUpgrades.BuyHousing(s);
+                case "treasury":   return s.Population >= CivicUpgrades.CostTreasury + buffer && CivicUpgrades.BuyTreasury(s);
+                case "mil1":       return s.Population >= CivicUpgrades.CostMilitary1 + buffer && CivicUpgrades.BuyMilitary1(ai, s);
+                case "mil2":       return s.Population >= CivicUpgrades.CostMilitary2 + buffer && CivicUpgrades.BuyMilitary2(ai, s);
+                case "repair":     return s.Life < s.MaxLife && s.Population >= CivicUpgrades.CostRepair + buffer && CivicUpgrades.Repair(s);
+                case "conscript":  return s.Population >= CivicUpgrades.CostConscript + buffer && CivicUpgrades.Conscript(game, ai, s) != null;
+                default: return false;
+            }
         }
 
         // Deploys/uses miners to build mines and sends idle sappers to disrupt enemy supply lines.

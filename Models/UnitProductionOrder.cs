@@ -62,7 +62,8 @@ public class UnitProductionOrder
 
     // Populace consumed to build a people-unit (0 for machines). Never drops a structure below 1.
     public static int PopulationCost(Type unitType) =>
-        unitType == typeof(Army) ? 4 : unitType == typeof(Miner) ? 2 : 0;
+        unitType == typeof(Army) || unitType == typeof(Spy) ? 4 :
+        unitType == typeof(Miner) ? 2 : 0;
 
     // Canonical cost for a unit type as a fresh map (empty if not listed).
     public static Dictionary<ResourceType, int> GetCost(Type unitType) =>
