@@ -11,9 +11,17 @@ public class Player
     public AIPersonality Personality { get; set; }
     public GameStatistics Statistics { get; set; }
 
-    public int Gold { get; set; }
-    public int Steel { get; set; }
-    public int Oil { get; set; }
+    // Dynamic resource stockpile keyed by ResourceType (single source of truth).
+    public Dictionary<ResourceType, int> Stockpile { get; } = new Dictionary<ResourceType, int>();
+
+    public int GetResource(ResourceType type) => Stockpile.TryGetValue(type, out var v) ? v : 0;
+    public void SetResource(ResourceType type, int value) => Stockpile[type] = value;
+    public void AddResource(ResourceType type, int amount) => Stockpile[type] = GetResource(type) + amount;
+
+    // Convenience facades over the stockpile so existing call sites keep working.
+    public int Gold { get => GetResource(ResourceType.Gold); set => SetResource(ResourceType.Gold, value); }
+    public int Steel { get => GetResource(ResourceType.Steel); set => SetResource(ResourceType.Steel, value); }
+    public int Oil { get => GetResource(ResourceType.Oil); set => SetResource(ResourceType.Oil, value); }
 
     public bool HasBeenEliminated { get; set; }
 
@@ -40,6 +48,10 @@ public class Player
         HasBeenEliminated = false;
         Statistics = new GameStatistics();
         Statistics.PlayerName = name;
+
+        // Seed every currency so the HUD/iteration always has an entry.
+        foreach (var rt in ResourceRegistry.Currencies)
+            Stockpile[rt] = 0;
 
         // Starting resources from parameters
         Gold = startingGold;
@@ -120,79 +132,39 @@ public class Player
 
     public void CalculateResourceIncome(Map map)
     {
-        int goldIncome = 0;
-        int steelIncome = 0;
-        int oilIncome = 0;
-
-        // Cities generate 3 gold, bases generate 1 gold
-        foreach (var structure in Structures)
-        {
-            if (structure is City)
-                goldIncome += 3;
-            else if (structure is Base)
-                goldIncome += 1;
-        }
-
-        // Count ALL tiles owned by this player (NOT just where units are standing)
-        for (int x = 0; x < map.Width; x++)
-        {
-            for (int y = 0; y < map.Height; y++)
-            {
-                var pos = new TilePosition(x, y);
-                var tile = map.GetTile(pos);
-
-                // Only count tiles owned by this player
-                if (tile.OwnerId == PlayerId)
-                {
-                    if (tile.Resource == ResourceType.Steel)
-                        steelIncome += 1;
-                    else if (tile.Resource == ResourceType.Oil)
-                        oilIncome += 1;
-                }
-            }
-        }
-
-        // Apply income
-        Gold += goldIncome;
-        Steel += steelIncome;
-        Oil += oilIncome;
+        foreach (var kv in GetResourceIncome(map))
+            AddResource(kv.Key, kv.Value);
     }
 
-    public (int goldIncome, int steelIncome, int oilIncome) GetResourceIncome(Map map)
+    // Income per resource this turn, keyed by ResourceType. Gold comes from structures;
+    // mineable resources come from owned tiles (yields from the registry).
+    public Dictionary<ResourceType, int> GetResourceIncome(Map map)
     {
-        int goldIncome = 0;
-        int steelIncome = 0;
-        int oilIncome = 0;
+        var income = new Dictionary<ResourceType, int>();
+        foreach (var rt in ResourceRegistry.Currencies)
+            income[rt] = 0;
 
         // Cities generate 3 gold, bases generate 1 gold
         foreach (var structure in Structures)
         {
             if (structure is City)
-                goldIncome += 3;
+                income[ResourceType.Gold] += 3;
             else if (structure is Base)
-                goldIncome += 1;
+                income[ResourceType.Gold] += 1;
         }
 
-        // Count ALL tiles owned by this player (NOT just where units are standing)
+        // Mineable resources from tiles owned by this player
         for (int x = 0; x < map.Width; x++)
         {
             for (int y = 0; y < map.Height; y++)
             {
-                var pos = new TilePosition(x, y);
-                var tile = map.GetTile(pos);
-
-                // Only count tiles owned by this player
-                if (tile.OwnerId == PlayerId)
-                {
-                    if (tile.Resource == ResourceType.Steel)
-                        steelIncome += 1;
-                    else if (tile.Resource == ResourceType.Oil)
-                        oilIncome += 1;
-                }
+                var tile = map.GetTile(new TilePosition(x, y));
+                if (tile.OwnerId == PlayerId && ResourceRegistry.IsMineable(tile.Resource))
+                    income[tile.Resource] += ResourceRegistry.Get(tile.Resource).YieldPerTurn;
             }
         }
 
-        return (goldIncome, steelIncome, oilIncome);
+        return income;
     }
 
     public bool CanDeployOrbitingSatellite(OrbitType orbitType)

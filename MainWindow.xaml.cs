@@ -558,28 +558,25 @@ namespace EmpireGame
         //}
         private void PlaceResourceTiles(Random rand)
         {
-            // Place at least 10-15 oil tiles
-            int oilTiles = rand.Next(12, 18);
-            PlaceResourceType(ResourceType.Oil, oilTiles, rand);
+            // Counts scale with map dimension (50x50 = baseline x1). Each mineable resource's
+            // scarcity (how many) and allowed terrain (where) come from the registry.
+            double sizeFactor = Math.Max(1.0, game.Map.Width / 50.0);
 
-            // Place at least 10-15 steel tiles
-            int steelTiles = rand.Next(12, 18);
-            PlaceResourceType(ResourceType.Steel, steelTiles, rand);
+            foreach (var type in ResourceRegistry.Mineable)
+            {
+                var def = ResourceRegistry.Get(type);
+                int count = (int)Math.Round(ResourceRegistry.BaseCount(def.Scarcity) * sizeFactor);
+                PlaceResourceType(type, count, def.AllowedTerrain, rand);
+            }
         }
 
-        private void PlaceResourceType(ResourceType resourceType, int count, Random rand)
+        private void PlaceResourceType(ResourceType resourceType, int count,
+            IReadOnlyList<TerrainType> allowedTerrain, Random rand)
         {
-            // Thematic terrain preference (soft — only used to break near-ties so we keep
-            // oil-on-lowland / steel-on-highland flavor without sacrificing even spread).
-            HashSet<TerrainType> preferred = resourceType == ResourceType.Oil
-                ? new HashSet<TerrainType> { TerrainType.Plains, TerrainType.Land }
-                : new HashSet<TerrainType> { TerrainType.Hills, TerrainType.Mountain };
+            if (allowedTerrain == null || allowedTerrain.Count == 0)
+                return; // nothing to place on (e.g. a non-mineable resource)
 
-            HashSet<TerrainType> land = new HashSet<TerrainType>
-            {
-                TerrainType.Land, TerrainType.Plains, TerrainType.Forest,
-                TerrainType.Hills, TerrainType.Mountain
-            };
+            var allowed = new HashSet<TerrainType>(allowedTerrain);
 
             // Keep resources off the very edge, scaled to map size so small maps don't get
             // a huge barren border (the old hard-coded 10-tile border crammed 50x50 maps).
@@ -598,13 +595,10 @@ namespace EmpireGame
 
                 for (int s = 0; s < 40; s++)
                 {
-                    TilePosition? cand = RandomEmptyLandTile(land, margin, rand);
-                    if (cand == null) break; // no empty land remaining
+                    TilePosition? cand = RandomEmptyTile(allowed, margin, rand);
+                    if (cand == null) break; // no allowed tile remaining
 
                     double score = NearestDistance(cand.Value, sameType);
-                    if (preferred.Contains(game.Map.GetTile(cand.Value).Terrain))
-                        score += 2.0; // small bonus so thematic terrain wins close ties
-
                     if (score > bestScore)
                     {
                         bestScore = score;
@@ -612,16 +606,16 @@ namespace EmpireGame
                     }
                 }
 
-                if (best == null) break; // map effectively full
+                if (best == null) break; // no valid terrain left
                 game.Map.GetTile(best.Value).Resource = resourceType;
                 sameType.Add(best.Value);
             }
         }
 
-        // Picks a random empty land tile (off the edge), preferring spots not crowding any
-        // existing resource; relaxes the spacing requirement only as a last resort so we
-        // never fail to find a tile while the map still has room.
-        private TilePosition? RandomEmptyLandTile(HashSet<TerrainType> land, int margin, Random rand)
+        // Picks a random empty tile of an allowed terrain (off the edge), preferring spots not
+        // crowding any existing resource; relaxes the spacing requirement only as a last resort
+        // so we never fail to find a tile while allowed terrain still has room.
+        private TilePosition? RandomEmptyTile(HashSet<TerrainType> allowedTerrain, int margin, Random rand)
         {
             int w = game.Map.Width, h = game.Map.Height;
 
@@ -632,19 +626,19 @@ namespace EmpireGame
                 TilePosition pos = new TilePosition(x, y);
                 Tile tile = game.Map.GetTile(pos);
                 if (tile.Resource != ResourceType.None) continue;
-                if (!land.Contains(tile.Terrain)) continue;
+                if (!allowedTerrain.Contains(tile.Terrain)) continue;
                 if (!IsWellSpacedFromOtherResources(pos, 2)) continue; // no two resources touching
                 return pos;
             }
 
-            // Relaxed: any empty land tile off the edge (ignore the 2-tile gap).
+            // Relaxed: any empty allowed tile off the edge (ignore the 2-tile gap).
             for (int t = 0; t < 250; t++)
             {
                 int x = rand.Next(margin, w - margin);
                 int y = rand.Next(margin, h - margin);
                 TilePosition pos = new TilePosition(x, y);
                 Tile tile = game.Map.GetTile(pos);
-                if (tile.Resource == ResourceType.None && land.Contains(tile.Terrain))
+                if (tile.Resource == ResourceType.None && allowedTerrain.Contains(tile.Terrain))
                     return pos;
             }
             return null;
@@ -1235,15 +1229,9 @@ namespace EmpireGame
                                 Height = 20
                             };
 
-                            string imagePath = "";
-                            if (tile.Resource == ResourceType.Oil)
-                            {
-                                imagePath = "/Resources/oil_16.png";
-                            }
-                            else if (tile.Resource == ResourceType.Steel)
-                            {
-                                imagePath = "/Resources/steel_16.png";
-                            }
+                            string imagePath = ResourceRegistry.IsMineable(tile.Resource)
+                                ? ResourceRegistry.Get(tile.Resource).IconPath
+                                : "";
 
                             try
                             {
@@ -2500,9 +2488,30 @@ namespace EmpireGame
             City? city = structure as City;
             Player player = game.CurrentPlayer;
 
+            // Build the "(💰3 ⚙️2)" cost fragment and affordability flag from a cost map,
+            // iterating whatever resources the registry defines.
+            (bool canAfford, string costText) DescribeCost(Dictionary<ResourceType, int> cost)
+            {
+                bool afford = true;
+                var sb = new System.Text.StringBuilder();
+                bool first = true;
+                foreach (var rt in ResourceRegistry.Currencies)
+                {
+                    int amt = cost.TryGetValue(rt, out var v) ? v : 0;
+                    if (amt <= 0) continue;
+                    bool ok = player.GetResource(rt) >= amt;
+                    if (!ok) afford = false;
+                    if (!first) sb.Append(' ');
+                    first = false;
+                    sb.Append(ResourceRegistry.Get(rt).Symbol).Append(amt);
+                    if (!ok) sb.Append("[!]");
+                }
+                return (afford, sb.ToString());
+            }
+
             void AddUnit(string name, Type type)
             {
-                var (gold, steel, oil) = UnitProductionOrder.GetCost(type);
+                var cost = UnitProductionOrder.GetCost(type);
                 bool canBuild = false;
                 string capacityNote = "";
 
@@ -2530,26 +2539,9 @@ namespace EmpireGame
                         capacityNote = $" [{city.GetBarracksSpaceUsed()}/{City.MAX_BARRACKS_CAPACITY}]";
                 }
 
-                // Check resources
-                bool canAfford = player.Gold >= gold &&
-                                player.Steel >= steel &&
-                                player.Oil >= oil;
-
-                // Build cost string with color indicators
-                string costString = $"{name} (";
-
-                // Gold
-                costString += player.Gold >= gold ? $"💰{gold}" : $"💰{gold}[!]";
-
-                // Steel
-                if (steel > 0)
-                    costString += player.Steel >= steel ? $" ⚙️{steel}" : $" ⚙️{steel}[!]";
-
-                // Oil
-                if (oil > 0)
-                    costString += player.Oil >= oil ? $" 🛢️{oil}" : $" 🛢️{oil}[!]";
-
-                costString += ")";
+                // Check resources / build cost string (dynamic over the registry)
+                var (canAfford, costText) = DescribeCost(cost);
+                string costString = $"{name} ({costText})";
 
                 if (!canAfford)
                     costString += " [Need Resources]";
@@ -2561,7 +2553,7 @@ namespace EmpireGame
                 ComboBoxItem item = new ComboBoxItem
                 {
                     Content = costString,
-                    Tag = new UnitProductionOrder(type, gold, steel, oil, name),
+                    Tag = new UnitProductionOrder(type, name),
                     IsEnabled = canBuild && canAfford
                 };
 
@@ -2576,31 +2568,14 @@ namespace EmpireGame
 
             void AddSatelliteUnit(string name, Type type, OrbitType orbitType)
             {
-                var (gold, steel, oil) = UnitProductionOrder.GetCost(type);
+                var cost = UnitProductionOrder.GetCost(type);
 
                 // Satellites can be built at bases and cities (no capacity limit)
                 bool canBuild = (baseStructure != null || city != null);
 
-                // Check resources
-                bool canAfford = player.Gold >= gold &&
-                                player.Steel >= steel &&
-                                player.Oil >= oil;
-
-                // Build cost string with color indicators
-                string costString = $"{name} (";
-
-                // Gold
-                costString += player.Gold >= gold ? $"💰{gold}" : $"💰{gold}[!]";
-
-                // Steel
-                if (steel > 0)
-                    costString += player.Steel >= steel ? $" ⚙️{steel}" : $" ⚙️{steel}[!]";
-
-                // Oil
-                if (oil > 0)
-                    costString += player.Oil >= oil ? $" 🛢️{oil}" : $" 🛢️{oil}[!]";
-
-                costString += ")";
+                // Check resources / build cost string (dynamic over the registry)
+                var (canAfford, costText) = DescribeCost(cost);
+                string costString = $"{name} ({costText})";
 
                 if (!canAfford)
                     costString += " [Need Resources]";
@@ -2610,7 +2585,7 @@ namespace EmpireGame
                 ComboBoxItem item = new ComboBoxItem
                 {
                     Content = costString,
-                    Tag = new SatelliteProductionOrder(type, gold, steel, oil, name, orbitType),
+                    Tag = new SatelliteProductionOrder(type, name, orbitType),
                     IsEnabled = canBuild && canAfford
                 };
 
@@ -2942,6 +2917,7 @@ namespace EmpireGame
                     unit.MovementPoints = 0;
 
                     SelectUnit(unit);
+                    UpdateResourceDisplay(); // refresh per-turn income immediately if the advance captured a tile
 
                     string unitName = unit.GetName().ToLower();
                     string enemyName = enemyUnit.GetName().ToLower();
@@ -3102,6 +3078,7 @@ namespace EmpireGame
 
             SelectUnit(unit);
             game.CurrentPlayer.UpdateVision(game.Map);
+            UpdateResourceDisplay(); // refresh per-turn income immediately after capturing the tile
             RenderMap();
         }
 
@@ -3654,6 +3631,11 @@ namespace EmpireGame
                 }
             }
 
+            // Human is in control again — refresh the income readout immediately so any
+            // resource tiles the AI captured from the player are reflected at once, before
+            // automatic orders and combat replays are shown (not only at the very end).
+            UpdateResourceDisplay();
+
             // AFTER all AI turns complete, process human automatic orders again
             if (!game.CurrentPlayer.IsAI && game.AutomaticOrdersQueue.Count > 0)
             {
@@ -4188,19 +4170,40 @@ namespace EmpireGame
         private void UpdateResourceDisplay()
         {
             Player player = game.CurrentPlayer;
+            var income = player.GetResourceIncome(game.Map);
 
-            // Get income
-            (int goldIncome, int steelIncome, int oilIncome) = player.GetResourceIncome(game.Map);
+            // Rebuild one chip per registry currency, so adding a resource shows up automatically.
+            ResourcePanel.Children.Clear();
+            foreach (var rt in ResourceRegistry.Currencies)
+            {
+                var def = ResourceRegistry.Get(rt);
+                var chip = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 15, 0) };
 
-            // Update display
-            GoldText.Text = player.Gold.ToString();
-            GoldIncomeText.Text = $"(+{goldIncome})";
+                var icon = new Image { Width = 20, Height = 20, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
+                try { icon.Source = new BitmapImage(new Uri(def.IconPath, UriKind.Relative)); } catch { }
+                chip.Children.Add(icon);
 
-            SteelText.Text = player.Steel.ToString();
-            SteelIncomeText.Text = $"(+{steelIncome})";
+                chip.Children.Add(new TextBlock
+                {
+                    Text = player.GetResource(rt).ToString(),
+                    FontSize = 14,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(def.ColorHex),
+                    Margin = new Thickness(0, 0, 3, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
 
-            OilText.Text = player.Oil.ToString();
-            OilIncomeText.Text = $"(+{oilIncome})";
+                int inc = income.TryGetValue(rt, out var v) ? v : 0;
+                chip.Children.Add(new TextBlock
+                {
+                    Text = $"(+{inc})",
+                    FontSize = 12,
+                    Foreground = System.Windows.Media.Brushes.LightGreen,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+                ResourcePanel.Children.Add(chip);
+            }
         }
 
         private async Task ProcessAutomaticOrdersWithVisuals()
@@ -4364,9 +4367,8 @@ namespace EmpireGame
         {
             public OrbitType OrbitType { get; set; }
 
-            public SatelliteProductionOrder(Type unitType, int goldCost, int steelCost, int oilCost,
-                string displayName, OrbitType orbitType)
-                : base(unitType, goldCost, steelCost, oilCost, displayName)
+            public SatelliteProductionOrder(Type unitType, string displayName, OrbitType orbitType)
+                : base(unitType, displayName)
             {
                 OrbitType = orbitType;
             }

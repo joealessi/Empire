@@ -1,6 +1,7 @@
 ﻿public enum ResourceType
 {
     None,
+    Gold,
     Oil,
     Steel
 }

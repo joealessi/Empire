@@ -82,26 +82,8 @@
                         <TextBlock x:Name="TurnNumberText" Text="Turn 1" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,20,0"/>
                         <TextBlock x:Name="CurrentPlayerText" Text="Player 0" FontSize="16" Foreground="LightBlue" Margin="0,0,20,0"/>
 
-                        <!-- Gold -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,15,0">
-                            <Image Width="20" Height="20" Margin="0,0,5,0" Source="/Resources/gold_16.png" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="GoldText" Text="0" FontSize="14" Foreground="Gold" FontWeight="Bold" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="GoldIncomeText" Text="(+0)" FontSize="12" Foreground="LightGreen" VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Steel -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,15,0">
-                            <Image Width="20" Height="20" Margin="0,0,5,0" Source="/Resources/steel_16.png" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="SteelText" Text="0" FontSize="14" Foreground="Silver" FontWeight="Bold" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="SteelIncomeText" Text="(+0)" FontSize="12" Foreground="LightGreen" VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Oil -->
-                        <StackPanel Orientation="Horizontal">
-                            <Image Width="20" Height="20" Margin="0,0,5,0" Source="/Resources/oil_16.png" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="OilText" Text="0" FontSize="14" Foreground="Orange" FontWeight="Bold" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="OilIncomeText" Text="(+0)" FontSize="12" Foreground="LightGreen" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <!-- Resource chips (built dynamically from ResourceRegistry) -->
+                        <StackPanel x:Name="ResourcePanel" Orientation="Horizontal"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">

@@ -7,61 +7,88 @@ public class UnitProductionOrder
     public int TotalCost { get; set; }
     public string DisplayName { get; set; }
 
-    // NEW: Individual resource costs
-    public int GoldCost { get; set; }
-    public int SteelCost { get; set; }
-    public int OilCost { get; set; }
+    // Per-resource cost for this order (dynamic — keyed by ResourceType).
+    public Dictionary<ResourceType, int> Cost { get; set; }
 
-    // Canonical build-cost table (gold, steel, oil) — the single source of truth
-    // shared by the player build menu (MainWindow.PopulateAvailableUnits) and the
-    // AI production logic (AIController.DecideWhatToBuild). Update costs here only.
-    public static readonly Dictionary<Type, (int gold, int steel, int oil)> Costs =
-        new Dictionary<Type, (int gold, int steel, int oil)>
+    // Convenience facades over the cost map so existing call sites keep working.
+    public int GoldCost => Cost.TryGetValue(ResourceType.Gold, out var v) ? v : 0;
+    public int SteelCost => Cost.TryGetValue(ResourceType.Steel, out var v) ? v : 0;
+    public int OilCost => Cost.TryGetValue(ResourceType.Oil, out var v) ? v : 0;
+
+    // Compact helper for the three current currencies.
+    private static Dictionary<ResourceType, int> C(int gold, int steel, int oil) =>
+        new Dictionary<ResourceType, int>
         {
-            { typeof(Army),                    (2, 0, 0) },
-            { typeof(Tank),                    (3, 2, 0) },
-            { typeof(Artillery),               (3, 2, 0) },
-            { typeof(Sapper),                  (2, 1, 0) },
-            { typeof(AntiAircraft),            (2, 1, 0) },
-            { typeof(Spy),                     (3, 0, 0) },
-            { typeof(Fighter),                 (3, 1, 1) },
-            { typeof(Bomber),                  (6, 3, 2) },
-            { typeof(Tanker),                  (3, 1, 1) },
-            { typeof(PatrolBoat),              (2, 1, 0) },
-            { typeof(Destroyer),               (3, 2, 1) },
-            { typeof(Submarine),               (5, 2, 1) },
-            { typeof(Carrier),                 (8, 4, 3) },
-            { typeof(Battleship),              (9, 5, 3) },
-            { typeof(Transport),               (2, 1, 1) },
-            { typeof(OrbitingSatellite),       (8, 4, 2) },
-            { typeof(GeosynchronousSatellite), (14, 7, 5) },
+            { ResourceType.Gold, gold },
+            { ResourceType.Steel, steel },
+            { ResourceType.Oil, oil },
         };
 
-    // Look up the canonical cost for a unit type (returns 0/0/0 if not listed).
-    public static (int gold, int steel, int oil) GetCost(Type unitType)
+    // Resource-agnostic cost: list only the resources a unit actually uses. Adding a new
+    // resource (e.g. Uranium) needs no change here — just add a pair to the units that use it.
+    //   e.g. Price((ResourceType.Gold, 14), (ResourceType.Steel, 7), (ResourceType.Uranium, 2))
+    private static Dictionary<ResourceType, int> Price(params (ResourceType type, int amount)[] items)
     {
-        return Costs.TryGetValue(unitType, out var cost) ? cost : (0, 0, 0);
+        var d = new Dictionary<ResourceType, int>();
+        foreach (var (type, amount) in items)
+            d[type] = amount;
+        return d;
     }
 
-    public UnitProductionOrder(Type unitType, int goldCost, int steelCost, int oilCost, string displayName)
+    // Canonical build-cost table — the single source of truth, read by both the player
+    // build menu and the AI. Update unit costs here only.
+    public static readonly Dictionary<Type, Dictionary<ResourceType, int>> Costs =
+        new Dictionary<Type, Dictionary<ResourceType, int>>
+        {
+            { typeof(Army),                    C(2, 0, 0) },
+            { typeof(Tank),                    C(3, 2, 0) },
+            { typeof(Artillery),               C(3, 2, 0) },
+            { typeof(Sapper),                  C(2, 1, 0) },
+            { typeof(AntiAircraft),            C(2, 1, 0) },
+            { typeof(Spy),                     C(3, 0, 0) },
+            { typeof(Fighter),                 C(3, 1, 1) },
+            { typeof(Bomber),                  C(6, 3, 2) },
+            { typeof(Tanker),                  C(3, 1, 1) },
+            { typeof(PatrolBoat),              C(2, 1, 0) },
+            { typeof(Destroyer),               C(3, 2, 1) },
+            { typeof(Submarine),               C(5, 2, 1) },
+            { typeof(Carrier),                 C(8, 4, 3) },
+            { typeof(Battleship),              C(9, 5, 3) },
+            { typeof(Transport),               C(2, 1, 1) },
+            { typeof(OrbitingSatellite),       C(6, 3, 2) },
+            { typeof(GeosynchronousSatellite), C(14, 7, 5) },
+        };
+
+    // Canonical cost for a unit type as a fresh map (empty if not listed).
+    public static Dictionary<ResourceType, int> GetCost(Type unitType) =>
+        Costs.TryGetValue(unitType, out var c)
+            ? new Dictionary<ResourceType, int>(c)
+            : new Dictionary<ResourceType, int>();
+
+    // Primary constructor: explicit per-resource cost map.
+    public UnitProductionOrder(Type unitType, Dictionary<ResourceType, int> cost, string displayName)
     {
         UnitType = unitType;
-        GoldCost = goldCost;
-        SteelCost = steelCost;
-        OilCost = oilCost;
+        Cost = cost ?? new Dictionary<ResourceType, int>();
         DisplayName = displayName;
-        TotalCost = goldCost * 10;
+        TotalCost = GoldCost * 10;
     }
 
     // Cost-table-driven constructor: pulls the canonical cost for the unit type.
     public UnitProductionOrder(Type unitType, string displayName)
-        : this(unitType, GetCost(unitType).gold, GetCost(unitType).steel, GetCost(unitType).oil, displayName)
+        : this(unitType, GetCost(unitType), displayName)
     {
     }
 
-    // Backward compatibility constructor
+    // Backward compatibility: explicit gold/steel/oil amounts.
+    public UnitProductionOrder(Type unitType, int goldCost, int steelCost, int oilCost, string displayName)
+        : this(unitType, C(goldCost, steelCost, oilCost), displayName)
+    {
+    }
+
+    // Backward compatibility: cost expressed in production points.
     public UnitProductionOrder(Type unitType, int cost, string displayName)
-        : this(unitType, cost / 10, 0, 0, displayName)
+        : this(unitType, C(cost / 10, 0, 0), displayName)
     {
     }
 }

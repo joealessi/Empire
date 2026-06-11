@@ -105,8 +105,8 @@ namespace EmpireGame
             // Helper to check affordability against the canonical cost table
             bool CanAfford(Type unitType)
             {
-                var (gold, steel, oil) = UnitProductionOrder.GetCost(unitType);
-                return aiPlayer.Gold >= gold && aiPlayer.Steel >= steel && aiPlayer.Oil >= oil;
+                return UnitProductionOrder.GetCost(unitType)
+                    .All(kv => aiPlayer.GetResource(kv.Key) >= kv.Value);
             }
 
             // Count current units by type
