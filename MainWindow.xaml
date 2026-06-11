@@ -713,6 +713,20 @@
                         <TextBlock Text="Build Unit:" Foreground="White" Margin="0,0,0,5"/>
                         <ComboBox x:Name="UnitTypesCombo" Margin="0,0,0,5"/>
                         <Button x:Name="BuildUnitButton" Content="Add to Queue" Click="BuildUnitButton_Click"/>
+
+                        <!-- Civic Upgrades (spend populace) -->
+                        <TextBlock Text="🏛️ Civic Upgrades" FontSize="14" FontWeight="Bold" Foreground="#FFD43B" Margin="0,12,0,5"/>
+                        <WrapPanel>
+                            <Button x:Name="UpgIndustryButton" Margin="2" Click="UpgIndustry_Click"/>
+                            <Button x:Name="UpgFortifyButton" Margin="2" Click="UpgFortify_Click"/>
+                            <Button x:Name="UpgWatchtowerButton" Margin="2" Click="UpgWatchtower_Click"/>
+                            <Button x:Name="UpgHousingButton" Margin="2" Click="UpgHousing_Click"/>
+                            <Button x:Name="UpgTreasuryButton" Margin="2" Click="UpgTreasury_Click"/>
+                            <Button x:Name="UpgMilitary1Button" Margin="2" Click="UpgMilitary1_Click"/>
+                            <Button x:Name="UpgMilitary2Button" Margin="2" Click="UpgMilitary2_Click"/>
+                            <Button x:Name="UpgConscriptButton" Margin="2" Click="UpgConscript_Click"/>
+                            <Button x:Name="UpgRepairButton" Margin="2" Click="UpgRepair_Click"/>
+                        </WrapPanel>
                         </StackPanel>
 
                         <!-- Mine actions (mines can only produce Miners) -->

@@ -2,7 +2,7 @@
 {
     public Queue<UnitProductionOrder> ProductionQueue { get; set; }
     public int ProductionPointsPerTurn { get; set; }
-    public int CurrentProductionProgress { get; set; }
+    public double CurrentProductionProgress { get; set; }
     
     // Unit storage with capacity limits
     public List<AirUnit> Airport { get; set; }

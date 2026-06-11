@@ -25,6 +25,12 @@ public class Player
 
     public bool HasBeenEliminated { get; set; }
 
+    // Player-wide military upgrades (bought with populace at a city/base).
+    public int ArmyHealthBonus { get; set; }
+    public int TankHealthBonus { get; set; }
+    public bool HasMilitary1 { get; set; }
+    public bool HasMilitary2 { get; set; }
+
     // AI behavior tracking
     public Dictionary<int, int> UnitsLostToPlayer { get; set; } = new Dictionary<int, int>();
     public List<Structure> LostStructures { get; set; } = new List<Structure>();
@@ -130,10 +136,10 @@ public class Player
         };
     }
 
-    public void CalculateResourceIncome(Map map)
+    public void CalculateResourceIncome(Map map, double multiplier = 1.0)
     {
         foreach (var kv in GetResourceIncome(map))
-            AddResource(kv.Key, kv.Value);
+            AddResource(kv.Key, (int)Math.Round(kv.Value * multiplier));
     }
 
     // Income per resource this turn, keyed by ResourceType. Gold comes from structures;
@@ -144,13 +150,13 @@ public class Player
         foreach (var rt in ResourceRegistry.Currencies)
             income[rt] = 0;
 
-        // Cities generate 3 gold, bases generate 1 gold
+        // Cities generate 3 gold, bases 1 gold (+Treasury upgrade bonus)
         foreach (var structure in Structures)
         {
             if (structure is City)
-                income[ResourceType.Gold] += 3;
+                income[ResourceType.Gold] += 3 + structure.GoldBonus;
             else if (structure is Base)
-                income[ResourceType.Gold] += 1;
+                income[ResourceType.Gold] += 1 + structure.GoldBonus;
         }
 
         // Mineable resources come from connected mines this player owns.

@@ -52,7 +52,7 @@ namespace EmpireGame
         {
             InitializeComponent();
 
-            // Show start game form
+            // Show start game form (branding is merged into its header)
             StartGameForm startForm = new StartGameForm();
             if (startForm.ShowDialog() == true)
             {
@@ -94,6 +94,9 @@ namespace EmpireGame
                 gameSettings.StartingGold,
                 gameSettings.StartingSteel,
                 gameSettings.StartingOil);
+
+            // Difficulty gives the AI an income advantage (Easy 0.75x .. Expert 1.5x; Normal = none)
+            game.AIIncomeMultiplier = gameSettings.GetAIBonusMultiplier();
 
             // Set player name
             game.Players[0].Name = gameSettings.CommanderName;
@@ -1901,6 +1904,7 @@ namespace EmpireGame
                 UpdateStructureLists(baseStructure);
                 UpdateProductionQueue(baseStructure);
                 PopulateAvailableUnits(baseStructure);
+                RefreshCivicUpgrades(baseStructure);
 
                 // Show/hide shipyard based on HasShipyard flag
                 if (baseStructure.HasShipyard)
@@ -1928,6 +1932,7 @@ namespace EmpireGame
                 UpdateStructureLists(city);
                 UpdateProductionQueue(city);
                 PopulateAvailableUnits(city);
+                RefreshCivicUpgrades(city);
 
                 // Cities don't have shipyards
                 ShipyardLabel.Visibility = Visibility.Collapsed;
@@ -2551,7 +2556,7 @@ namespace EmpireGame
                 if (index == 0)
                 {
                     // First item - show actual progress
-                    ProductionQueueList.Items.Add($"▶ {order.DisplayName} ({baseStructure.CurrentProductionProgress}/{order.TotalCost})");
+                    ProductionQueueList.Items.Add($"▶ {order.DisplayName} ({(int)baseStructure.CurrentProductionProgress}/{order.TotalCost})");
                 }
                 else
                 {
@@ -2571,7 +2576,7 @@ namespace EmpireGame
                 if (index == 0)
                 {
                     // First item - show actual progress
-                    ProductionQueueList.Items.Add($"▶ {order.DisplayName} ({city.CurrentProductionProgress}/{order.TotalCost})");
+                    ProductionQueueList.Items.Add($"▶ {order.DisplayName} ({(int)city.CurrentProductionProgress}/{order.TotalCost})");
                 }
                 else
                 {
@@ -4731,6 +4736,159 @@ namespace EmpireGame
             game.CurrentPlayer.UpdateVision(game.Map);
             UpdateResourceDisplay();
             RenderMap();
+        }
+
+        // ===== Civic upgrades (spend populace) =====
+        private const int CostIndustry = 15, CostFortify = 15, CostWatchtower = 12, CostHousing = 30,
+                          CostTreasury = 30, CostMilitary1 = 40, CostMilitary2 = 40, CostConscript = 8,
+                          CostRepair = 12, SteelCostMilitary2 = 10;
+
+        private void RefreshCivicUpgrades(Structure s)
+        {
+            Player p = game.CurrentPlayer;
+            bool own = s.OwnerId == p.PlayerId;
+            double pop = s.Population;
+
+            void Set(System.Windows.Controls.Button b, bool owned, string label, int cost, bool extraOk = true)
+            {
+                b.Content = owned ? $"{label} ✓" : $"{label} ({cost}👥)";
+                b.IsEnabled = own && !owned && extraOk && (pop - cost >= 1);
+            }
+
+            Set(UpgIndustryButton, s.HasIndustry, "Industry", CostIndustry);
+            Set(UpgFortifyButton, s.HasFortifications, "Fortify", CostFortify);
+            Set(UpgWatchtowerButton, s.HasWatchtower, "Watchtower", CostWatchtower);
+            Set(UpgHousingButton, s.HasHousing, "Housing", CostHousing);
+            Set(UpgTreasuryButton, s.HasTreasury, "Treasury", CostTreasury);
+            Set(UpgMilitary1Button, p.HasMilitary1, "Military I", CostMilitary1);
+
+            UpgMilitary2Button.Content = p.HasMilitary2 ? "Military II ✓" : $"Military II ({CostMilitary2}👥+{SteelCostMilitary2}⚙️)";
+            UpgMilitary2Button.IsEnabled = own && !p.HasMilitary2 && p.HasMilitary1 &&
+                                           p.GetResource(ResourceType.Steel) >= SteelCostMilitary2 &&
+                                           (pop - CostMilitary2 >= 1);
+
+            UpgConscriptButton.Content = $"Conscript ({CostConscript}👥)";
+            UpgConscriptButton.IsEnabled = own && (pop - CostConscript >= 1);
+
+            UpgRepairButton.Content = s.Life < s.MaxLife ? $"Repair ({CostRepair}👥)" : "Repair ✓";
+            UpgRepairButton.IsEnabled = own && s.Life < s.MaxLife && (pop - CostRepair >= 1);
+        }
+
+        private bool TrySpendPop(Structure s, int cost)
+        {
+            if (s.Population - cost < 1)
+            {
+                AddMessage($"Not enough populace (need {cost + 1}, have {s.Population:0.#}).", MessageType.Warning);
+                return false;
+            }
+            s.Population -= cost;
+            return true;
+        }
+
+        private void AfterUpgrade()
+        {
+            SelectStructure(selectedStructure);
+            game.CurrentPlayer.UpdateVision(game.Map);
+            UpdateResourceDisplay();
+            RenderMap();
+        }
+
+        private void UpgIndustry_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null || selectedStructure.HasIndustry || !TrySpendPop(selectedStructure, CostIndustry)) return;
+            selectedStructure.HasIndustry = true;
+            selectedStructure.ProductionBonus += 0.0125;
+            AddMessage("🏭 Industry built (+1.25% production).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgFortify_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null || selectedStructure.HasFortifications || !TrySpendPop(selectedStructure, CostFortify)) return;
+            selectedStructure.HasFortifications = true;
+            selectedStructure.MaxLife += 5;
+            selectedStructure.Heal(5);
+            AddMessage("🧱 Fortifications built (+5 max life).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgWatchtower_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null || selectedStructure.HasWatchtower || !TrySpendPop(selectedStructure, CostWatchtower)) return;
+            selectedStructure.HasWatchtower = true;
+            selectedStructure.VisionRange += 1;
+            AddMessage("🗼 Watchtower built (+1 vision).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgHousing_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null || selectedStructure.HasHousing || !TrySpendPop(selectedStructure, CostHousing)) return;
+            selectedStructure.HasHousing = true;
+            selectedStructure.GrowthBonus += 0.5;
+            AddMessage("🏘️ Housing built (+0.5 populace/turn).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgTreasury_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null || selectedStructure.HasTreasury || !TrySpendPop(selectedStructure, CostTreasury)) return;
+            selectedStructure.HasTreasury = true;
+            selectedStructure.GoldBonus += 1;
+            AddMessage("🏦 Treasury built (+1 gold/turn).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgMilitary1_Click(object sender, RoutedEventArgs e)
+        {
+            Player p = game.CurrentPlayer;
+            if (selectedStructure == null || p.HasMilitary1 || !TrySpendPop(selectedStructure, CostMilitary1)) return;
+            p.HasMilitary1 = true;
+            p.ArmyHealthBonus += 1;
+            foreach (var u in p.Units)
+                if (u is Army) { u.MaxLife += 1; u.Life = System.Math.Min(u.Life + 1, u.MaxLife); }
+            AddMessage("🎖️ Military I researched (+1 Army health, all armies).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgMilitary2_Click(object sender, RoutedEventArgs e)
+        {
+            Player p = game.CurrentPlayer;
+            if (selectedStructure == null || p.HasMilitary2) return;
+            if (!p.HasMilitary1) { AddMessage("Military II requires Military I first.", MessageType.Warning); return; }
+            if (p.GetResource(ResourceType.Steel) < SteelCostMilitary2) { AddMessage($"Military II needs {SteelCostMilitary2} steel.", MessageType.Warning); return; }
+            if (!TrySpendPop(selectedStructure, CostMilitary2)) return;
+            p.AddResource(ResourceType.Steel, -SteelCostMilitary2);
+            p.HasMilitary2 = true;
+            p.TankHealthBonus += 1;
+            foreach (var u in p.Units)
+                if (u is Tank) { u.MaxLife += 1; u.Life = System.Math.Min(u.Life + 1, u.MaxLife); }
+            AddMessage("🎖️ Military II researched (+1 Tank health, all tanks).", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgConscript_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null) return;
+            Player p = game.CurrentPlayer;
+            TilePosition pos = FindAdjacentEmptyTile(selectedStructure.Position);
+            if (pos.X == -1) { AddMessage("No space to conscript an Army.", MessageType.Warning); return; }
+            if (!TrySpendPop(selectedStructure, CostConscript)) return;
+
+            var army = new Army { OwnerId = p.PlayerId, Position = pos, MovementPoints = 0 };
+            game.ApplyMilitaryUpgrades(army, p.PlayerId);
+            game.Map.GetTile(pos).Units.Add(army);
+            p.Units.Add(army);
+            AddMessage("🪖 Conscripted an Army.", MessageType.Success);
+            AfterUpgrade();
+        }
+
+        private void UpgRepair_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null || selectedStructure.Life >= selectedStructure.MaxLife || !TrySpendPop(selectedStructure, CostRepair)) return;
+            selectedStructure.Life = selectedStructure.MaxLife;
+            AddMessage("🔧 Structure fully repaired.", MessageType.Success);
+            AfterUpgrade();
         }
 
         private void BuildMineButton_Click(object sender, RoutedEventArgs e)

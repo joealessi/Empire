@@ -13,6 +13,16 @@
     // is spent building people-units (Army 4, Miner 2); never allowed below 1.
     public double Population { get; set; }
 
+    // One-time civic upgrades (bought with populace) and their permanent effects.
+    public bool HasIndustry { get; set; }       // +production
+    public bool HasFortifications { get; set; } // +MaxLife
+    public bool HasWatchtower { get; set; }     // +vision
+    public bool HasHousing { get; set; }        // +populace growth
+    public bool HasTreasury { get; set; }       // +gold/turn
+    public double ProductionBonus { get; set; } // fraction added to production points/turn
+    public double GrowthBonus { get; set; }     // extra populace/turn
+    public int GoldBonus { get; set; }          // extra gold/turn
+
     public Structure()
     {
         TurnsSinceLastHeal = 0;

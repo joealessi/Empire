@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Empire - New Game Setup"
         Width="500"
-        Height="650"
+        Height="720"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#1a1a2e">
@@ -14,14 +14,40 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Title -->
-        <TextBlock Grid.Row="0" 
-                   Text="NEW GAME SETUP"
-                   FontSize="24"
-                   FontWeight="Bold"
-                   Foreground="#00d4ff"
-                   HorizontalAlignment="Center"
-                   Margin="0,0,0,20"/>
+        <!-- Branding header (merged splash) -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="EMPIRE 2026" FontSize="42" FontWeight="Bold" HorizontalAlignment="Center">
+                <TextBlock.Foreground>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#FFD43B" Offset="0"/>
+                        <GradientStop Color="#FFA94D" Offset="1"/>
+                    </LinearGradientBrush>
+                </TextBlock.Foreground>
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="#FFB454" BlurRadius="16" ShadowDepth="0" Opacity="0.4"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock Text="J. Alessi" FontSize="15" FontWeight="SemiBold"
+                       Foreground="#E6EDF5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+
+            <TextBlock Text="A reimagining of Walter Bright's 1970s strategy classic"
+                       FontSize="12" FontStyle="Italic" Foreground="#93A1B5"
+                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,8"/>
+
+            <Border Height="2" Width="200" CornerRadius="1" Margin="0,0,0,8">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#00FFD43B" Offset="0"/>
+                        <GradientStop Color="#FFB454" Offset="0.5"/>
+                        <GradientStop Color="#00FFA94D" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <TextBlock Text="NEW GAME SETUP" FontSize="14" FontWeight="Bold"
+                       Foreground="#5BA0FF" HorizontalAlignment="Center"/>
+        </StackPanel>
 
         <!-- Options Panel -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -220,6 +246,7 @@
                     <ComboBoxItem Content="Easy"/>
                     <ComboBoxItem Content="Normal"/>
                     <ComboBoxItem Content="Hard"/>
+                    <ComboBoxItem Content="Expert"/>
                 </ComboBox>
 
                 <!-- Resource Abundance -->

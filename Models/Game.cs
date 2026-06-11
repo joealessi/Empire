@@ -45,6 +45,9 @@ public class Game
         PendingCombatReplays = new Queue<CombatResult>();
     }
 
+    // AI resource-income multiplier from the difficulty setting (1.0 = no advantage).
+    public double AIIncomeMultiplier { get; set; } = 1.0;
+
     public void NextTurn()
     {
         CurrentPlayerIndex++;
@@ -73,7 +76,7 @@ public class Game
             CheckSentryUnits(player);
 
             // Calculate and apply resource income
-            player.CalculateResourceIncome(Map);
+            player.CalculateResourceIncome(Map, player.IsAI ? AIIncomeMultiplier : 1.0);
 
             // Per-unit processing
             foreach (var unit in player.Units.ToList())
@@ -111,12 +114,12 @@ public class Game
             {
                 if (structure is Base baseStructure)
                 {
-                    baseStructure.Population += 1; // bases grow 1 populace/turn
+                    baseStructure.Population += 1 + baseStructure.GrowthBonus; // bases grow 1/turn (+Housing)
                     ProcessProduction(baseStructure, player);
                 }
                 else if (structure is City city)
                 {
-                    city.Population += 2; // cities grow 2 populace/turn
+                    city.Population += 2 + city.GrowthBonus; // cities grow 2/turn (+Housing)
                     ProcessProduction(city, player);
                 }
                 else if (structure is Mine mine)
@@ -431,7 +434,7 @@ public class Game
             return;
 
         var currentOrder = baseStructure.ProductionQueue.Peek();
-        baseStructure.CurrentProductionProgress += baseStructure.ProductionPointsPerTurn;
+        baseStructure.CurrentProductionProgress += baseStructure.ProductionPointsPerTurn * (1 + baseStructure.ProductionBonus);
 
         if (baseStructure.CurrentProductionProgress >= currentOrder.TotalCost)
         {
@@ -550,7 +553,7 @@ public class Game
             return;
 
         var currentOrder = city.ProductionQueue.Peek();
-        city.CurrentProductionProgress += city.ProductionPointsPerTurn;
+        city.CurrentProductionProgress += city.ProductionPointsPerTurn * (1 + city.ProductionBonus);
 
         if (city.CurrentProductionProgress >= currentOrder.TotalCost)
         {
@@ -738,7 +741,25 @@ public class Game
         unit.UnitId = nextUnitId++;
         unit.Position = position;
         unit.OwnerId = ownerId;
+        ApplyMilitaryUpgrades(unit, ownerId);
         return unit;
+    }
+
+    // Apply the owner's Military upgrades (extra HP) to a newly created unit.
+    public void ApplyMilitaryUpgrades(Unit unit, int ownerId)
+    {
+        var owner = Players.FirstOrDefault(p => p.PlayerId == ownerId);
+        if (owner == null) return;
+        if (unit is Army && owner.ArmyHealthBonus > 0)
+        {
+            unit.MaxLife += owner.ArmyHealthBonus;
+            unit.Life = unit.MaxLife;
+        }
+        else if (unit is Tank && owner.TankHealthBonus > 0)
+        {
+            unit.MaxLife += owner.TankHealthBonus;
+            unit.Life = unit.MaxLife;
+        }
     }
 
     public Structure CreateStructure(Type structureType, TilePosition position, int ownerId)
