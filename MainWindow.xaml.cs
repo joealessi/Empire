@@ -248,9 +248,7 @@ namespace EmpireGame
                 selectedUnit.SkipThisTurn();
                 AddMessage($"{selectedUnit.GetName()} skipped for this turn", MessageType.Info);
 
-                UpdateNextButton();
-                ClearSelection();
-                RenderMap();
+                NextUnitButton_Click(sender, e);
             }
         }
 
@@ -261,9 +259,7 @@ namespace EmpireGame
                 selectedUnit.Sleep();
                 AddMessage($"{selectedUnit.GetName()} is now asleep. Select it to wake it up.", MessageType.Info);
 
-                UpdateNextButton();
-                ClearSelection();
-                RenderMap();
+                NextUnitButton_Click(sender, e);
             }
         }
 
@@ -283,11 +279,73 @@ namespace EmpireGame
 
         private void CenterOnPosition(TilePosition pos)
         {
-            // For now, just render the map
-            // In a full implementation, you'd scroll the canvas to center on this position
             RenderMap();
 
-            // TODO: Add scrolling to center the view on the unit/structure
+            double tilePixelX = pos.X * TILE_SIZE + TILE_SIZE / 2.0;
+            double tilePixelY = pos.Y * TILE_SIZE + TILE_SIZE / 2.0;
+            double offsetX = tilePixelX - MapScrollViewer.ViewportWidth / 2.0;
+            double offsetY = tilePixelY - MapScrollViewer.ViewportHeight / 2.0;
+
+            MapScrollViewer.ScrollToHorizontalOffset(Math.Max(0, offsetX));
+            MapScrollViewer.ScrollToVerticalOffset(Math.Max(0, offsetY));
+        }
+
+        private void UnitIconBorder_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (selectedUnit != null)
+            {
+                CenterOnPosition(selectedUnit.Position);
+                FlashTile(selectedUnit.Position);
+            }
+        }
+
+        private void FlashTile(TilePosition pos)
+        {
+            double cx = pos.X * TILE_SIZE + TILE_SIZE / 2.0;
+            double cy = pos.Y * TILE_SIZE + TILE_SIZE / 2.0;
+            double baseSize = TILE_SIZE * 1.8;
+
+            var ring = new System.Windows.Shapes.Ellipse
+            {
+                Width = baseSize,
+                Height = baseSize,
+                Stroke = System.Windows.Media.Brushes.Yellow,
+                StrokeThickness = 3,
+                Fill = System.Windows.Media.Brushes.Transparent,
+                IsHitTestVisible = false,
+            };
+            Canvas.SetLeft(ring, cx - baseSize / 2);
+            Canvas.SetTop(ring, cy - baseSize / 2);
+            Canvas.SetZIndex(ring, 100);
+            MapCanvas.Children.Add(ring);
+
+            int ticks = 0;
+            const int totalTicks = 20;
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(45)
+            };
+            timer.Tick += (s, e) =>
+            {
+                ticks++;
+                double progress = ticks / (double)totalTicks;
+                double scale = 1.0 + progress * 1.8;
+                double opacity = 1.0 - progress;
+
+                ring.Width = baseSize * scale;
+                ring.Height = baseSize * scale;
+                Canvas.SetLeft(ring, cx - ring.Width / 2);
+                Canvas.SetTop(ring, cy - ring.Height / 2);
+                ring.Opacity = opacity;
+
+                if (ticks >= totalTicks)
+                {
+                    timer.Stop();
+                    if (MapCanvas.Children.Contains(ring))
+                        MapCanvas.Children.Remove(ring);
+                }
+            };
+            timer.Start();
         }
 
         // Remove or comment out SetupTestScenario - we don't need it anymore
@@ -3025,6 +3083,29 @@ namespace EmpireGame
 
                     AddMessage($"Your {unitName} retreated from combat with {enemyName}!");
                 }
+                else if (combatResult.DefenderWon)
+                {
+                    // Attacker was destroyed — remove it from the tile and player's unit list immediately
+                    Tile startTile = game.Map.GetTile(unit.Position);
+                    startTile.Units.Remove(unit);
+                    game.CurrentPlayer.Units.Remove(unit);
+                    game.CurrentPlayer.Statistics.UnitsLost++;
+
+                    ClearSelection();
+
+                    string unitName = unit.GetName().ToLower();
+                    string enemyName = enemyUnit.GetName().ToLower();
+                    if (unit.IsVeteran)
+                        unitName = "veteran " + unitName;
+                    if (enemyUnit.IsVeteran)
+                        enemyName = "veteran " + enemyName;
+
+                    AddMessage($"⚔️ Your {unitName} was destroyed by {enemyName}!", MessageType.Combat);
+
+                    game.CurrentPlayer.UpdateVision(game.Map);
+                    RenderMap();
+                    return;
+                }
                 else if (combatResult.AttackerWon)
                 {
                     // Check if this was an artillery ranged attack - if so, attacker stays in place
@@ -3598,12 +3679,7 @@ namespace EmpireGame
                 selectedUnit.SetSentry();
                 MessageBox.Show($"{selectedUnit.GetName()} is on sentry. It will wake when enemies are spotted.");
 
-                // Update next button count
-                UpdateNextButton();
-
-                // Clear selection
-                ClearSelection();
-                RenderMap();
+                NextUnitButton_Click(sender, e);
             }
         }
 
@@ -4861,9 +4937,8 @@ namespace EmpireGame
                 AddMessage($"⛏️ Built {mine.GetName()}" +
                            (mine.IsConnected ? " (supply line connected)." : " — no supply line to a base yet!"),
                            MessageType.Success);
-                SelectUnit(null);
                 UpdateResourceDisplay();
-                RenderMap();
+                NextUnitButton_Click(sender, e);
             }
         }
 
