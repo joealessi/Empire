@@ -28,8 +28,8 @@ namespace EmpireGame
             Difficulty = Difficulty.Normal;
             ResourceAbundance = ResourceAbundance.Normal;
             StartingGold = 10;
-            StartingSteel = 5;
-            StartingOil = 5;
+            StartingSteel = 0; // steel/oil come only from a built, supply-connected mine
+            StartingOil = 0;
             InitialTileSize = 32;
             AnimationDelay = 300;
             AIPersonalities = new List<AIPersonality>();

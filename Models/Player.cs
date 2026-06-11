@@ -33,7 +33,7 @@ public class Player
 
     public HashSet<OrbitType> DeployedOrbitTypes { get; set; }
 
-    public Player(int id, string name, bool isAI, int startingGold = 10, int startingSteel = 0, int startingOil = 1)
+    public Player(int id, string name, bool isAI, int startingGold = 10, int startingSteel = 0, int startingOil = 0)
     {
         PlayerId = id;
         Name = name;
@@ -153,15 +153,11 @@ public class Player
                 income[ResourceType.Gold] += 1;
         }
 
-        // Mineable resources from tiles owned by this player
-        for (int x = 0; x < map.Width; x++)
+        // Mineable resources come from connected mines this player owns.
+        foreach (var structure in Structures)
         {
-            for (int y = 0; y < map.Height; y++)
-            {
-                var tile = map.GetTile(new TilePosition(x, y));
-                if (tile.OwnerId == PlayerId && ResourceRegistry.IsMineable(tile.Resource))
-                    income[tile.Resource] += ResourceRegistry.Get(tile.Resource).YieldPerTurn;
-            }
+            if (structure is Mine mine && mine.IsConnected)
+                income[mine.Resource] += ResourceRegistry.Get(mine.Resource).YieldPerTurn;
         }
 
         return income;

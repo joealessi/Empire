@@ -49,6 +49,102 @@ namespace EmpireGame
 
             HandleProduction(aiPlayer);
             HandleUnits(aiPlayer);
+            HandleMining(aiPlayer);
+        }
+
+        // Deploys/uses miners to build mines and sends idle sappers to disrupt enemy supply lines.
+        private void HandleMining(Player aiPlayer)
+        {
+            game.UpdateSupplyLines();
+
+            // Deploy idle miners from barracks onto the map.
+            foreach (var s in aiPlayer.Structures.ToList())
+            {
+                List<LandUnit> barracks = (s as Base)?.Barracks ?? (s as City)?.Barracks;
+                if (barracks == null) continue;
+                foreach (var m in barracks.OfType<Miner>().ToList())
+                {
+                    var pos = FindAdjacentEmptyLand(s.Position);
+                    if (pos == null) break;
+                    barracks.Remove(m);
+                    m.Position = pos.Value;
+                    game.Map.GetTile(pos.Value).Units.Add(m);
+                }
+            }
+
+            // On-map miners: build on a resource tile, else head to the nearest unmined resource.
+            foreach (var miner in aiPlayer.Units.OfType<Miner>().ToList())
+            {
+                if (miner.Position.X < 0 || miner.MovementPoints <= 0) continue;
+                var tile = game.Map.GetTile(miner.Position);
+                if (ResourceRegistry.IsMineable(tile.Resource) && tile.Structure == null)
+                {
+                    game.BuildMine(miner, aiPlayer);
+                    continue;
+                }
+                var target = FindNearestUnminedResource(miner.Position);
+                if (target != null) MoveToward(miner, target.Value, aiPlayer);
+            }
+
+            // Idle sappers disrupt the nearest enemy supply line.
+            foreach (var sapper in aiPlayer.Units.OfType<Sapper>().ToList())
+            {
+                if (sapper.IsDisruptingSupply || sapper.IsBuildingBase || sapper.IsBuildingBridge) continue;
+                if (sapper.Position.X < 0 || sapper.MovementPoints <= 0) continue;
+
+                bool onLine = false;
+                TilePosition? nearestLineTile = null;
+                int bestDist = int.MaxValue;
+                foreach (var p in game.Players)
+                {
+                    if (p.PlayerId == aiPlayer.PlayerId) continue;
+                    foreach (var m in p.Structures.OfType<Mine>())
+                    {
+                        if (m.SupplyPath == null) continue;
+                        foreach (var pt in m.SupplyPath)
+                        {
+                            if (pt.Equals(sapper.Position)) onLine = true;
+                            int d = Math.Abs(pt.X - sapper.Position.X) + Math.Abs(pt.Y - sapper.Position.Y);
+                            if (d < bestDist) { bestDist = d; nearestLineTile = pt; }
+                        }
+                    }
+                }
+                if (onLine) { sapper.IsDisruptingSupply = true; sapper.MovementPoints = 0; }
+                else if (nearestLineTile != null) MoveToward(sapper, nearestLineTile.Value, aiPlayer);
+            }
+        }
+
+        private TilePosition? FindAdjacentEmptyLand(TilePosition center)
+        {
+            foreach (var d in new (int dx, int dy)[] { (-1,-1),(0,-1),(1,-1),(-1,0),(1,0),(-1,1),(0,1),(1,1) })
+            {
+                var np = new TilePosition(center.X + d.dx, center.Y + d.dy);
+                if (!game.Map.IsValidPosition(np)) continue;
+                var t = game.Map.GetTile(np);
+                if (t.Structure == null && t.Units.Count == 0 &&
+                    (t.Terrain == TerrainType.Land || t.Terrain == TerrainType.Plains ||
+                     t.Terrain == TerrainType.Forest || t.Terrain == TerrainType.Hills ||
+                     t.Terrain == TerrainType.Mountain))
+                    return np;
+            }
+            return null;
+        }
+
+        private TilePosition? FindNearestUnminedResource(TilePosition from)
+        {
+            TilePosition? best = null;
+            int bestD = int.MaxValue;
+            for (int x = 0; x < game.Map.Width; x++)
+                for (int y = 0; y < game.Map.Height; y++)
+                {
+                    var t = game.Map.GetTile(new TilePosition(x, y));
+                    if (ResourceRegistry.IsMineable(t.Resource) && t.Structure == null)
+                    {
+                        int d = Math.Abs(x - from.X) + Math.Abs(y - from.Y);
+                        if (d < bestD) { bestD = d; best = new TilePosition(x, y); }
+                    }
+                }
+            return best;
         }
 
         private void HandleProduction(Player aiPlayer)
@@ -60,11 +156,13 @@ namespace EmpireGame
                     if (baseStructure.ProductionQueue.Count < GetProductionQueueSize())
                     {
                         var unitOrder = DecideWhatToBuild(baseStructure, aiPlayer);
-                        if (unitOrder != null)
+                        int popCostB = unitOrder != null ? UnitProductionOrder.PopulationCost(unitOrder.UnitType) : 0;
+                        if (unitOrder != null && !(popCostB > 0 && baseStructure.Population - popCostB < 1))
                         {
-                            aiPlayer.Gold -= unitOrder.GoldCost;
-                            aiPlayer.Steel -= unitOrder.SteelCost;
-                            aiPlayer.Oil -= unitOrder.OilCost;
+                            foreach (var kv in unitOrder.Cost)
+                                aiPlayer.AddResource(kv.Key, -kv.Value);
+                            if (popCostB > 0)
+                                baseStructure.Population -= popCostB;
 
                             baseStructure.ProductionQueue.Enqueue(unitOrder);
                         }
@@ -75,11 +173,13 @@ namespace EmpireGame
                     if (city.ProductionQueue.Count < GetProductionQueueSize())
                     {
                         var unitOrder = DecideWhatToBuild(city, aiPlayer);
-                        if (unitOrder != null)
+                        int popCostC = unitOrder != null ? UnitProductionOrder.PopulationCost(unitOrder.UnitType) : 0;
+                        if (unitOrder != null && !(popCostC > 0 && city.Population - popCostC < 1))
                         {
-                            aiPlayer.Gold -= unitOrder.GoldCost;
-                            aiPlayer.Steel -= unitOrder.SteelCost;
-                            aiPlayer.Oil -= unitOrder.OilCost;
+                            foreach (var kv in unitOrder.Cost)
+                                aiPlayer.AddResource(kv.Key, -kv.Value);
+                            if (popCostC > 0)
+                                city.Population -= popCostC;
 
                             city.ProductionQueue.Enqueue(unitOrder);
                         }
@@ -202,6 +302,14 @@ namespace EmpireGame
                         return new UnitProductionOrder(typeof(Fighter), "Fighter");
                     break;
             }
+
+            // Build miners to exploit resources — mines are now the source of steel/oil income.
+            int mineCount = aiPlayer.Structures.Count(s => s is Mine);
+            int minerCount = aiPlayer.Units.Count(u => u is Miner)
+                + aiPlayer.Structures.OfType<Base>().Sum(b => b.Barracks.Count(x => x is Miner))
+                + aiPlayer.Structures.OfType<City>().Sum(c => c.Barracks.Count(x => x is Miner));
+            if (mineCount + minerCount < 3 && CanAfford(typeof(Miner)))
+                return new UnitProductionOrder(typeof(Miner), "Miner");
 
             // Build sappers for expansion if we have fewer than 2 bases
             int baseCount = aiPlayer.Structures.Count(s => s is Base);

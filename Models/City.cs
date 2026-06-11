@@ -70,9 +70,10 @@
         // Count infantry units under construction
         foreach (var order in ProductionQueue)
         {
-            if (order.UnitType == typeof(Army) || 
-                order.UnitType == typeof(Sapper) || 
-                order.UnitType == typeof(Spy))
+            if (order.UnitType == typeof(Army) ||
+                order.UnitType == typeof(Sapper) ||
+                order.UnitType == typeof(Spy) ||
+                order.UnitType == typeof(Miner))
             {
                 used++;
             }
@@ -86,7 +87,7 @@
         {
             return GetAirportSpaceUsed() < MAX_AIRPORT_CAPACITY;
         }
-        else if (unitType == typeof(Army) || unitType == typeof(Sapper) || unitType == typeof(Spy))
+        else if (unitType == typeof(Army) || unitType == typeof(Sapper) || unitType == typeof(Spy) || unitType == typeof(Miner))
         {
             return GetBarracksSpaceUsed() < MAX_BARRACKS_CAPACITY;
         }

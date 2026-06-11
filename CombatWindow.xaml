@@ -209,7 +209,7 @@
                         Foreground="White"
                         BorderBrush="{StaticResource DangerBrush}"
                         Click="RetreatButton_Click"
-                        Visibility="Collapsed"
+                        Visibility="Hidden"
                         HorizontalAlignment="Center"
                         Margin="0,5"/>
 
@@ -223,7 +223,7 @@
                         Foreground="White"
                         BorderBrush="{StaticResource SuccessBrush}"
                         Click="CloseButton_Click"
-                        Visibility="Collapsed"
+                        Visibility="Hidden"
                         HorizontalAlignment="Center"
                         Margin="0,5"/>
             </StackPanel>

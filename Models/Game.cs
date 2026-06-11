@@ -63,6 +63,10 @@ public class Game
 
     private void ProcessTurnMechanics()
     {
+        // Clean up destroyed mines and recompute supply lines before income is applied.
+        RemoveDestroyedMines();
+        UpdateSupplyLines();
+
         foreach (var player in Players)
         {
             // Check sentry units BEFORE processing their turn
@@ -81,6 +85,10 @@ public class Game
 
                 // Restore movement points
                 unit.MovementPoints = unit.MaxMovementPoints;
+
+                // A sapper disrupting a supply line is immobile.
+                if (unit.IsDisruptingSupply)
+                    unit.MovementPoints = 0;
 
                 // Clear skip flag for new turn
                 unit.IsSkippedThisTurn = false;
@@ -103,11 +111,17 @@ public class Game
             {
                 if (structure is Base baseStructure)
                 {
+                    baseStructure.Population += 1; // bases grow 1 populace/turn
                     ProcessProduction(baseStructure, player);
                 }
                 else if (structure is City city)
                 {
+                    city.Population += 2; // cities grow 2 populace/turn
                     ProcessProduction(city, player);
+                }
+                else if (structure is Mine mine)
+                {
+                    mine.Population += 0.5; // mines grow 0.5 populace/turn
                 }
             }
         }
@@ -491,7 +505,7 @@ public class Game
                 baseStructure.MotorPool.Add(unit);
                 placed = true;
             }
-            else if (unit is Army || unit is Sapper || unit is Spy)
+            else if (unit is Army || unit is Sapper || unit is Spy || unit is Miner)
             {
                 if (baseStructure.Barracks.Count < Base.MAX_BARRACKS_CAPACITY)
                 {
@@ -602,7 +616,7 @@ public class Game
                 city.MotorPool.Add(unit);
                 placed = true;
             }
-            else if (unit is Army || unit is Sapper || unit is Spy)
+            else if (unit is Army || unit is Sapper || unit is Spy || unit is Miner)
             {
                 if (city.Barracks.Count < City.MAX_BARRACKS_CAPACITY)
                 {
@@ -1206,7 +1220,7 @@ public class Game
             int defenderRoll = 0;
             int defenderBonus = 0;
 
-            if (!isArtilleryRangedAttack)
+            if (!isArtilleryRangedAttack && !defender.IsDisruptingSupply)
             {
                 defenderRoll = random.Next(1, 101);
                 defenderBonus = defender.Attack;
@@ -1249,6 +1263,14 @@ public class Game
                 damage = Math.Max(1, damage);
 
                 defender.Life = Math.Max(0, defender.Life - damage);
+                round.AttackerWon = true;
+                round.Tie = false;
+            }
+            else if (defender.IsDisruptingSupply)
+            {
+                // A disrupting sapper is defenseless — it cannot counter-attack, so it just
+                // takes a hit each round until destroyed.
+                defender.Life--;
                 round.AttackerWon = true;
                 round.Tie = false;
             }
@@ -1300,6 +1322,137 @@ public class Game
         }
 
         return result;
+    }
+
+    // ===================== Mining & supply lines =====================
+
+    private static readonly (int dx, int dy)[] EightDirections =
+    {
+        (-1,-1),(0,-1),(1,-1),(-1,0),(1,0),(-1,1),(0,1),(1,1)
+    };
+
+    private static readonly HashSet<TerrainType> SupplyTerrain = new HashSet<TerrainType>
+    {
+        TerrainType.Land, TerrainType.Plains, TerrainType.Forest, TerrainType.Hills, TerrainType.Mountain
+    };
+
+    private int NextStructureId()
+    {
+        int max = 0;
+        foreach (var p in Players)
+            foreach (var s in p.Structures)
+                if (s.StructureId > max) max = s.StructureId;
+        return max + 1;
+    }
+
+    // Build a mine on the miner's tile, consuming the miner. Returns the mine or null.
+    public Mine BuildMine(Miner miner, Player player)
+    {
+        var tile = Map.GetTile(miner.Position);
+        if (tile == null) return null;
+        if (!ResourceRegistry.IsMineable(tile.Resource)) return null; // not a resource tile
+        if (tile.Structure != null) return null;                       // tile already occupied
+
+        var mine = new Mine(tile.Resource)
+        {
+            StructureId = NextStructureId(),
+            OwnerId = player.PlayerId,
+            Position = miner.Position
+        };
+        tile.Structure = mine;
+        tile.OwnerId = player.PlayerId;
+        player.Structures.Add(mine);
+
+        // The miner is consumed building the mine.
+        tile.Units.Remove(miner);
+        player.Units.Remove(miner);
+
+        UpdateSupplyLines();
+        return mine;
+    }
+
+    // BFS over land terrain (ignoring units) to the mine owner's nearest Base/City.
+    private List<TilePosition> FindSupplyPath(Mine mine)
+    {
+        var start = mine.Position;
+        var visited = new HashSet<TilePosition> { start };
+        var cameFrom = new Dictionary<TilePosition, TilePosition>();
+        var queue = new Queue<TilePosition>();
+        queue.Enqueue(start);
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            var curTile = Map.GetTile(cur);
+
+            if (!cur.Equals(start) && curTile.Structure != null &&
+                curTile.Structure.OwnerId == mine.OwnerId &&
+                (curTile.Structure is Base || curTile.Structure is City))
+            {
+                var path = new List<TilePosition>();
+                var node = cur;
+                while (!node.Equals(start)) { path.Add(node); node = cameFrom[node]; }
+                path.Add(start);
+                path.Reverse();
+                return path;
+            }
+
+            foreach (var d in EightDirections)
+            {
+                var np = new TilePosition(cur.X + d.dx, cur.Y + d.dy);
+                if (!Map.IsValidPosition(np) || visited.Contains(np)) continue;
+                var nt = Map.GetTile(np);
+                bool isGoal = nt.Structure != null && nt.Structure.OwnerId == mine.OwnerId &&
+                              (nt.Structure is Base || nt.Structure is City);
+                if (!SupplyTerrain.Contains(nt.Terrain) && !isGoal) continue;
+                visited.Add(np);
+                cameFrom[np] = cur;
+                queue.Enqueue(np);
+            }
+        }
+        return new List<TilePosition>();
+    }
+
+    // Recompute every mine's supply path + connectivity, and auto-stop any disrupting sapper
+    // that is no longer sitting on an enemy supply line.
+    public void UpdateSupplyLines()
+    {
+        var mines = new List<Mine>();
+        foreach (var p in Players)
+            foreach (var s in p.Structures)
+                if (s is Mine m) { m.SupplyPath = FindSupplyPath(m); mines.Add(m); }
+
+        foreach (var m in mines)
+        {
+            if (m.SupplyPath == null || m.SupplyPath.Count == 0) { m.IsConnected = false; continue; }
+            var pathSet = new HashSet<TilePosition>(m.SupplyPath);
+            bool cut = Players.Where(p => p.PlayerId != m.OwnerId)
+                              .SelectMany(p => p.Units)
+                              .Any(u => u.IsDisruptingSupply && pathSet.Contains(u.Position));
+            m.IsConnected = !cut;
+        }
+
+        // Auto-stop disrupting sappers not on any enemy mine's path.
+        foreach (var p in Players)
+            foreach (var u in p.Units)
+                if (u.IsDisruptingSupply &&
+                    !mines.Any(m => m.OwnerId != u.OwnerId && m.SupplyPath.Contains(u.Position)))
+                    u.IsDisruptingSupply = false;
+    }
+
+    // Remove mines reduced to 0 HP (military destroyed them — no husk, no capture).
+    public void RemoveDestroyedMines()
+    {
+        foreach (var p in Players)
+        {
+            var dead = p.Structures.OfType<Mine>().Where(m => m.Life <= 0).ToList();
+            foreach (var m in dead)
+            {
+                p.Structures.Remove(m);
+                var tile = Map.GetTile(m.Position);
+                if (tile != null && tile.Structure == m) tile.Structure = null;
+            }
+        }
     }
 
     public CombatResult AttackStructure(Unit attacker, Structure structure)

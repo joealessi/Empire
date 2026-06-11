@@ -1200,6 +1200,69 @@ namespace EmpireGame
 
             Canvas.SetZIndex(image, 10);
             MapCanvas.Children.Add(image);
+
+            RenderMineOverlays(humanPlayer);
+        }
+
+        // Supply lines are shown by default; toggled by ToggleSupplyLinesButton.
+        private bool showSupplyLines = true;
+
+        private void ToggleSupplyLinesButton_Click(object sender, RoutedEventArgs e)
+        {
+            showSupplyLines = !showSupplyLines;
+            AddMessage(showSupplyLines ? "Supply lines shown." : "Supply lines hidden.", MessageType.Info);
+            RenderMap();
+        }
+
+        // Draws mine markers and (when enabled) supply lines in the owner's player color
+        // — solid when connected, dashed when the line is cut.
+        private void RenderMineOverlays(Player humanPlayer)
+        {
+            double half = TILE_SIZE / 2.0;
+            foreach (var p in game.Players)
+            {
+                foreach (var s in p.Structures)
+                {
+                    if (!(s is Mine mine)) continue;
+
+                    bool ownedByHuman = mine.OwnerId == humanPlayer.PlayerId;
+                    bool visible = humanPlayer.FogOfWar.TryGetValue(mine.Position, out var vis) &&
+                                   vis == VisibilityLevel.Visible;
+                    if (!ownedByHuman && !visible) continue;
+
+                    // Supply line for the human's own mines, in the owner's player color
+                    // (solid when connected, dashed when cut).
+                    if (showSupplyLines && ownedByHuman && mine.SupplyPath != null && mine.SupplyPath.Count > 1)
+                    {
+                        var poly = new System.Windows.Shapes.Polyline
+                        {
+                            Stroke = GetPlayerBrush(mine.OwnerId),
+                            StrokeThickness = 2,
+                            Opacity = 0.9,
+                            IsHitTestVisible = false
+                        };
+                        if (!mine.IsConnected)
+                            poly.StrokeDashArray = new System.Windows.Media.DoubleCollection { 3, 3 };
+                        foreach (var pt in mine.SupplyPath)
+                            poly.Points.Add(new System.Windows.Point(pt.X * TILE_SIZE + half, pt.Y * TILE_SIZE + half));
+                        Canvas.SetZIndex(poly, 11);
+                        MapCanvas.Children.Add(poly);
+                    }
+
+                    // Generic mine glyph (placeholder icon).
+                    var glyph = new TextBlock
+                    {
+                        Text = "⛏",
+                        FontSize = Math.Max(10, TILE_SIZE / 2),
+                        Foreground = System.Windows.Media.Brushes.White,
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(glyph, mine.Position.X * TILE_SIZE + 2);
+                    Canvas.SetTop(glyph, mine.Position.Y * TILE_SIZE);
+                    Canvas.SetZIndex(glyph, 12);
+                    MapCanvas.Children.Add(glyph);
+                }
+            }
         }
 
         private void RenderResourceIcons(Player renderPlayer)
@@ -1653,7 +1716,13 @@ namespace EmpireGame
             }
             else if (unit is Sapper sapper)
             {
-                if (sapper.IsBuildingBase || sapper.IsBuildingBridge)
+                if (sapper.IsDisruptingSupply)
+                {
+                    CircularStopDisruptButton.Visibility = Visibility.Visible;
+                    SapperBuildText.Visibility = Visibility.Visible;
+                    SapperBuildText.Text = "🚫 Disrupting supply line (immobile, defenseless)";
+                }
+                else if (sapper.IsBuildingBase || sapper.IsBuildingBridge)
                 {
                     CircularCancelBuildButton.Visibility = Visibility.Visible;
                     SapperBuildText.Visibility = Visibility.Visible;
@@ -1667,7 +1736,14 @@ namespace EmpireGame
                 {
                     CircularBuildBaseButton.Visibility = Visibility.Visible;
                     CircularBuildBridgeButton.Visibility = Visibility.Visible;
+                    CircularDisruptButton.Visibility = Visibility.Visible;
                 }
+            }
+            else if (unit is Miner)
+            {
+                Tile minerTile = game.Map.GetTile(unit.Position);
+                if (minerTile.Structure == null && ResourceRegistry.IsMineable(minerTile.Resource))
+                    CircularBuildMineButton.Visibility = Visibility.Visible;
             }
 
             // Show Park button for land units on friendly structures
@@ -1695,6 +1771,9 @@ namespace EmpireGame
             CircularBuildBaseButton.Visibility = Visibility.Collapsed;
             CircularBuildBridgeButton.Visibility = Visibility.Collapsed;
             CircularCancelBuildButton.Visibility = Visibility.Collapsed;
+            CircularBuildMineButton.Visibility = Visibility.Collapsed;
+            CircularDisruptButton.Visibility = Visibility.Collapsed;
+            CircularStopDisruptButton.Visibility = Visibility.Collapsed;
         }
 
         private void UpdateUnitIcon(Unit unit)
@@ -1801,6 +1880,8 @@ namespace EmpireGame
             StructureInfoPanel.Visibility = Visibility.Visible;
 
             StructureNameText.Text = structure.GetName();
+            if (structure is Base || structure is City || structure is Mine)
+                StructureNameText.Text += $"   👥 {structure.Population:0.#}";
             StructureLifeText.Text = $"Life: {structure.Life}/{structure.MaxLife}";
 
             // Color code life based on percentage
@@ -1814,6 +1895,8 @@ namespace EmpireGame
 
             if (structure is Base baseStructure)
             {
+                StructureFacilitiesPanel.Visibility = Visibility.Visible;
+                MineActionsPanel.Visibility = Visibility.Collapsed;
                 DefenseBonusText.Text = $"Defense Bonus: +{baseStructure.GetDefenseBonus()}";
                 UpdateStructureLists(baseStructure);
                 UpdateProductionQueue(baseStructure);
@@ -1839,6 +1922,8 @@ namespace EmpireGame
             }
             else if (structure is City city)
             {
+                StructureFacilitiesPanel.Visibility = Visibility.Visible;
+                MineActionsPanel.Visibility = Visibility.Collapsed;
                 DefenseBonusText.Text = $"Defense Bonus: +{city.GetDefenseBonus()}";
                 UpdateStructureLists(city);
                 UpdateProductionQueue(city);
@@ -1850,6 +1935,23 @@ namespace EmpireGame
                 ShipyardList.Visibility = Visibility.Collapsed;
                 LaunchShipButton.Visibility = Visibility.Collapsed;
                 RepairShipButton.Visibility = Visibility.Collapsed;
+            }
+            else if (structure is Mine mine)
+            {
+                // Mines have no facilities and can only produce Miners.
+                StructureFacilitiesPanel.Visibility = Visibility.Collapsed;
+                MineActionsPanel.Visibility = Visibility.Visible;
+                DefenseBonusText.Text = $"Defense Bonus: +{mine.GetDefenseBonus()}";
+
+                var def = ResourceRegistry.Get(mine.Resource);
+                MineInfoText.Text = $"{def.DisplayName} mine — {(mine.IsConnected ? "supply line connected" : "supply line CUT")}.\n" +
+                                    $"Populace: {mine.Population:0.#}   (Miner costs 👥2)";
+
+                int minerGold = UnitProductionOrder.GetCost(typeof(Miner)).GetValueOrDefault(ResourceType.Gold);
+                BuildMinerFromMineButton.IsEnabled =
+                    mine.OwnerId == game.CurrentPlayer.PlayerId &&
+                    mine.Population - UnitProductionOrder.PopulationCost(typeof(Miner)) >= 1 &&
+                    game.CurrentPlayer.GetResource(ResourceType.Gold) >= minerGold;
             }
 
             UpdateNextButton();
@@ -2541,10 +2643,24 @@ namespace EmpireGame
 
                 // Check resources / build cost string (dynamic over the registry)
                 var (canAfford, costText) = DescribeCost(cost);
-                string costString = $"{name} ({costText})";
+
+                // People-units also consume populace from this structure (never below 1).
+                bool popOk = true;
+                string popNote = "";
+                int popCost = UnitProductionOrder.PopulationCost(type);
+                if (popCost > 0)
+                {
+                    double pop = baseStructure?.Population ?? city?.Population ?? 0;
+                    popOk = pop - popCost >= 1;
+                    popNote = popOk ? $" 👥{popCost}" : $" 👥{popCost}[!]";
+                }
+
+                string costString = $"{name} ({costText}{popNote})";
 
                 if (!canAfford)
                     costString += " [Need Resources]";
+                else if (!popOk)
+                    costString += " [Need Populace]";
                 else if (canBuild)
                     costString += " ✓";
 
@@ -2554,11 +2670,11 @@ namespace EmpireGame
                 {
                     Content = costString,
                     Tag = new UnitProductionOrder(type, name),
-                    IsEnabled = canBuild && canAfford
+                    IsEnabled = canBuild && canAfford && popOk
                 };
 
                 // Color coding
-                if (!canAfford)
+                if (!canAfford || !popOk)
                     item.Foreground = System.Windows.Media.Brushes.Red;
                 else if (canBuild)
                     item.Foreground = System.Windows.Media.Brushes.LimeGreen;
@@ -2600,6 +2716,7 @@ namespace EmpireGame
 
             // Add all units (costs come from UnitProductionOrder.Costs)
             AddUnit("Army", typeof(Army));
+            AddUnit("Miner", typeof(Miner));
             AddUnit("Tank", typeof(Tank));
             AddUnit("Artillery", typeof(Artillery));
             AddUnit("Sapper", typeof(Sapper));
@@ -2802,6 +2919,43 @@ namespace EmpireGame
                 return;
 
             Tile destinationTile = game.Map.GetTile(destination);
+
+            // Military units destroy an enemy mine by attacking it (Miners capture it instead,
+            // handled by the normal-move/capture path below).
+            if (destinationTile.Structure is Mine enemyMine &&
+                enemyMine.OwnerId != game.CurrentPlayer.PlayerId && !(unit is Miner))
+            {
+                int mdx = Math.Abs(unit.Position.X - destination.X);
+                int mdy = Math.Abs(unit.Position.Y - destination.Y);
+                if (Math.Max(mdx, mdy) > 1)
+                {
+                    AddMessage("Move adjacent to the mine to attack it.", MessageType.Info);
+                    return;
+                }
+                if (unit.Attack <= 0)
+                {
+                    AddMessage("This unit can't attack a mine.", MessageType.Warning);
+                    return;
+                }
+
+                game.AttackStructure(unit, enemyMine);
+                unit.MovementPoints = 0;
+                if (enemyMine.Life <= 0)
+                {
+                    game.RemoveDestroyedMines();
+                    AddMessage("💥 Enemy mine destroyed!", MessageType.Success);
+                }
+                else
+                {
+                    AddMessage($"Mine attacked — {enemyMine.Life}/{enemyMine.MaxLife} HP remaining.", MessageType.Info);
+                }
+                game.UpdateSupplyLines();
+                SelectUnit(unit);
+                game.CurrentPlayer.UpdateVision(game.Map);
+                UpdateResourceDisplay();
+                RenderMap();
+                return;
+            }
 
             // Check if destination has an enemy unit
             Unit? enemyUnit = destinationTile.Units.FirstOrDefault(u => u.OwnerId != game.CurrentPlayer.PlayerId);
@@ -3078,6 +3232,7 @@ namespace EmpireGame
 
             SelectUnit(unit);
             game.CurrentPlayer.UpdateVision(game.Map);
+            game.UpdateSupplyLines(); // a captured mine/tile may re-link or cut supply lines
             UpdateResourceDisplay(); // refresh per-turn income immediately after capturing the tile
             RenderMap();
         }
@@ -3480,19 +3635,27 @@ namespace EmpireGame
                 return;
             }
 
-            // Check if player has sufficient resources
-            if (game.CurrentPlayer.Gold < order.GoldCost ||
-                game.CurrentPlayer.Steel < order.SteelCost ||
-                game.CurrentPlayer.Oil < order.OilCost)
+            // Check if player has sufficient resources (whatever the unit costs).
+            if (order.Cost.Any(kv => game.CurrentPlayer.GetResource(kv.Key) < kv.Value))
             {
-                MessageBox.Show($"Insufficient resources!\n\nRequired: 💰{order.GoldCost} ⚙️{order.SteelCost} 🛢️{order.OilCost}\nAvailable: 💰{game.CurrentPlayer.Gold} ⚙️{game.CurrentPlayer.Steel} 🛢️{game.CurrentPlayer.Oil}");
+                MessageBox.Show("Insufficient resources to build " + order.DisplayName + "!");
                 return;
             }
 
-            // Deduct resources immediately when adding to queue
-            game.CurrentPlayer.Gold -= order.GoldCost;
-            game.CurrentPlayer.Steel -= order.SteelCost;
-            game.CurrentPlayer.Oil -= order.OilCost;
+            // People-units are raised from the structure's populace (never dropping below 1).
+            int popCost = UnitProductionOrder.PopulationCost(order.UnitType);
+            if (popCost > 0 && selectedStructure.Population - popCost < 1)
+            {
+                MessageBox.Show($"Not enough populace to build {order.DisplayName}!\n\nNeed {popCost + 1} (have {selectedStructure.Population:0.#}); populace can't drop below 1.");
+                return;
+            }
+
+            // Deduct the unit's full cost immediately when adding to queue (any resources).
+            foreach (var kv in order.Cost)
+                game.CurrentPlayer.AddResource(kv.Key, -kv.Value);
+
+            if (popCost > 0)
+                selectedStructure.Population -= popCost;
 
             // Add to production queue
             if (selectedStructure is Base baseStruct)
@@ -3512,7 +3675,9 @@ namespace EmpireGame
                 UpdateResourceDisplay();
             }
 
-            AddMessage($"Resources paid! 💰{order.GoldCost} ⚙️{order.SteelCost} 🛢️{order.OilCost}\n\n{order.DisplayName} added to production queue.");
+            string paid = string.Join(" ", order.Cost.Where(kv => kv.Value > 0)
+                .Select(kv => ResourceRegistry.Get(kv.Key).Symbol + kv.Value));
+            AddMessage($"Resources paid! {paid}\n\n{order.DisplayName} added to production queue.");
         }
 
         private void LaunchMissionButton_Click(object sender, RoutedEventArgs e)
@@ -4525,6 +4690,110 @@ namespace EmpireGame
                 SelectUnit(sapper);
                 RenderMap();
             }
+        }
+
+        private void BuildMinerFromMineButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(selectedStructure is Mine mine) || mine.OwnerId != game.CurrentPlayer.PlayerId)
+                return;
+
+            int popCost = UnitProductionOrder.PopulationCost(typeof(Miner));
+            var cost = UnitProductionOrder.GetCost(typeof(Miner));
+
+            if (mine.Population - popCost < 1)
+            {
+                AddMessage($"Mine needs {popCost + 1} populace to build a Miner (has {mine.Population:0.#}).", MessageType.Warning);
+                return;
+            }
+            if (cost.Any(kv => game.CurrentPlayer.GetResource(kv.Key) < kv.Value))
+            {
+                AddMessage("Not enough resources to build a Miner.", MessageType.Warning);
+                return;
+            }
+
+            TilePosition pos = FindAdjacentEmptyTile(mine.Position);
+            if (pos.X == -1)
+            {
+                AddMessage("No space next to the mine to deploy a Miner.", MessageType.Warning);
+                return;
+            }
+
+            foreach (var kv in cost)
+                game.CurrentPlayer.AddResource(kv.Key, -kv.Value);
+            mine.Population -= popCost;
+
+            var newMiner = new Miner { OwnerId = game.CurrentPlayer.PlayerId, Position = pos, MovementPoints = 0 };
+            game.Map.GetTile(pos).Units.Add(newMiner);
+            game.CurrentPlayer.Units.Add(newMiner);
+
+            AddMessage("⛏️ The mine produced a Miner.", MessageType.Success);
+            SelectStructure(mine);
+            game.CurrentPlayer.UpdateVision(game.Map);
+            UpdateResourceDisplay();
+            RenderMap();
+        }
+
+        private void BuildMineButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(selectedUnit is Miner miner))
+                return;
+
+            Tile tile = game.Map.GetTile(miner.Position);
+            if (!ResourceRegistry.IsMineable(tile.Resource))
+            {
+                AddMessage("A Miner must stand on a steel/oil tile to build a mine.", MessageType.Warning);
+                return;
+            }
+            if (tile.Structure != null)
+            {
+                AddMessage("This tile already has a structure.", MessageType.Warning);
+                return;
+            }
+
+            Mine mine = game.BuildMine(miner, game.CurrentPlayer);
+            if (mine != null)
+            {
+                AddMessage($"⛏️ Built {mine.GetName()}" +
+                           (mine.IsConnected ? " (supply line connected)." : " — no supply line to a base yet!"),
+                           MessageType.Success);
+                SelectUnit(null);
+                UpdateResourceDisplay();
+                RenderMap();
+            }
+        }
+
+        private void DisruptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(selectedUnit is Sapper sapper))
+                return;
+
+            sapper.IsDisruptingSupply = true;
+            game.UpdateSupplyLines(); // auto-stops immediately if no enemy line crosses this tile
+            if (sapper.IsDisruptingSupply)
+            {
+                sapper.MovementPoints = 0;
+                AddMessage("🚫 Sapper disrupting supply line — immobile and defenseless until stopped.", MessageType.Info);
+            }
+            else
+            {
+                AddMessage("No enemy supply line crosses this tile to disrupt.", MessageType.Warning);
+            }
+            SelectUnit(sapper);
+            UpdateResourceDisplay();
+            RenderMap();
+        }
+
+        private void StopDisruptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(selectedUnit is Sapper sapper))
+                return;
+
+            sapper.IsDisruptingSupply = false;
+            AddMessage("Sapper stopped disrupting supply lines.", MessageType.Info);
+            game.UpdateSupplyLines();
+            SelectUnit(sapper);
+            UpdateResourceDisplay();
+            RenderMap();
         }
         private void ProcessCompletedBuilds()
         {

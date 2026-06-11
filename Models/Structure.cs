@@ -8,10 +8,15 @@
     public int VisionRange { get; set; }
     public int TurnsSinceLastHeal { get; set; }
     public string CustomName { get; set; }
-    
+
+    // Populace living at this structure. Grows each turn (City +2, Base +1, Mine +0.5) and
+    // is spent building people-units (Army 4, Miner 2); never allowed below 1.
+    public double Population { get; set; }
+
     public Structure()
     {
         TurnsSinceLastHeal = 0;
+        Population = 1;
     }
     
     public abstract char GetSymbol();

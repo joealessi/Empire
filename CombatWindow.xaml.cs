@@ -249,7 +249,7 @@ namespace EmpireGame
                 // PAUSE after life changes so user can see what happened
                 await Task.Delay(skipAnimation ? 100 : 1200);
 
-                RetreatButton.Visibility = Visibility.Collapsed;
+                RetreatButton.Visibility = Visibility.Hidden;
                 currentRoundIndex++;
 
                 // Check if combat is over
@@ -291,8 +291,8 @@ namespace EmpireGame
             RoundResult.FontSize = 32;
 
             // Hide instructions and retreat button, show close button
-            SpaceInstruction.Visibility = Visibility.Collapsed;
-            RetreatButton.Visibility = Visibility.Collapsed;
+            SpaceInstruction.Visibility = Visibility.Hidden;
+            RetreatButton.Visibility = Visibility.Hidden;
             CloseButton.Visibility = Visibility.Visible;
 
             if (AttackerRetreated)

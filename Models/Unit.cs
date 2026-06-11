@@ -14,11 +14,16 @@
     public bool IsSkippedThisTurn { get; set; }
     public bool IsOnSentry { get; set; }
 
+    // Sapper stance: while disrupting it is immobile, does not counter-attack, and cuts any
+    // enemy supply line crossing its tile (auto-cleared when no line crosses it).
+    public bool IsDisruptingSupply { get; set; }
+
     public Unit()
     {
         CurrentOrders = new Orders();
         IsSkippedThisTurn = false;
         IsOnSentry = false;
+        IsDisruptingSupply = false;
     }
 
     public abstract bool CanMoveOn(TerrainType terrain);
@@ -88,10 +93,15 @@
         if (tile.Structure == null)
             return true;
     
-        // Can only enter enemy structures if they're destroyed
+        // Can only enter enemy structures if they're destroyed...
         if (tile.Structure.OwnerId != OwnerId && tile.Structure.Life > 0)
+        {
+            // ...except Miners, which may enter an enemy mine to capture it.
+            if (this is Miner && tile.Structure is Mine)
+                return true;
             return false;
-    
+        }
+
         return true;
     }
 }

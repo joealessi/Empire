@@ -554,6 +554,66 @@
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
+
+                            <!-- 1:30 - Build Mine (Miner) [generic glyph icon] -->
+                            <Button x:Name="CircularBuildMineButton" Width="44" Height="44" Click="BuildMineButton_Click"
+                                    Canvas.Left="130" Canvas.Top="20" ToolTip="Build Mine" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#5a4a2a" Stroke="#7b6b3d" StrokeThickness="2"/>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <TextBlock Text="⛏️" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 7:30 - Disrupt Supply Line (Sapper) [generic glyph icon] -->
+                            <Button x:Name="CircularDisruptButton" Width="44" Height="44" Click="DisruptButton_Click"
+                                    Canvas.Left="26" Canvas.Top="136" ToolTip="Disrupt Supply Line" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#5a2a2a" Stroke="#7b3d3d" StrokeThickness="2"/>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <TextBlock Text="🚫" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- 7:30 - Stop Disrupting (Sapper, toggled) [generic glyph icon] -->
+                            <Button x:Name="CircularStopDisruptButton" Width="44" Height="44" Click="StopDisruptButton_Click"
+                                    Canvas.Left="26" Canvas.Top="136" ToolTip="Stop Disrupting" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a4a2a" Stroke="#3d6b3d" StrokeThickness="2"/>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <TextBlock Text="✋" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
                         </Canvas>
 
                         <!-- Life Bar -->
@@ -612,6 +672,8 @@
                         <TextBlock x:Name="StructureLifeText" Text="Life" Foreground="LightGray" Margin="0,0,0,5"/>
                         <TextBlock x:Name="DefenseBonusText" Text="Defense" Foreground="LightBlue" Margin="0,0,0,10"/>
 
+                        <!-- Base/City facilities (hidden for mines) -->
+                        <StackPanel x:Name="StructureFacilitiesPanel">
                         <!-- Airport -->
                         <TextBlock Text="🛫 Airport" FontSize="14" FontWeight="Bold" Foreground="Cyan" Margin="0,0,0,5"/>
                         <TextBlock x:Name="AirportCapacityText" Text="Capacity: 0/6" Foreground="White" Margin="0,0,0,5"/>
@@ -651,6 +713,14 @@
                         <TextBlock Text="Build Unit:" Foreground="White" Margin="0,0,0,5"/>
                         <ComboBox x:Name="UnitTypesCombo" Margin="0,0,0,5"/>
                         <Button x:Name="BuildUnitButton" Content="Add to Queue" Click="BuildUnitButton_Click"/>
+                        </StackPanel>
+
+                        <!-- Mine actions (mines can only produce Miners) -->
+                        <StackPanel x:Name="MineActionsPanel" Visibility="Collapsed">
+                            <TextBlock Text="⛏️ Mine" FontSize="14" FontWeight="Bold" Foreground="Gold" Margin="0,0,0,5"/>
+                            <TextBlock x:Name="MineInfoText" Text="" Foreground="LightGray" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <Button x:Name="BuildMinerFromMineButton" Content="Build Miner (👥2)" Click="BuildMinerFromMineButton_Click"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -666,6 +736,31 @@
 
                     <!-- Spacer to push buttons to bottom -->
                     <Border Height="20"/>
+
+                    <!-- Toggle Supply Lines (smaller round button) -->
+                    <Button x:Name="ToggleSupplyLinesButton" Width="48" Height="48" HorizontalAlignment="Center"
+                            Click="ToggleSupplyLinesButton_Click" Background="Transparent" BorderBrush="Transparent"
+                            ToolTip="Show/Hide Supply Lines" Margin="0,0,0,8">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Grid>
+                                    <Ellipse x:Name="Bg" Fill="#2a3a5a" Stroke="#3d5b7b" StrokeThickness="2">
+                                        <Ellipse.Effect>
+                                            <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                        </Ellipse.Effect>
+                                    </Ellipse>
+                                    <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                    <TextBlock Text="🔗" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                        <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
 
                     <!-- End Turn and Surrender Buttons - Side by Side at Bottom -->
                     <Grid HorizontalAlignment="Center" Margin="0,20,0,0">

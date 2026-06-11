@@ -275,7 +275,7 @@
                                Width="80"
                                VerticalAlignment="Center"/>
                     <TextBox x:Name="StartingOilTextBox"
-                             Text="1"
+                             Text="0"
                              Width="60"
                              FontSize="12"
                              Padding="3"/>

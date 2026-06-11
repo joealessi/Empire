@@ -41,6 +41,7 @@ public class UnitProductionOrder
         new Dictionary<Type, Dictionary<ResourceType, int>>
         {
             { typeof(Army),                    C(2, 0, 0) },
+            { typeof(Miner),                   C(2, 0, 0) },
             { typeof(Tank),                    C(3, 2, 0) },
             { typeof(Artillery),               C(3, 2, 0) },
             { typeof(Sapper),                  C(2, 1, 0) },
@@ -58,6 +59,10 @@ public class UnitProductionOrder
             { typeof(OrbitingSatellite),       C(6, 3, 2) },
             { typeof(GeosynchronousSatellite), C(14, 7, 5) },
         };
+
+    // Populace consumed to build a people-unit (0 for machines). Never drops a structure below 1.
+    public static int PopulationCost(Type unitType) =>
+        unitType == typeof(Army) ? 4 : unitType == typeof(Miner) ? 2 : 0;
 
     // Canonical cost for a unit type as a fresh map (empty if not listed).
     public static Dictionary<ResourceType, int> GetCost(Type unitType) =>
