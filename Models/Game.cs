@@ -296,24 +296,19 @@ public class Game
     {
         foreach (var unit in player.Units)
         {
-            if (unit.IsOnSentry)
+            // Only sentry units auto-wake; sleeping units stay asleep regardless
+            if (!unit.IsOnSentry) continue;
+
+            int visionRange = GetUnitVisionRange(unit);
+            var tilesInVision = Map.GetTilesInRadius(unit.Position, visionRange);
+
+            foreach (var tile in tilesInVision)
             {
-                // Get unit vision range
-                int visionRange = GetUnitVisionRange(unit);
-
-                // Check tiles in vision range for enemies
-                var tilesInVision = Map.GetTilesInRadius(unit.Position, visionRange);
-
-                foreach (var tile in tilesInVision)
+                var enemyUnits = tile.Units.Where(u => u.OwnerId != player.PlayerId).ToList();
+                if (enemyUnits.Count > 0 && Map.HasLineOfSight(unit.Position, tile.Position))
                 {
-                    // Check if there are enemy units visible
-                    var enemyUnits = tile.Units.Where(u => u.OwnerId != player.PlayerId).ToList();
-                    if (enemyUnits.Count > 0 && Map.HasLineOfSight(unit.Position, tile.Position))
-                    {
-                        // Wake up the unit!
-                        unit.WakeUp();
-                        break;
-                    }
+                    unit.WakeUp();
+                    break;
                 }
             }
         }

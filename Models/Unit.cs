@@ -13,6 +13,7 @@
     public Orders CurrentOrders { get; set; }
     public bool IsSkippedThisTurn { get; set; }
     public bool IsOnSentry { get; set; }
+    public bool IsSleeping { get; set; }
 
     // Sapper stance: while disrupting it is immobile, does not counter-attack, and cuts any
     // enemy supply line crossing its tile (auto-cleared when no line crosses it).
@@ -31,6 +32,7 @@
     public void WakeUp()
     {
         IsOnSentry = false;
+        IsSleeping = false;
     }
 
     public string GetName()
@@ -45,17 +47,17 @@
 
     public void Sleep()
     {
-        IsOnSentry = true;
+        IsSleeping = true;  // deep sleep: does NOT auto-wake on enemy sighting
     }
 
     public void SetSentry()
     {
-        IsOnSentry = true;
+        IsOnSentry = true;  // sentry: auto-wakes when enemies are spotted
     }
 
     public bool IsAsleep
     {
-        get { return IsOnSentry; }
+        get { return IsOnSentry || IsSleeping; }
     }
 
     // Legacy property names for backwards compatibility

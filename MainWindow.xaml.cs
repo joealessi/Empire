@@ -1574,7 +1574,7 @@ namespace EmpireGame
             // Start at waypoint 1, not 0, since unit is already at position 0
             patrolOrder.CurrentWaypointIndex = 1;
 
-            game.AutomaticOrdersQueue.Enqueue(patrolOrder);
+            game.AddAutomaticOrder(patrolOrder);
 
             // Handle aircraft takeoff if needed
             if (unitOnPatrol is AirUnit airUnit && airUnit.HomeBaseId != -1)
@@ -1863,8 +1863,8 @@ namespace EmpireGame
                     CircularBuildMineButton.Visibility = Visibility.Visible;
             }
 
-            // Show Park button for land units on friendly structures
-            if (unit is LandUnit)
+            // Show Park button for land units (not Miners — they are not vehicles) on friendly structures
+            if (unit is LandUnit && !(unit is Miner))
             {
                 Tile currentTile = game.Map.GetTile(unit.Position);
                 if (currentTile.Structure != null &&
@@ -4552,6 +4552,7 @@ namespace EmpireGame
         {
             if (selectedUnit is AirUnit airUnit)
             {
+                // Collect all adjacent friendly structures that can receive aircraft (Base, City, Carrier)
                 List<Structure> adjacentStructures = new List<Structure>();
 
                 for (int dx = -1; dx <= 1; dx++)
@@ -4559,73 +4560,84 @@ namespace EmpireGame
                     for (int dy = -1; dy <= 1; dy++)
                     {
                         if (dx == 0 && dy == 0) continue;
-
                         TilePosition checkPos = new TilePosition(airUnit.Position.X + dx, airUnit.Position.Y + dy);
-                        if (game.Map.IsValidPosition(checkPos))
-                        {
-                            Tile tile = game.Map.GetTile(checkPos);
-                            if (tile.Structure != null &&
-                                tile.Structure.OwnerId == game.CurrentPlayer.PlayerId &&
-                                (tile.Structure is Base || tile.Structure is City))
-                            {
-                                adjacentStructures.Add(tile.Structure);
-                            }
-                        }
+                        if (!game.Map.IsValidPosition(checkPos)) continue;
+                        Tile t = game.Map.GetTile(checkPos);
+                        if (t.Structure != null && t.Structure.OwnerId == game.CurrentPlayer.PlayerId
+                            && (t.Structure is Base || t.Structure is City))
+                            adjacentStructures.Add(t.Structure);
                     }
                 }
 
-                if (adjacentStructures.Count > 0)
+                // Try each adjacent structure until one accepts the aircraft
+                bool landed = false;
+                foreach (var structure in adjacentStructures)
                 {
-                    Structure structure = adjacentStructures[0];
+                    int cap = structure is Base ? Base.MAX_AIRPORT_CAPACITY
+                            : structure is City  ? City.MAX_AIRPORT_CAPACITY
+                            : 0;
+                    var airport = structure is Base db ? db.Airport.Cast<AirUnit>().ToList()
+                                : structure is City dc ? dc.Airport.Cast<AirUnit>().ToList()
+                                : new List<AirUnit>();
 
-                    Tile tile = game.Map.GetTile(airUnit.Position);
-                    tile.Units.Remove(airUnit);
+                    if (airport.Count >= cap) continue; // full — try next
 
-                    if (structure is Base baseStructure)
+                    Tile srcTile = game.Map.GetTile(airUnit.Position);
+                    srcTile.Units.Remove(airUnit);
+
+                    if (structure is Base landBase)        landBase.Airport.Add(airUnit);
+                    else if (structure is City landCity)   landCity.Airport.Add(airUnit);
+
+                    airUnit.HomeBaseId = structure.StructureId;
+                    airUnit.Fuel = airUnit.MaxFuel;
+                    airUnit.MovementPoints = 0;
+                    airUnit.Position = new TilePosition(-1, -1);
+
+                    AddMessage($"{airUnit.GetName()} landed and refueled at {structure.GetName()}", MessageType.Success);
+                    ClearSelection();
+                    SelectStructure(structure);
+                    game.CurrentPlayer.UpdateVision(game.Map);
+                    RenderMap();
+                    landed = true;
+                    break;
+                }
+
+                // Now try adjacent Carriers
+                if (!landed)
+                {
+                    for (int dx = -1; dx <= 1 && !landed; dx++)
                     {
-                        if (baseStructure.Airport.Count < Base.MAX_AIRPORT_CAPACITY)
+                        for (int dy = -1; dy <= 1 && !landed; dy++)
                         {
-                            baseStructure.Airport.Add(airUnit);
-                            airUnit.HomeBaseId = baseStructure.StructureId;
-                            airUnit.Fuel = airUnit.MaxFuel;
-                            AddMessage($"{airUnit.GetName()} landed and refueled at {structure.GetName()}", MessageType.Success);
+                            if (dx == 0 && dy == 0) continue;
+                            TilePosition checkPos = new TilePosition(airUnit.Position.X + dx, airUnit.Position.Y + dy);
+                            if (!game.Map.IsValidPosition(checkPos)) continue;
+                            Tile t = game.Map.GetTile(checkPos);
+                            var carrier = t.Units.OfType<Carrier>()
+                                .FirstOrDefault(c => c.OwnerId == game.CurrentPlayer.PlayerId
+                                                  && c.DockedAircraft.Count < Carrier.MAX_CAPACITY);
+                            if (carrier == null) continue;
 
+                            Tile srcTile = game.Map.GetTile(airUnit.Position);
+                            srcTile.Units.Remove(airUnit);
+                            carrier.DockedAircraft.Add(airUnit);
+                            airUnit.HomeBaseId = -2; // -2 = on carrier
+                            airUnit.Fuel = airUnit.MaxFuel;
+                            airUnit.MovementPoints = 0;
+                            airUnit.Position = new TilePosition(-1, -1);
+
+                            AddMessage($"{airUnit.GetName()} landed on Carrier.", MessageType.Success);
                             ClearSelection();
-                            SelectStructure(structure);
+                            SelectUnit(carrier);
                             game.CurrentPlayer.UpdateVision(game.Map);
                             RenderMap();
-                        }
-                        else
-                        {
-                            tile.Units.Add(airUnit);
-                            AddMessage("Airport is full!", MessageType.Warning);
+                            landed = true;
                         }
                     }
-                    else if (structure is City city)
-                    {
-                        if (city.Airport.Count < City.MAX_AIRPORT_CAPACITY)
-                        {
-                            city.Airport.Add(airUnit);
-                            airUnit.HomeBaseId = city.StructureId;
-                            airUnit.Fuel = airUnit.MaxFuel;
-                            AddMessage($"{airUnit.GetName()} landed and refueled at {structure.GetName()}", MessageType.Success);
+                }
 
-                            ClearSelection();
-                            SelectStructure(structure);
-                            game.CurrentPlayer.UpdateVision(game.Map);
-                            RenderMap();
-                        }
-                        else
-                        {
-                            tile.Units.Add(airUnit);
-                            AddMessage("Airport is full!", MessageType.Warning);
-                        }
-                    }
-                }
-                else
-                {
-                    AddMessage("Not adjacent to a friendly base!", MessageType.Warning);
-                }
+                if (!landed)
+                    AddMessage("No adjacent friendly base, city, or carrier with space!", MessageType.Warning);
             }
         }
         private void ToggleSubmergeButton_Click(object sender, RoutedEventArgs e)
