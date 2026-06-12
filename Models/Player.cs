@@ -99,6 +99,14 @@ public class Player
         // Update vision from all units
         foreach (var unit in Units)
         {
+            // Skip units stored inside a structure (not deployed on the map):
+            // - air units in hangars have Position (-1,-1)
+            // - land/motor-pool units have a position but are not in the tile's unit list
+            if (unit.Position.X < 0 || unit.Position.Y < 0)
+                continue;
+            if (!map.GetTile(unit.Position).Units.Contains(unit))
+                continue;
+
             if (unit is OrbitingSatellite || unit is GeosynchronousSatellite)
                 UpdateSatelliteVision(map, unit.Position);
             else
