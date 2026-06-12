@@ -131,6 +131,47 @@ public class Game
             }
         }
 
+        // Process rehome-in-transit orders for all players
+        foreach (var player in Players)
+        {
+            foreach (var order in player.RehomeTransitOrders.ToList())
+            {
+                order.TurnsRemaining--;
+
+                if (order.TurnsRemaining <= 0)
+                {
+                    // Deliver units to destination (or nearest friendly structure if captured)
+                    Structure dest = player.Structures.Contains(order.Destination)
+                        ? order.Destination
+                        : player.Structures.OfType<Base>().Cast<Structure>()
+                              .Concat(player.Structures.OfType<City>())
+                              .OrderBy(s => Math.Abs(s.Position.X - order.Destination.Position.X)
+                                          + Math.Abs(s.Position.Y - order.Destination.Position.Y))
+                              .FirstOrDefault();
+
+                    if (dest != null)
+                    {
+                        foreach (var unit in order.Units)
+                            DeliverRehomeUnit(unit, dest, player);
+
+                        string unitWord = order.Units.Count == 1 ? "unit" : "units";
+                        ProductionMessages.Enqueue(
+                            $"♻ {order.Units.Count} {unitWord} arrived at {dest.GetName()} from {order.Source.GetName()}.");
+                    }
+
+                    player.RehomeTransitOrders.Remove(order);
+                }
+                else
+                {
+                    int remaining = order.TurnsRemaining;
+                    string turnWord = remaining == 1 ? "turn" : "turns";
+                    string unitWord = order.Units.Count == 1 ? "unit" : "units";
+                    ProductionMessages.Enqueue(
+                        $"🚛 {order.Units.Count} {unitWord} in transit to {order.Destination.GetName()} — {remaining} {turnWord} remaining.");
+                }
+            }
+        }
+
         // Move all orbiting and ASAT satellites once per full round
         foreach (var player in Players)
         {
@@ -1911,6 +1952,51 @@ public class Game
 
         // A player is eliminated only if they have no structures AND no units anywhere
         return player.Structures.Count == 0 && totalUnits == 0;
+    }
+
+    private void DeliverRehomeUnit(Unit unit, Structure dest, Player player)
+    {
+        unit.Position = dest.Position;
+
+        if (unit is AirUnit airUnit)
+        {
+            int maxAir = dest is Base ? Base.MAX_AIRPORT_CAPACITY : City.MAX_AIRPORT_CAPACITY;
+            var airport = dest is Base db ? db.Airport.Cast<AirUnit>() : ((City)dest).Airport.Cast<AirUnit>();
+            if (airport.Count() < maxAir)
+            {
+                if (dest is Base db2) db2.Airport.Add(airUnit);
+                else if (dest is City dc2) dc2.Airport.Add(airUnit);
+                airUnit.HomeBaseId = dest.StructureId;
+                airUnit.Fuel = airUnit.MaxFuel;
+            }
+            else
+            {
+                // Airport full — place on map tile adjacent to base
+                var tile = Map.GetTile(dest.Position);
+                tile.Units.Add(airUnit);
+                ProductionMessages.Enqueue($"⚠ Airport at {dest.GetName()} full — {airUnit.GetName()} placed on map.");
+            }
+        }
+        else if (unit is LandUnit landUnit)
+        {
+            int maxBar = dest is Base ? Base.MAX_BARRACKS_CAPACITY : City.MAX_BARRACKS_CAPACITY;
+            var barracks = dest is Base db ? db.Barracks.Cast<LandUnit>() : ((City)dest).Barracks.Cast<LandUnit>();
+            if (barracks.Count() < maxBar)
+            {
+                if (dest is Base db2) db2.Barracks.Add(landUnit);
+                else if (dest is City dc2) dc2.Barracks.Add(landUnit);
+            }
+            else
+            {
+                var tile = Map.GetTile(dest.Position);
+                tile.Units.Add(landUnit);
+            }
+        }
+        else
+        {
+            if (dest is Base db) db.MotorPool.Add(unit);
+            else if (dest is City dc) dc.MotorPool.Add(unit);
+        }
     }
 
     public void CheckForEliminatedPlayers()

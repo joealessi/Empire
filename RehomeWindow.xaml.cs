@@ -145,7 +145,11 @@ namespace EmpireGame
                 return;
             }
 
-            DestinationHintText.Text = $"✓ {selectedUnits.Count} unit(s) → {dest.GetName()}";
+            int dist = Math.Abs(dest.Position.X - _source.Position.X)
+                     + Math.Abs(dest.Position.Y - _source.Position.Y);
+            int turns = Math.Max(1, dist / 10);
+            string turnWord = turns == 1 ? "turn" : "turns";
+            DestinationHintText.Text = $"✓ {selectedUnits.Count} unit(s) → {dest.GetName()} — arrives in {turns} {turnWord}";
             RehomeButton.IsEnabled = true;
         }
 
@@ -159,18 +163,25 @@ namespace EmpireGame
                 .Select(i => _units[UnitsList.Items.IndexOf(i)])
                 .ToList();
 
+            int dist = Math.Abs(dest.Position.X - _source.Position.X)
+                     + Math.Abs(dest.Position.Y - _source.Position.Y);
+            int turns = Math.Max(1, dist / 10);
+
+            // Remove units from source now; they'll arrive at destination in 'turns' turns
             foreach (var unit in selected)
-            {
-                // Remove from source
                 RemoveFromSource(unit);
 
-                // Add to destination
-                AddToDestination(unit, dest);
-            }
+            var player = _game.Players.FirstOrDefault(p => p.PlayerId == _source.OwnerId);
+            player?.RehomeTransitOrders.Add(new RehomeTransitOrder(selected, _source, dest, turns));
 
+            _turnsToArrive = turns;
             DialogResult = true;
             Close();
         }
+
+        // Exposed so the caller can include it in the log message
+        public int TransitTurns => _turnsToArrive;
+        private int _turnsToArrive;
 
         private void RemoveFromSource(Unit unit)
         {

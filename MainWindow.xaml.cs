@@ -2517,7 +2517,9 @@ namespace EmpireGame
 
             if (dlg.ShowDialog() == true)
             {
-                AddMessage($"♻ Units rehomed from {selectedStructure.GetName()}.", MessageType.Info);
+                int t = dlg.TransitTurns;
+                string turnWord = t == 1 ? "turn" : "turns";
+                AddMessage($"🚛 Units dispatched from {selectedStructure.GetName()} — arrives in {t} {turnWord}.", MessageType.Info);
                 SelectStructure(selectedStructure);
                 game.CurrentPlayer.UpdateVision(game.Map);
                 RenderMap();

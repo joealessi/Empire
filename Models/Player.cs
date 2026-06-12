@@ -48,6 +48,9 @@ public class Player
     public string CommanderName { get; set; }
     public int CityNameIndex { get; set; }
 
+    // In-transit rehome orders (units removed from source, not yet at destination)
+    public List<RehomeTransitOrder> RehomeTransitOrders { get; set; } = new List<RehomeTransitOrder>();
+
     public Player(int id, string name, bool isAI, int startingGold = 10, int startingSteel = 0, int startingOil = 0)
     {
         PlayerId = id;
