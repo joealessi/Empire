@@ -1391,7 +1391,12 @@ public class Game
                 tile.Units.Remove(airUnit);
                 baseStructure.Airport.Add(airUnit);
                 airUnit.HomeBaseId = baseStructure.StructureId;
-                airUnit.Fuel = airUnit.MaxFuel; // Refuel
+                airUnit.Fuel = airUnit.MaxFuel;
+                ProductionMessages.Enqueue($"🛬 {airUnit.GetName()} landed and refueled at {baseStructure.GetName()}.");
+            }
+            else
+            {
+                ProductionMessages.Enqueue($"⚠ {airUnit.GetName()} circling — airport full at {baseStructure.GetName()}!");
             }
         }
         else if (tile.Structure is City city)
@@ -1401,7 +1406,12 @@ public class Game
                 tile.Units.Remove(airUnit);
                 city.Airport.Add(airUnit);
                 airUnit.HomeBaseId = city.StructureId;
-                airUnit.Fuel = airUnit.MaxFuel; // Refuel
+                airUnit.Fuel = airUnit.MaxFuel;
+                ProductionMessages.Enqueue($"🛬 {airUnit.GetName()} landed and refueled at {city.GetName()}.");
+            }
+            else
+            {
+                ProductionMessages.Enqueue($"⚠ {airUnit.GetName()} circling — airport full at {city.GetName()}!");
             }
         }
     }

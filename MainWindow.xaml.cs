@@ -1782,8 +1782,8 @@ namespace EmpireGame
             {
                 UpdateAirUnitDisplay(airUnit);
                 
-                // Show air unit buttons
-                if (airUnit.HomeBaseId == -1) // In flight
+                // Land/RTB always available for in-flight air units
+                if (airUnit.HomeBaseId == -1)
                 {
                     CircularLandButton.Visibility = Visibility.Visible;
                     CircularRTBButton.Visibility = Visibility.Visible;
@@ -1793,6 +1793,7 @@ namespace EmpireGame
                 {
                     bool hasMission = game.AutomaticOrdersQueue
                         .Any(o => o.OrderType == AutomaticOrderType.BombingRun && o.Unit.UnitId == unit.UnitId);
+                    // When a mission is queued, show cancel instead of bomb — but keep Land/RTB visible
                     CircularBombButton.Visibility = hasMission ? Visibility.Collapsed : Visibility.Visible;
                     CircularBombButton.IsEnabled = !hasMission;
                     CircularCancelBombButton.Visibility = hasMission ? Visibility.Visible : Visibility.Collapsed;
