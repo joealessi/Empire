@@ -868,15 +868,54 @@ public class Game
         structure.Position = position;
         structure.OwnerId = ownerId;
 
-        // Auto-name using the owner's commander city list
-        if (structureType == typeof(City) || structureType == typeof(Base))
+        var owner = Players.FirstOrDefault(p => p.PlayerId == ownerId);
+
+        if (structureType == typeof(City))
         {
-            var owner = Players.FirstOrDefault(p => p.PlayerId == ownerId);
+            // Cities get a commander-themed name
             if (owner != null)
                 structure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(owner);
         }
+        else if (structureType == typeof(Base))
+        {
+            // Bases: "Base (X,Y), <nearest city> Command"
+            structure.CustomName = GenerateBaseName(position);
+        }
 
         return structure;
+    }
+
+    /// <summary>
+    /// Generates a base name from its map coordinates and the nearest city on the map.
+    /// Format: "Base (X,Y), <city> Command"
+    /// </summary>
+    public string GenerateBaseName(TilePosition position)
+    {
+        string nearestCityName = null;
+        int bestDist = int.MaxValue;
+
+        foreach (var player in Players)
+            foreach (var s in player.Structures)
+                if (s is City city && !string.IsNullOrWhiteSpace(city.CustomName))
+                {
+                    int d = Math.Abs(s.Position.X - position.X) + Math.Abs(s.Position.Y - position.Y);
+                    if (d < bestDist) { bestDist = d; nearestCityName = city.CustomName; }
+                }
+
+        // Also check unowned cities on the map
+        for (int x = 0; x < Map.Width; x++)
+            for (int y = 0; y < Map.Height; y++)
+            {
+                var tile = Map.GetTile(new TilePosition(x, y));
+                if (tile.Structure is City c && !string.IsNullOrWhiteSpace(c.CustomName))
+                {
+                    int d = Math.Abs(x - position.X) + Math.Abs(y - position.Y);
+                    if (d < bestDist) { bestDist = d; nearestCityName = c.CustomName; }
+                }
+            }
+
+        string cityPart = nearestCityName != null ? $", {nearestCityName} Command" : "";
+        return $"Base ({position.X},{position.Y}){cityPart}";
     }
 
     public void RevealEntireMap()

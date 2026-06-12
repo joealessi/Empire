@@ -1997,7 +1997,7 @@ namespace EmpireGame
             UnitInfoPanel.Visibility = Visibility.Collapsed;
             StructureInfoPanel.Visibility = Visibility.Visible;
 
-            TileTerrainNameText.Text = $"{GetTerrainDisplayName(game.Map.GetTile(structure.Position).Terrain)} ({structure.Position.X}, {structure.Position.Y})";
+            TileTerrainNameText.Text = $"{structure.GetName()} — {GetTerrainDisplayName(game.Map.GetTile(structure.Position).Terrain)} ({structure.Position.X}, {structure.Position.Y})";
 
             StructureNameText.Text = structure.GetName();
             if (structure is Base || structure is City || structure is Mine)

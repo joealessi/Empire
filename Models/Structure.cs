@@ -35,7 +35,8 @@
     {
         if (!string.IsNullOrWhiteSpace(CustomName))
             return CustomName;
-        return this is City ? "City" : "Base";
+        // Fallback using position so it's never just "City" or "Base"
+        return this is City ? $"City ({Position.X},{Position.Y})" : $"Base ({Position.X},{Position.Y})";
     }
     
     public virtual int GetDefenseBonus()
