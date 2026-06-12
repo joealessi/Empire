@@ -4372,6 +4372,11 @@ namespace EmpireGame
             LaunchNewGame();
         }
 
+        private void GameInfoButton_Click(object sender, RoutedEventArgs e)
+        {
+            GameInfoWindow.Show(this);
+        }
+
         private void ExitGameButton_Click(object sender, RoutedEventArgs e)
         {
             _suppressExitConfirmation = false; // allow the normal OnClosing confirm

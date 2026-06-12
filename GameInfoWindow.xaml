@@ -1,0 +1,116 @@
+<Window x:Class="EmpireGame.GameInfoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Codex"
+        Width="660" Height="680"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        WindowStartupLocation="CenterOwner"
+        Background="Transparent"
+        FontFamily="Segoe UI"
+        ResizeMode="NoResize">
+
+    <Border Margin="20" CornerRadius="16" BorderThickness="1.5"
+            BorderBrush="{StaticResource BorderStrongBrush}">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#202C40" Offset="0"/>
+                <GradientStop Color="#0D1320" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="0" Opacity="0.7"/>
+        </Border.Effect>
+
+        <Grid Margin="24,18,24,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title bar -->
+            <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,14"
+                        Cursor="SizeAll" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="📖  CODEX" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center">
+                    <TextBlock.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#5BA0FF" Offset="0"/>
+                            <GradientStop Color="#A0CFFF" Offset="1"/>
+                        </LinearGradientBrush>
+                    </TextBlock.Foreground>
+                </TextBlock>
+                <Border Height="2" Width="120" CornerRadius="1" Margin="0,6,0,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#005BA0FF" Offset="0"/>
+                            <GradientStop Color="#FF5BA0FF" Offset="0.5"/>
+                            <GradientStop Color="#005BA0FF" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                </Border>
+            </StackPanel>
+
+            <!-- Tab control -->
+            <TabControl Grid.Row="1" x:Name="MainTabs"
+                        Background="Transparent" BorderBrush="{StaticResource BorderBrush}">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="FontFamily" Value="Segoe UI"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Padding" Value="16,8"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border x:Name="Tab" CornerRadius="6,6,0,0"
+                                            Background="Transparent" Padding="{TemplateBinding Padding}"
+                                            Margin="0,0,4,0">
+                                        <ContentPresenter ContentSource="Header"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Tab" Property="Background" Value="#1A2436"/>
+                                            <Setter Property="Foreground" Value="#5BA0FF"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Tab" Property="Background" Value="#151E2E"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
+
+                <!-- Terrain tab -->
+                <TabItem Header="🗺  Terrain &amp; Movement">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Background="#121A28" Padding="4">
+                        <StackPanel x:Name="TerrainPanel" Margin="4,8,4,4"/>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Units tab -->
+                <TabItem Header="⚔  Units &amp; Abilities">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Background="#121A28" Padding="4">
+                        <StackPanel x:Name="UnitsPanel" Margin="4,8,4,4"/>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+
+            <!-- Close button -->
+            <Button Grid.Row="2" Content="CLOSE" Width="120" Height="36"
+                    Margin="0,14,0,0" HorizontalAlignment="Center"
+                    FontSize="14" Background="{StaticResource AccentBrush}"
+                    Foreground="White" BorderBrush="{StaticResource AccentBrush}"
+                    Click="CloseButton_Click"/>
+        </Grid>
+    </Border>
+</Window>
