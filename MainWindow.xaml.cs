@@ -2557,7 +2557,7 @@ namespace EmpireGame
                         if (!game.Map.IsValidPosition(p)) continue;
                         foreach (var u in game.Map.GetTile(p).Units)
                         {
-                            if (u is Fighter f && f.OwnerId == mapBomber.OwnerId && f != mapBomber)
+                            if (u is Fighter f && f.OwnerId == mapBomber.OwnerId)
                             { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter @ ({p.X},{p.Y}) Fuel:{f.Fuel}"); }
                             if (u is Tanker t && t.OwnerId == mapBomber.OwnerId)
                             { AvailableTankerText.Text = $"Tanker @ ({p.X},{p.Y})"; IncludeTankerCheckbox.IsEnabled = true; }
