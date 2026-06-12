@@ -1790,8 +1790,11 @@ namespace EmpireGame
                 
                 if (unit is Bomber)
                 {
-                    CircularBombButton.Visibility = Visibility.Visible;
-                    CircularBombButton.IsEnabled = true;
+                    bool hasMission = game.AutomaticOrdersQueue
+                        .Any(o => o.OrderType == AutomaticOrderType.BombingRun && o.Unit.UnitId == unit.UnitId);
+                    CircularBombButton.Visibility = hasMission ? Visibility.Collapsed : Visibility.Visible;
+                    CircularBombButton.IsEnabled = !hasMission;
+                    CircularCancelBombButton.Visibility = hasMission ? Visibility.Visible : Visibility.Collapsed;
                 }
             }
             else if (unit is Submarine submarine)
@@ -1875,6 +1878,7 @@ namespace EmpireGame
             CircularLandButton.Visibility = Visibility.Collapsed;
             CircularRTBButton.Visibility = Visibility.Collapsed;
             CircularBombButton.Visibility = Visibility.Collapsed;
+            CircularCancelBombButton.Visibility = Visibility.Collapsed;
             CircularSubmergeButton.Visibility = Visibility.Collapsed;
             CircularParkButton.Visibility = Visibility.Collapsed;
             CircularBuildBaseButton.Visibility = Visibility.Collapsed;
@@ -3581,11 +3585,24 @@ namespace EmpireGame
                     FuelWarningText.Visibility = Visibility.Collapsed;
                 }
             }
-            else
+            // Show bombing mission escort info if this bomber has an active run queued
+            MissionEscortText.Visibility = Visibility.Collapsed;
+            MissionEscortText.Text = "";
+            if (airUnit is Bomber)
             {
-                FuelDistanceText.Text = "No friendly base available";
-                FuelDistanceText.Foreground = System.Windows.Media.Brushes.Red;
-                FuelWarningText.Visibility = Visibility.Collapsed;
+                var missionOrder = game.AutomaticOrdersQueue
+                    .FirstOrDefault(o => o.OrderType == AutomaticOrderType.BombingRun && o.Unit.UnitId == airUnit.UnitId);
+                if (missionOrder != null)
+                {
+                    var lines = new System.Text.StringBuilder();
+                    lines.AppendLine($"✈ Mission: bomb ({missionOrder.Destination.X},{missionOrder.Destination.Y})");
+                    if (missionOrder.Escorts.Count > 0)
+                        lines.AppendLine($"🛡 Escorts: {string.Join(", ", missionOrder.Escorts.Select(e => e.GetName()))}");
+                    if (missionOrder.HasTanker)
+                        lines.Append("⛽ Tanker included");
+                    MissionEscortText.Text = lines.ToString().TrimEnd();
+                    MissionEscortText.Visibility = Visibility.Visible;
+                }
             }
         }
 
@@ -3822,17 +3839,33 @@ namespace EmpireGame
 
             var order = new AutomaticOrder(bomberForMission, targetPos, AutomaticOrderType.BombingRun);
 
-            // Add selected escorts
+            // Add selected escorts and pull them off the map (Option B)
             foreach (int idx in AvailableEscortsList.SelectedItems
                          .Cast<object>()
                          .Select(i => AvailableEscortsList.Items.IndexOf(i)))
             {
                 if (idx >= 0 && idx < _availableEscortUnits.Count)
-                    order.Escorts.Add(_availableEscortUnits[idx]);
+                {
+                    var escort = _availableEscortUnits[idx];
+                    order.Escorts.Add(escort);
+                    // Remove escort from map — they're flying with the bomber
+                    game.Map.GetTile(escort.Position).Units.Remove(escort);
+                }
             }
 
-            // Include tanker if selected
+            // Include tanker if selected — also pull it off the map
             order.HasTanker = IncludeTankerCheckbox.IsChecked == true;
+            if (order.HasTanker)
+            {
+                // Find the tanker unit referenced in AvailableTankerText neighbourhood
+                Unit tanker = _availableEscortUnits
+                    .FirstOrDefault(u => u is Tanker) ?? FindNearbyTanker(bomberForMission);
+                if (tanker != null)
+                {
+                    order.TankerUnit = tanker;
+                    game.Map.GetTile(tanker.Position).Units.Remove(tanker);
+                }
+            }
 
             game.AddAutomaticOrder(order);
 
@@ -3849,11 +3882,58 @@ namespace EmpireGame
             RenderMap();
         }
 
+        private Unit FindNearbyTanker(Bomber bomber)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    var p = new TilePosition(bomber.Position.X + dx, bomber.Position.Y + dy);
+                    if (!game.Map.IsValidPosition(p)) continue;
+                    var t = game.Map.GetTile(p).Units
+                        .FirstOrDefault(u => u is Tanker && u.OwnerId == bomber.OwnerId);
+                    if (t != null) return t;
+                }
+            return null;
+        }
+
         private void ClearReticle()
         {
             foreach (var el in _reticleElements) MapCanvas.Children.Remove(el);
             _reticleElements.Clear();
             _lastReticleTile = new TilePosition(-1, -1);
+        }
+
+        private void CancelBombingRunButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(selectedUnit is Bomber bomber)) return;
+
+            // Find and remove the queued bombing run order
+            var orders = game.AutomaticOrdersQueue.ToList();
+            var mission = orders.FirstOrDefault(o => o.OrderType == AutomaticOrderType.BombingRun && o.Unit.UnitId == bomber.UnitId);
+            if (mission == null) return;
+
+            // Rebuild queue without this order
+            game.AutomaticOrdersQueue = new Queue<AutomaticOrder>(orders.Where(o => o != mission));
+
+            // Restore escorts to the map at the bomber's current position
+            foreach (var escort in mission.Escorts.Where(u => u.Life > 0))
+            {
+                escort.Position = bomber.Position;
+                game.Map.GetTile(bomber.Position).Units.Add(escort);
+            }
+
+            // Restore tanker
+            if (mission.TankerUnit != null && mission.TankerUnit.Life > 0)
+            {
+                mission.TankerUnit.Position = bomber.Position;
+                game.Map.GetTile(bomber.Position).Units.Add(mission.TankerUnit);
+            }
+
+            bomber.CurrentOrders.Type = OrderType.None;
+            AddMessage($"💣 Bombing run cancelled. Escorts returned.", MessageType.Info);
+
+            SelectUnit(bomber);
+            RenderMap();
         }
 
         private void CancelMissionButton_Click(object sender, RoutedEventArgs e)

@@ -1332,14 +1332,30 @@ public class Game
                 bomber.CurrentOrders.Type = OrderType.None;
 
                 // Queue RTB to nearest friendly base/city
-                if (bomber.Life > 0)
+                var homeBase = owner.Structures
+                    .Where(s => s is Base || s is City)
+                    .OrderBy(s => Math.Abs(s.Position.X - bomber.Position.X) + Math.Abs(s.Position.Y - bomber.Position.Y))
+                    .FirstOrDefault();
+
+                if (bomber.Life > 0 && homeBase != null)
+                    AddAutomaticOrder(bomber, homeBase.Position, AutomaticOrderType.ReturnToBase);
+
+                // Return surviving escorts and tanker to the nearest friendly base tile
+                if (homeBase != null)
                 {
-                    var homeBase = owner.Structures
-                        .Where(s => s is Base || s is City)
-                        .OrderBy(s => Math.Abs(s.Position.X - bomber.Position.X) + Math.Abs(s.Position.Y - bomber.Position.Y))
-                        .FirstOrDefault();
-                    if (homeBase != null)
-                        AddAutomaticOrder(bomber, homeBase.Position, AutomaticOrderType.ReturnToBase);
+                    var baseTile = Map.GetTile(homeBase.Position);
+                    foreach (var escort in order.Escorts.Where(e => e.Life > 0))
+                    {
+                        escort.Position = homeBase.Position;
+                        baseTile.Units.Add(escort);
+                        ProductionMessages.Enqueue($"✈ {escort.GetName()} returned from escort mission.");
+                    }
+                    if (order.TankerUnit != null && order.TankerUnit.Life > 0)
+                    {
+                        order.TankerUnit.Position = homeBase.Position;
+                        baseTile.Units.Add(order.TankerUnit);
+                        ProductionMessages.Enqueue($"⛽ Tanker returned from mission.");
+                    }
                 }
 
                 return (false, false);

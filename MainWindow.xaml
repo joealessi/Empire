@@ -438,6 +438,30 @@
                                 </Button.Template>
                             </Button>
 
+                            <!-- Cancel Bombing Run (replaces bomb button when mission is queued) -->
+                            <Button x:Name="CircularCancelBombButton" Width="44" Height="44" Click="CancelBombingRunButton_Click"
+                                    Canvas.Left="26" Canvas.Top="136" ToolTip="Cancel Bombing Run" Visibility="Collapsed">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Ellipse x:Name="ButtonBg" Fill="#2a1a1a" Stroke="OrangeRed" StrokeThickness="2">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                            <TextBlock Text="✖💣" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="OrangeRed"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                                <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
                             <!-- 10:30 position - Submerge (Submarine only) -->
                             <Button x:Name="CircularSubmergeButton" Width="44" Height="44" Click="ToggleSubmergeButton_Click" 
                                     Canvas.Left="26" Canvas.Top="20" ToolTip="Toggle Submerge" Visibility="Collapsed">
@@ -662,6 +686,7 @@
                             </Grid>
                             <TextBlock x:Name="FuelDistanceText" Text="Distance to base: --" Foreground="Cyan" FontSize="11"/>
                             <TextBlock x:Name="FuelWarningText" Text="" Foreground="Red" FontWeight="Bold" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="MissionEscortText" Text="" Foreground="LightSkyBlue" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed"/>
                         </StackPanel>
 
                         <!-- Submarine Panel -->

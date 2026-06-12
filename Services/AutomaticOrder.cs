@@ -21,6 +21,7 @@ public class AutomaticOrder
     // For bombing run orders
     public List<Unit> Escorts { get; set; }
     public bool HasTanker { get; set; }
+    public Unit TankerUnit { get; set; }
     
     public AutomaticOrder(Unit unit, TilePosition destination, AutomaticOrderType orderType)
     {
