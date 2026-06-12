@@ -37,6 +37,7 @@
     <None Remove="Resources\Empire_Icons\Units\OrbitingSatellite.png" />
     <None Remove="Resources\Empire_Icons\Units\PatrolBoat.png" />
     <None Remove="Resources\Empire_Icons\Units\Sapper.png" />
+    <None Remove="Resources\Empire_Icons\Units\miner.png" />
     <None Remove="Resources\Empire_Icons\Units\Spy.png" />
     <None Remove="Resources\Empire_Icons\Units\Submarine.png" />
     <None Remove="Resources\Empire_Icons\Units\Tank.png" />
@@ -216,6 +217,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Empire_Icons\Units\Sapper.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Empire_Icons\Units\miner.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Empire_Icons\Units\Spy.png">

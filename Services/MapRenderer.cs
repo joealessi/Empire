@@ -51,7 +51,8 @@ namespace EmpireGame
             { "Transport", "PatrolBoat" },  // Use PatrolBoat icon as fallback for Transport
             { "City", "City" },
             { "Base", "Base" },
-            { "Sapper", "Sapper" }
+            { "Sapper", "Sapper" },
+            { "Miner", "Miner" }
         };
 
         // Color definitions for terrain
