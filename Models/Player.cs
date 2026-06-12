@@ -44,6 +44,10 @@ public class Player
 
     public HashSet<OrbitType> DeployedOrbitTypes { get; set; }
 
+    // Commander-themed city naming
+    public string CommanderName { get; set; }
+    public int CityNameIndex { get; set; }
+
     public Player(int id, string name, bool isAI, int startingGold = 10, int startingSteel = 0, int startingOil = 0)
     {
         PlayerId = id;

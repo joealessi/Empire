@@ -118,6 +118,9 @@ namespace EmpireGame
                 }
             }
 
+            // Assign commander city name sets to all players
+            EmpireGame.Services.CommanderCityNames.AssignToPlayers(game.Players);
+
             GenerateMap();
 
             mapRenderer = new MapRenderer(game, TILE_SIZE);
@@ -3232,9 +3235,10 @@ namespace EmpireGame
                             }
 
                             capturedStructure.OwnerId = unit.OwnerId;
+                            capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
                             game.CurrentPlayer.Structures.Add(capturedStructure);
                             game.CurrentPlayer.RecordStructureCapture();
-                            AddMessage($"🏆 You captured {capturedStructure.GetName()}!", MessageType.Success);
+                            AddMessage($"🏆 You captured and renamed it {capturedStructure.GetName()}!", MessageType.Success);
                         }
                     }
 
@@ -3395,9 +3399,10 @@ namespace EmpireGame
                 }
 
                 capturedStructure.OwnerId = unit.OwnerId;
+                capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
                 game.CurrentPlayer.Structures.Add(capturedStructure);
                 game.CurrentPlayer.RecordStructureCapture();
-                AddMessage($"🏰 You captured {capturedStructure.GetName()}!", MessageType.Success);
+                AddMessage($"🏰 You captured and renamed it {capturedStructure.GetName()}!", MessageType.Success);
             }
 
             SelectUnit(unit);

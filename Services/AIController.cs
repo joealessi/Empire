@@ -1116,6 +1116,7 @@ namespace EmpireGame
                     defenderOwner?.RecordStructureLoss(capturedStructure);
                     defenderOwner?.Structures.Remove(capturedStructure);
                     capturedStructure.OwnerId = attacker.OwnerId;
+                    capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(attackerOwner);
                     attackerOwner?.Structures.Add(capturedStructure);
                 }
 
@@ -1223,6 +1224,7 @@ namespace EmpireGame
                     cap.Life    = cap.MaxLife; // restore HP on capture
 
                     var newOwner = game.Players.FirstOrDefault(p => p.PlayerId == unit.OwnerId);
+                    cap.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(newOwner);
                     newOwner?.Structures.Add(cap);
                     messageCallback?.Invoke($"🏰 {unitOwnerName}'s {unit.GetName()} captured {cap.GetName()}!", MessageType.Info);
                 }

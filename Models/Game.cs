@@ -867,6 +867,15 @@ public class Game
         structure.StructureId = nextStructureId++;
         structure.Position = position;
         structure.OwnerId = ownerId;
+
+        // Auto-name using the owner's commander city list
+        if (structureType == typeof(City) || structureType == typeof(Base))
+        {
+            var owner = Players.FirstOrDefault(p => p.PlayerId == ownerId);
+            if (owner != null)
+                structure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(owner);
+        }
+
         return structure;
     }
 
