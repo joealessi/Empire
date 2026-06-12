@@ -1,0 +1,96 @@
+<Window x:Class="EmpireGame.RehomeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Rehome Units"
+        Height="620" Width="560"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        WindowStartupLocation="CenterOwner"
+        Background="Transparent"
+        FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <LinearGradientBrush x:Key="CardBg" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#202C40" Offset="0"/>
+            <GradientStop Color="#0D1320" Offset="1"/>
+        </LinearGradientBrush>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#44558866"/>
+                    <Setter Property="Foreground" Value="LightGreen"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#22AACCFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="16" CornerRadius="14" BorderThickness="1.5" BorderBrush="#445577">
+        <Border.Background>
+            <StaticResource ResourceKey="CardBg"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="28" ShadowDepth="0" Opacity="0.75"/>
+        </Border.Effect>
+
+        <Grid Margin="22,18,22,18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,14">
+                <TextBlock x:Name="TitleText" Text="♻ REHOME UNITS" FontSize="22" FontWeight="Bold"
+                           Foreground="#88CCFF" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="SubtitleText" Text="from Rome" FontSize="13" Foreground="Gray"
+                           HorizontalAlignment="Center" Margin="0,2,0,0"/>
+            </StackPanel>
+
+            <!-- Units to transfer -->
+            <StackPanel Grid.Row="1">
+                <TextBlock Text="Select units to transfer:" Foreground="LightGray" FontSize="13"
+                           FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock Text="(Click to select / deselect — Ctrl+A to select all)" Foreground="Gray"
+                           FontSize="11" Margin="0,0,0,4"/>
+                <ListBox x:Name="UnitsList" SelectionMode="Multiple" Height="170"
+                         Background="#11FFFFFF" BorderBrush="#33FFFFFF" Foreground="White"
+                         SelectionChanged="UnitsList_SelectionChanged"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+            </StackPanel>
+
+            <!-- Divider -->
+            <Separator Grid.Row="2" Background="#33FFFFFF" Margin="0,10"/>
+
+            <!-- Destination list -->
+            <StackPanel Grid.Row="3">
+                <TextBlock Text="Select destination:" Foreground="LightGray" FontSize="13"
+                           FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="DestinationHintText" Text="" Foreground="Orange" FontSize="11"
+                           Margin="0,0,0,4" TextWrapping="Wrap"/>
+                <ListBox x:Name="DestinationList" Height="160"
+                         Background="#11FFFFFF" BorderBrush="#33FFFFFF" Foreground="White"
+                         SelectionChanged="DestinationList_SelectionChanged"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <WrapPanel Grid.Row="4" HorizontalAlignment="Right" Margin="0,14,0,0">
+                <Button x:Name="RehomeButton" Content="♻ Rehome Selected" IsEnabled="False"
+                        Click="RehomeButton_Click" Width="160" Height="34" Margin="0,0,8,0"
+                        Background="#223344" Foreground="LightGreen" BorderBrush="LightGreen"
+                        FontWeight="Bold"/>
+                <Button Content="✖ Cancel" Click="CancelButton_Click" Width="80" Height="34"
+                        Background="#331111" Foreground="Salmon" BorderBrush="Salmon"/>
+            </WrapPanel>
+        </Grid>
+    </Border>
+</Window>

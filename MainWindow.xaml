@@ -752,7 +752,10 @@
                         <TextBlock Text="🪖 Barracks" FontSize="14" FontWeight="Bold" Foreground="LimeGreen" Margin="0,0,0,5"/>
                         <TextBlock x:Name="BarracksCapacityText" Text="Capacity: 0/10" Foreground="White" Margin="0,0,0,5"/>
                         <ListBox x:Name="BarracksList" Height="80" Margin="0,0,0,5" SelectionChanged="BarracksList_SelectionChanged"/>
-                        <Button x:Name="DeployArmyButton" Content="Deploy Army" Margin="0,0,0,10" Click="DeployArmyButton_Click"/>
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button x:Name="DeployArmyButton" Content="Deploy Army" Width="100" Margin="2" Click="DeployArmyButton_Click"/>
+                            <Button x:Name="RehomeButton" Content="♻ Rehome Units" Width="120" Margin="2" Click="RehomeButton_Click"/>
+                        </WrapPanel>
 
                         <!-- Production Queue -->
                         <TextBlock Text="⚙️ Production Queue" FontSize="14" FontWeight="Bold" Foreground="Yellow" Margin="0,10,0,5"/>

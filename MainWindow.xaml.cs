@@ -2504,6 +2504,26 @@ namespace EmpireGame
             RenderMap();
         }
 
+        private void RehomeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure == null) return;
+
+            var dlg = new RehomeWindow(selectedStructure, game, pos =>
+            {
+                CenterOnPosition(pos);
+                RenderMap();
+            });
+            dlg.Owner = this;
+
+            if (dlg.ShowDialog() == true)
+            {
+                AddMessage($"♻ Units rehomed from {selectedStructure.GetName()}.", MessageType.Info);
+                SelectStructure(selectedStructure);
+                game.CurrentPlayer.UpdateVision(game.Map);
+                RenderMap();
+            }
+        }
+
         private void DeployArmyButton_Click(object sender, RoutedEventArgs e)
         {
             LandUnit? unit = GetSelectedArmyUnit();
