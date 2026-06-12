@@ -4304,7 +4304,7 @@ namespace EmpireGame
                     "You have surrendered.\n\n" +
                     "The entire map is now visible.\n" +
                     "Red units belong to your opponents.\n\n" +
-                    "Click 'New Game' to play again.",
+                    "Press New Game to play again.",
                     "Surrendered");
             }
         }
@@ -4373,15 +4373,22 @@ namespace EmpireGame
 
         private void NewGameButton_Click(object sender, RoutedEventArgs e)
         {
-            // Confirm new game
-            bool result = MessageDialog.Confirm(this, "Start a new game?", "New Game");
+            LaunchNewGame();
+        }
 
-            if (result)
+        private void ExitGameButton_Click(object sender, RoutedEventArgs e)
+        {
+            _suppressExitConfirmation = false; // allow the normal OnClosing confirm
+            Close();
+        }
+
+        private void LaunchNewGame()
+        {
+            StartGameForm startForm = new StartGameForm();
+            if (startForm.ShowDialog() == true)
             {
-                // Restart the game
+                gameSettings = startForm.Settings;
                 InitializeGame();
-
-                // Re-enable controls
                 EnableGameControls();
             }
         }
@@ -4632,18 +4639,7 @@ namespace EmpireGame
 
                 if (gameOverWindow.ReturnToMainMenu)
                 {
-                    // Return to main menu
-                    StartGameForm startForm = new StartGameForm();
-                    if (startForm.ShowDialog() == true)
-                    {
-                        gameSettings = startForm.Settings;
-                        InitializeGame();
-                    }
-                    else
-                    {
-                        _suppressExitConfirmation = true;
-                        Application.Current.Shutdown();
-                    }
+                    LaunchNewGame();
                 }
                 else
                 {
