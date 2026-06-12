@@ -2210,9 +2210,11 @@ namespace EmpireGame
 
         private void AirportList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            AirUnit? aircraft = GetSelectedAircraft();
+            AirUnit aircraft = GetSelectedAircraft();
+            bool isBomber = aircraft is Bomber && !IsBeingRepaired(aircraft);
             TakeOffButton.IsEnabled = aircraft != null && !IsBeingRepaired(aircraft);
-            CircularBombButton.IsEnabled = aircraft is Bomber && !IsBeingRepaired(aircraft);
+            CircularBombButton.IsEnabled = isBomber;
+            AirportBombRunButton.IsEnabled = isBomber;
             RepairAircraftButton.IsEnabled = aircraft != null && aircraft.Life < aircraft.MaxLife && !IsBeingRepaired(aircraft);
         }
 
@@ -2547,67 +2549,94 @@ namespace EmpireGame
             StartBombingRunButton.IsEnabled = false;
             BombTargetText.Text = "— click map to select —";
 
+            Bomber theBomber;
+            TilePosition bomberMapPos;
+
             // Case 1: bomber already on the map (selected unit)
             if (selectedUnit is Bomber mapBomber)
             {
                 if (mapBomber.Fuel <= 0) { MessageDialog.Warn(this, "Bomber has no fuel!", "Bombing Run"); return; }
-                bomberForMission = mapBomber;
-                BomberInfoText.Text = $"Bomber @ ({mapBomber.Position.X},{mapBomber.Position.Y})";
-                BomberRangeText.Text = $"Range: {mapBomber.MaxFuel / 2} tiles  (w/ tanker: {mapBomber.MaxFuel})";
-
-                for (int dx = -1; dx <= 1; dx++)
-                    for (int dy = -1; dy <= 1; dy++)
-                    {
-                        var p = new TilePosition(mapBomber.Position.X + dx, mapBomber.Position.Y + dy);
-                        if (!game.Map.IsValidPosition(p)) continue;
-                        foreach (var u in game.Map.GetTile(p).Units)
-                        {
-                            if (u is Fighter f && f.OwnerId == mapBomber.OwnerId)
-                            { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter @ ({p.X},{p.Y}) Fuel:{f.Fuel}"); }
-                            if (u is Tanker t && t.OwnerId == mapBomber.OwnerId)
-                            { AvailableTankerText.Text = $"Tanker @ ({p.X},{p.Y})"; IncludeTankerCheckbox.IsEnabled = true; }
-                        }
-                    }
+                theBomber = mapBomber;
+                bomberMapPos = mapBomber.Position;
             }
-            // Case 2: bomber in airport
+            // Case 2: bomber in airport — launch it to an adjacent tile first
             else
             {
-                Bomber bomber = GetSelectedAircraft() as Bomber;
-                if (bomber == null) return;
+                Bomber airportBomber = GetSelectedAircraft() as Bomber;
+                if (airportBomber == null) return;
 
                 TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
                 if (adjacentPos.X == -1) { MessageDialog.Warn(this, "No airspace to take off into!", "Launch"); return; }
 
-                if (selectedStructure is Base bs) bs.Airport.Remove(bomber);
-                else if (selectedStructure is City cs) cs.Airport.Remove(bomber);
+                if (selectedStructure is Base bs) bs.Airport.Remove(airportBomber);
+                else if (selectedStructure is City cs) cs.Airport.Remove(airportBomber);
 
-                bomber.Position = adjacentPos;
-                bomber.HomeBaseId = -1;
-                bomber.Fuel = bomber.MaxFuel;
-                game.Map.GetTile(adjacentPos).Units.Add(bomber);
+                airportBomber.Position = adjacentPos;
+                airportBomber.HomeBaseId = -1;
+                airportBomber.Fuel = airportBomber.MaxFuel;
+                game.Map.GetTile(adjacentPos).Units.Add(airportBomber);
 
-                bomberForMission = bomber;
-                BomberInfoText.Text = $"Bomber from {selectedStructure.GetType().Name} @ ({adjacentPos.X},{adjacentPos.Y})";
-                BomberRangeText.Text = $"Range: {bomber.MaxFuel / 2} tiles  (w/ tanker: {bomber.MaxFuel})";
-
-                IEnumerable<AirUnit> hangar = selectedStructure is Base b2 ? b2.Airport
-                                            : selectedStructure is City c2 ? c2.Airport
-                                            : Enumerable.Empty<AirUnit>();
-                foreach (var u in hangar)
-                {
-                    if (u is Fighter f) { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter in hangar Fuel:{f.Fuel}"); }
-                    if (u is Tanker) { AvailableTankerText.Text = "Tanker in hangar"; IncludeTankerCheckbox.IsEnabled = true; }
-                }
+                theBomber = airportBomber;
+                bomberMapPos = adjacentPos;
 
                 game.CurrentPlayer.UpdateVision(game.Map);
                 RenderMap();
             }
+
+            bomberForMission = theBomber;
+            BomberInfoText.Text = $"Bomber @ ({bomberMapPos.X},{bomberMapPos.Y})";
+            BomberRangeText.Text = $"Range: {theBomber.MaxFuel / 2} tiles  (w/ tanker: {theBomber.MaxFuel})";
+
+            // Gather escorts: adjacent map tiles + any airport at adjacent structures
+            GatherAvailableEscorts(theBomber, bomberMapPos);
 
             EscortHeaderText.Text = $"✈ Fighter Escorts ({_availableEscortUnits.Count} available)";
             isSelectingBomberTarget = true;
             MapCanvas.Cursor = Cursors.Cross;
             BomberMissionPanel.Visibility = Visibility.Visible;
             AddMessage("🎯 Click a target tile on the map, then press 'Start Bombing Run'.", MessageType.Info);
+        }
+
+        /// <summary>
+        /// Populates _availableEscortUnits and AvailableEscortsList with all fighters
+        /// reachable by the bomber: adjacent map tiles AND fighters in airports at
+        /// adjacent structure tiles (within 1 step).
+        /// </summary>
+        private void GatherAvailableEscorts(Bomber bomber, TilePosition center)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    var p = new TilePosition(center.X + dx, center.Y + dy);
+                    if (!game.Map.IsValidPosition(p)) continue;
+                    var tile = game.Map.GetTile(p);
+
+                    // Fighters on the tile itself
+                    foreach (var u in tile.Units)
+                    {
+                        if (u is Fighter f && f.OwnerId == bomber.OwnerId)
+                        { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter (map {p.X},{p.Y}) Fuel:{f.Fuel}"); }
+                        if (u is Tanker t && t.OwnerId == bomber.OwnerId)
+                        { AvailableTankerText.Text = $"Tanker @ ({p.X},{p.Y})"; IncludeTankerCheckbox.IsEnabled = true; }
+                    }
+
+                    // Fighters in an airport at this tile's structure
+                    IEnumerable<AirUnit> hangar = null;
+                    string structName = null;
+                    if (tile.Structure is Base adjBase && adjBase.OwnerId == bomber.OwnerId)
+                    { hangar = adjBase.Airport; structName = $"Base ({p.X},{p.Y})"; }
+                    else if (tile.Structure is City adjCity && adjCity.OwnerId == bomber.OwnerId)
+                    { hangar = adjCity.Airport; structName = $"City ({p.X},{p.Y})"; }
+
+                    if (hangar != null)
+                        foreach (var u in hangar)
+                        {
+                            if (u is Fighter f && f.OwnerId == bomber.OwnerId)
+                            { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter (hangar {structName}) Fuel:{f.Fuel}"); }
+                            if (u is Tanker t && t.OwnerId == bomber.OwnerId && IncludeTankerCheckbox.IsEnabled == false)
+                            { AvailableTankerText.Text = $"Tanker in {structName}"; IncludeTankerCheckbox.IsEnabled = true; }
+                        }
+                }
         }
 
         private TilePosition FindAdjacentEmptyTile(TilePosition centerPos)
@@ -3835,6 +3864,38 @@ namespace EmpireGame
             if (bomberForMission == null || _pendingBombTarget == null) return;
 
             var targetPos = _pendingBombTarget.Value;
+
+            // ── Warnings ────────────────────────────────────────────────────────
+            // Fuel warning: round trip requires MaxFuel/2 tiles, no tanker means stranded
+            int pathDist = bomberForMission.FlightPath?.Count > 0 ? bomberForMission.FlightPath.Count - 1 : 0;
+            bool hasTankerChecked = IncludeTankerCheckbox.IsChecked == true;
+            bool fuelShort = pathDist > bomberForMission.MaxFuel / 2 && !hasTankerChecked;
+            if (fuelShort)
+            {
+                if (!MessageDialog.Confirm(this,
+                    $"⚠ WARNING: Target is {pathDist} tiles away but bomber can only RTB from {bomberForMission.MaxFuel / 2} tiles without a tanker.\n\nThe bomber may not make it back. Proceed anyway?",
+                    "Fuel Risk"))
+                    return;
+            }
+
+            // No-escort warning
+            bool noEscorts = AvailableEscortsList.SelectedItems.Count == 0;
+            if (noEscorts && _availableEscortUnits.Count > 0)
+            {
+                if (!MessageDialog.Confirm(this,
+                    "⚠ WARNING: You have fighters available but none are assigned as escorts.\n\nThe bomber will fly unprotected. Proceed anyway?",
+                    "No Escort"))
+                    return;
+            }
+            else if (noEscorts && _availableEscortUnits.Count == 0)
+            {
+                if (!MessageDialog.Confirm(this,
+                    "⚠ WARNING: No fighter escorts are available. The bomber will be unprotected over the target.\n\nProceed anyway?",
+                    "No Escort"))
+                    return;
+            }
+            // ────────────────────────────────────────────────────────────────────
+
             bomberForMission.TargetPosition = targetPos;
             bomberForMission.CurrentOrders.Type = OrderType.BombingRun;
 
@@ -3847,20 +3908,27 @@ namespace EmpireGame
             {
                 if (idx >= 0 && idx < _availableEscortUnits.Count)
                 {
-                    var escort = _availableEscortUnits[idx];
+                    var escort = _availableEscortUnits[idx] as AirUnit;
+                    if (escort == null) continue;
                     order.Escorts.Add(escort);
-                    // Remove escort from map — they're flying with the bomber
+                    // Remove from map tile (covers both on-map and just-launched cases)
                     game.Map.GetTile(escort.Position).Units.Remove(escort);
+                    // Also remove from any airport hangar it's sitting in
+                    if (escort.HomeBaseId != -1)
+                    {
+                        var homeStruct = game.CurrentPlayer.Structures
+                            .FirstOrDefault(s => s.StructureId == escort.HomeBaseId);
+                        if (homeStruct is Base hb) hb.Airport.Remove(escort);
+                        else if (homeStruct is City hc) hc.Airport.Remove(escort);
+                    }
                 }
             }
 
-            // Include tanker if selected — also pull it off the map
-            order.HasTanker = IncludeTankerCheckbox.IsChecked == true;
+            // Include tanker if selected — also pull it off the map/hangar
+            order.HasTanker = hasTankerChecked;
             if (order.HasTanker)
             {
-                // Find the tanker unit referenced in AvailableTankerText neighbourhood
-                Unit tanker = _availableEscortUnits
-                    .FirstOrDefault(u => u is Tanker) ?? FindNearbyTanker(bomberForMission);
+                Unit tanker = FindNearbyTanker(bomberForMission);
                 if (tanker != null)
                 {
                     order.TankerUnit = tanker;

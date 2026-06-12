@@ -728,6 +728,7 @@
                         <ListBox x:Name="AirportList" Height="100" Margin="0,0,0,5" SelectionChanged="AirportList_SelectionChanged"/>
                         <WrapPanel Margin="0,0,0,10">
                             <Button x:Name="TakeOffButton" Content="Take Off" Width="80" Margin="2" Click="TakeOffButton_Click"/>
+                            <Button x:Name="AirportBombRunButton" Content="💣 Bomb Run" Width="90" Margin="2" IsEnabled="False" Click="BombingRunButton_Click"/>
                             <Button x:Name="RepairAircraftButton" Content="Repair" Width="80" Margin="2" Click="RepairAircraftButton_Click"/>
                         </WrapPanel>
 
