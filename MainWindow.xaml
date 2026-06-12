@@ -716,31 +716,51 @@
                         <ComboBox x:Name="UnitTypesCombo" Margin="0,0,0,5"/>
                         <Button x:Name="BuildUnitButton" Content="Add to Queue" Click="BuildUnitButton_Click"/>
 
-                        <!-- Civic Upgrades (spend populace) -->
-                        <Grid Margin="0,12,0,4" Cursor="Hand"
-                              MouseLeftButtonDown="CivicUpgradesToggle_Click">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="🏛️ Civic Upgrades"
-                                       FontSize="14" FontWeight="Bold" Foreground="#FFD43B"/>
-                            <TextBlock x:Name="CivicUpgradesToggleIcon" Grid.Column="1"
-                                       Text="+" FontSize="16" FontWeight="Bold" Foreground="#FFD43B"
-                                       Margin="8,0,0,0" VerticalAlignment="Center"/>
-                        </Grid>
-                        <Border x:Name="CivicUpgradesContainer" ClipToBounds="True" MaxHeight="0">
-                            <WrapPanel Margin="0,2,0,4">
-                                <Button x:Name="UpgIndustryButton" Margin="2" Click="UpgIndustry_Click"/>
-                                <Button x:Name="UpgFortifyButton" Margin="2" Click="UpgFortify_Click"/>
-                                <Button x:Name="UpgWatchtowerButton" Margin="2" Click="UpgWatchtower_Click"/>
-                                <Button x:Name="UpgHousingButton" Margin="2" Click="UpgHousing_Click"/>
-                                <Button x:Name="UpgTreasuryButton" Margin="2" Click="UpgTreasury_Click"/>
-                                <Button x:Name="UpgMilitary1Button" Margin="2" Click="UpgMilitary1_Click"/>
-                                <Button x:Name="UpgMilitary2Button" Margin="2" Click="UpgMilitary2_Click"/>
-                                <Button x:Name="UpgConscriptButton" Margin="2" Click="UpgConscript_Click"/>
-                                <Button x:Name="UpgRepairButton" Margin="2" Click="UpgRepair_Click"/>
-                            </WrapPanel>
+                        <!-- Civic Upgrades tile -->
+                        <Border Margin="0,14,0,4" CornerRadius="8" BorderThickness="1"
+                                BorderBrush="#4a3800" Padding="10,8,10,6">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#1a1400" Offset="0"/>
+                                    <GradientStop Color="#0e0c00" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.5"/>
+                            </Border.Effect>
+                            <StackPanel>
+                                <!-- Toggle header -->
+                                <Grid Cursor="Hand" MouseLeftButtonDown="CivicUpgradesToggle_Click">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="🏛️ Civic Upgrades"
+                                               FontSize="14" FontWeight="Bold" Foreground="#FFD43B"/>
+                                    <Border Grid.Column="1" Width="20" Height="20" CornerRadius="4"
+                                            Background="#2a1e00" BorderBrush="#6a5000" BorderThickness="1"
+                                            VerticalAlignment="Center" Margin="8,0,0,0">
+                                        <TextBlock x:Name="CivicUpgradesToggleIcon" Text="+"
+                                                   FontSize="13" FontWeight="Bold" Foreground="#FFD43B"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Slide-out content -->
+                                <Border x:Name="CivicUpgradesContainer" ClipToBounds="True" MaxHeight="0">
+                                    <WrapPanel Margin="0,8,0,2">
+                                        <Button x:Name="UpgIndustryButton" Margin="2" Click="UpgIndustry_Click"/>
+                                        <Button x:Name="UpgFortifyButton" Margin="2" Click="UpgFortify_Click"/>
+                                        <Button x:Name="UpgWatchtowerButton" Margin="2" Click="UpgWatchtower_Click"/>
+                                        <Button x:Name="UpgHousingButton" Margin="2" Click="UpgHousing_Click"/>
+                                        <Button x:Name="UpgTreasuryButton" Margin="2" Click="UpgTreasury_Click"/>
+                                        <Button x:Name="UpgMilitary1Button" Margin="2" Click="UpgMilitary1_Click"/>
+                                        <Button x:Name="UpgMilitary2Button" Margin="2" Click="UpgMilitary2_Click"/>
+                                        <Button x:Name="UpgConscriptButton" Margin="2" Click="UpgConscript_Click"/>
+                                        <Button x:Name="UpgRepairButton" Margin="2" Click="UpgRepair_Click"/>
+                                    </WrapPanel>
+                                </Border>
+                            </StackPanel>
                         </Border>
                         </StackPanel>
 
