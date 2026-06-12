@@ -3111,6 +3111,66 @@ namespace EmpireGame
                 return;
             }
 
+            // Determine whether the destination is an enemy structure that requires siege
+            bool isEnemyStructureTile = destinationTile.Structure != null
+                && (destinationTile.Structure is Base || destinationTile.Structure is City)
+                && destinationTile.Structure.OwnerId != game.CurrentPlayer.PlayerId;
+
+            // If enemy structure with HP > 0 and NO defenders: attack the structure (don't walk in)
+            if (isEnemyStructureTile && destinationTile.Structure.Life > 0
+                && !destinationTile.Units.Any(u => u.OwnerId != game.CurrentPlayer.PlayerId && !(u is Satellite)))
+            {
+                int sdx = Math.Abs(unit.Position.X - destination.X);
+                int sdy = Math.Abs(unit.Position.Y - destination.Y);
+                if (Math.Max(sdx, sdy) > 1)
+                {
+                    AddMessage("Move adjacent to the structure to attack it.", MessageType.Info);
+                    return;
+                }
+                if (unit.Attack <= 0)
+                {
+                    AddMessage("This unit cannot attack structures.", MessageType.Warning);
+                    return;
+                }
+
+                CombatResult structResult = game.AttackStructure(unit, destinationTile.Structure);
+                unit.MovementPoints = 0;
+
+                if (structResult.StructureDestroyed)
+                {
+                    Tile sTile = game.Map.GetTile(unit.Position);
+                    sTile.Units.Remove(unit);
+                    unit.Position = destination;
+                    destinationTile.Units.Add(unit);
+                    destinationTile.OwnerId = unit.OwnerId;
+
+                    Structure cap = destinationTile.Structure;
+                    Player? capOldOwner = game.Players.FirstOrDefault(p => p.PlayerId == cap.OwnerId);
+                    if (capOldOwner != null)
+                    {
+                        capOldOwner.RecordStructureLoss(cap);
+                        capOldOwner.Structures.Remove(cap);
+                        AddMessage($"⚠️ {capOldOwner.Name} lost {cap.GetName()}!", MessageType.Warning);
+                    }
+                    cap.OwnerId = unit.OwnerId;
+                    cap.Life = cap.MaxLife;
+                    cap.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
+                    game.CurrentPlayer.Structures.Add(cap);
+                    game.CurrentPlayer.RecordStructureCapture();
+                    AddMessage($"🏰 You captured {cap.GetName()}!", MessageType.Success);
+                }
+                else
+                {
+                    AddMessage($"💥 {destinationTile.Structure.GetName()} — {destinationTile.Structure.Life}/{destinationTile.Structure.MaxLife} HP remaining. Keep attacking!", MessageType.Info);
+                }
+
+                SelectUnit(unit);
+                game.CurrentPlayer.UpdateVision(game.Map);
+                UpdateResourceDisplay();
+                RenderMap();
+                return;
+            }
+
             // Check if destination has an enemy unit
             Unit? enemyUnit = destinationTile.Units.FirstOrDefault(u => u.OwnerId != game.CurrentPlayer.PlayerId);
 
@@ -3236,31 +3296,44 @@ namespace EmpireGame
 
                     if (!wasArtilleryRangedAttack)
                     {
-                        // Melee attacker advances to the destination tile
-                        Tile startTile = game.Map.GetTile(unit.Position);
-                        startTile.Units.Remove(unit);
+                        // Melee attacker advances UNLESS the tile has an enemy structure still standing
+                        bool structureStillStanding = isEnemyStructureTile && destinationTile.Structure.Life > 0;
 
-                        unit.Position = destination;
-                        destinationTile.Units.Add(unit);
-                        destinationTile.OwnerId = unit.OwnerId;
-
-                        // Check for structure capture
-                        if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
+                        if (!structureStillStanding)
                         {
-                            Structure capturedStructure = destinationTile.Structure;
-                            Player? oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
-                            if (oldOwner != null)
-                            {
-                                oldOwner.RecordStructureLoss(capturedStructure);
-                                oldOwner.Structures.Remove(capturedStructure);
-                                AddMessage($"⚠️ {oldOwner.Name} lost {capturedStructure.GetName()}!", MessageType.Warning);
-                            }
+                            // Advance to the destination tile
+                            Tile startTile = game.Map.GetTile(unit.Position);
+                            startTile.Units.Remove(unit);
 
-                            capturedStructure.OwnerId = unit.OwnerId;
-                            capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
-                            game.CurrentPlayer.Structures.Add(capturedStructure);
-                            game.CurrentPlayer.RecordStructureCapture();
-                            AddMessage($"🏆 You captured and renamed it {capturedStructure.GetName()}!", MessageType.Success);
+                            unit.Position = destination;
+                            destinationTile.Units.Add(unit);
+                            destinationTile.OwnerId = unit.OwnerId;
+
+                            // Capture only if structure HP is 0
+                            if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId
+                                && destinationTile.Structure.Life <= 0)
+                            {
+                                Structure capturedStructure = destinationTile.Structure;
+                                Player? oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
+                                if (oldOwner != null)
+                                {
+                                    oldOwner.RecordStructureLoss(capturedStructure);
+                                    oldOwner.Structures.Remove(capturedStructure);
+                                    AddMessage($"⚠️ {oldOwner.Name} lost {capturedStructure.GetName()}!", MessageType.Warning);
+                                }
+
+                                capturedStructure.OwnerId = unit.OwnerId;
+                                capturedStructure.Life = capturedStructure.MaxLife;
+                                capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
+                                game.CurrentPlayer.Structures.Add(capturedStructure);
+                                game.CurrentPlayer.RecordStructureCapture();
+                                AddMessage($"🏆 You captured and renamed it {capturedStructure.GetName()}!", MessageType.Success);
+                            }
+                        }
+                        else
+                        {
+                            // Defender beaten but structure still has HP — attacker stays adjacent
+                            AddMessage($"⚔️ Defender eliminated! {destinationTile.Structure.GetName()} still standing ({destinationTile.Structure.Life}/{destinationTile.Structure.MaxLife} HP). Attack again to breach it!", MessageType.Info);
                         }
                     }
 
@@ -3409,7 +3482,9 @@ namespace EmpireGame
             destinationTile.OwnerId = unit.OwnerId;
 
             // Check for structure capture on movement (no combat)
-            if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId)
+            // Only capture if structure HP is already 0 (siege must have been completed first)
+            if (destinationTile.Structure != null && destinationTile.Structure.OwnerId != unit.OwnerId
+                && destinationTile.Structure.Life <= 0)
             {
                 Structure capturedStructure = destinationTile.Structure;
                 Player? oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == capturedStructure.OwnerId);
@@ -3421,6 +3496,7 @@ namespace EmpireGame
                 }
 
                 capturedStructure.OwnerId = unit.OwnerId;
+                capturedStructure.Life = capturedStructure.MaxLife;
                 capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
                 game.CurrentPlayer.Structures.Add(capturedStructure);
                 game.CurrentPlayer.RecordStructureCapture();

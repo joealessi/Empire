@@ -385,6 +385,32 @@ namespace EmpireGame
         // ─── Land unit: personality-driven priority list ──────────────────────────
         private void HandleLandUnit(Unit unit, Player aiPlayer, StrategyWeights w)
         {
+            // If unit is standing on an enemy structure that still has HP, attack it to capture
+            var standingTile = game.Map.GetTile(unit.Position);
+            if (standingTile.Structure != null
+                && (standingTile.Structure is Base || standingTile.Structure is City)
+                && standingTile.Structure.OwnerId != aiPlayer.PlayerId
+                && standingTile.Structure.Life > 0)
+            {
+                var result = game.AttackStructure(unit, standingTile.Structure);
+                unit.MovementPoints = 0;
+                if (standingTile.Structure.Life <= 0)
+                {
+                    var cap = standingTile.Structure;
+                    var oldOwner = game.Players.FirstOrDefault(p => p.PlayerId == cap.OwnerId);
+                    oldOwner?.RecordStructureLoss(cap);
+                    oldOwner?.Structures.Remove(cap);
+                    messageCallback?.Invoke($"⚠️ {oldOwner?.Name} lost {cap.GetName()}!", MessageType.Warning);
+                    cap.OwnerId = aiPlayer.PlayerId;
+                    cap.Life = cap.MaxLife;
+                    cap.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(aiPlayer);
+                    aiPlayer.Structures.Add(cap);
+                    standingTile.OwnerId = aiPlayer.PlayerId;
+                    messageCallback?.Invoke($"🏰 {aiPlayer.Name}'s {unit.GetName()} breached and captured {cap.GetName()}!", MessageType.Info);
+                }
+                return;
+            }
+
             // Recapture own lost structures — universal high priority
             var lostTarget = FindLostStructureToRecapture(unit, aiPlayer);
             if (lostTarget != null && ShouldRecaptureStructure(aiPlayer, lostTarget))
@@ -1109,13 +1135,15 @@ namespace EmpireGame
 
                 bool structureCaptured = false;
                 Structure capturedStructure = null;
-                if (defenderTile.Structure != null && defenderTile.Structure.OwnerId == defender.OwnerId)
+                if (defenderTile.Structure != null && defenderTile.Structure.OwnerId == defender.OwnerId
+                    && defenderTile.Structure.Life <= 0)
                 {
                     capturedStructure  = defenderTile.Structure;
                     structureCaptured  = true;
                     defenderOwner?.RecordStructureLoss(capturedStructure);
                     defenderOwner?.Structures.Remove(capturedStructure);
                     capturedStructure.OwnerId = attacker.OwnerId;
+                    capturedStructure.Life = capturedStructure.MaxLife;
                     capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(attackerOwner);
                     attackerOwner?.Structures.Add(capturedStructure);
                 }
@@ -1124,12 +1152,23 @@ namespace EmpireGame
                 defenderOwner?.Units.Remove(defender);
                 defenderOwner?.RecordUnitLoss(attacker.OwnerId);
 
-                attacker.Position = defender.Position;
-                defenderTile.Units.Add(attacker);
-                defenderTile.OwnerId = attacker.OwnerId;
+                // Only advance into the tile if the structure is captured (or there is none)
+                bool structureStillStanding = defenderTile.Structure != null
+                    && (defenderTile.Structure is Base || defenderTile.Structure is City)
+                    && defenderTile.Structure.OwnerId != attacker.OwnerId
+                    && defenderTile.Structure.Life > 0;
+
+                if (!structureStillStanding)
+                {
+                    attacker.Position = defender.Position;
+                    defenderTile.Units.Add(attacker);
+                    defenderTile.OwnerId = attacker.OwnerId;
+                }
 
                 string msg = structureCaptured
                     ? $"⚔️ {defenderOwnerName}'s {defenderUnitName} defeated by {attackerOwnerName}'s {attackerUnitName}, capturing {capturedStructure.GetName()}!"
+                    : structureStillStanding
+                    ? $"⚔️ {defenderOwnerName}'s {defenderUnitName} defeated by {attackerOwnerName}'s {attackerUnitName}! Structure still standing ({defenderTile.Structure.Life}/{defenderTile.Structure.MaxLife} HP)."
                     : $"⚔️ {defenderOwnerName}'s {defenderUnitName} defeated by {attackerOwnerName}'s {attackerUnitName}!";
                 messageCallback?.Invoke(msg, MessageType.Combat);
 
