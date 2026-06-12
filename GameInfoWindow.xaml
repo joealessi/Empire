@@ -103,6 +103,22 @@
                         <StackPanel x:Name="UnitsPanel" Margin="4,8,4,4"/>
                     </ScrollViewer>
                 </TabItem>
+
+                <!-- Resources tab -->
+                <TabItem Header="🏭  Resources">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Background="#121A28" Padding="4">
+                        <StackPanel x:Name="ResourcesPanel" Margin="4,8,4,4"/>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Civics tab -->
+                <TabItem Header="🏛  Civics">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Background="#121A28" Padding="4">
+                        <StackPanel x:Name="CivicsPanel" Margin="4,8,4,4"/>
+                    </ScrollViewer>
+                </TabItem>
             </TabControl>
 
             <!-- Close button -->
