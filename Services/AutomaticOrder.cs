@@ -17,6 +17,10 @@ public class AutomaticOrder
     // For patrol orders
     public List<TilePosition> PatrolWaypoints { get; set; }
     public int CurrentWaypointIndex { get; set; }
+
+    // For bombing run orders
+    public List<Unit> Escorts { get; set; }
+    public bool HasTanker { get; set; }
     
     public AutomaticOrder(Unit unit, TilePosition destination, AutomaticOrderType orderType)
     {
@@ -27,6 +31,8 @@ public class AutomaticOrder
         PathIndex = 0;
         PatrolWaypoints = new List<TilePosition>();
         CurrentWaypointIndex = 0;
+        Escorts = new List<Unit>();
+        HasTanker = false;
     }
     
     public bool IsComplete()

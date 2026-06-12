@@ -19,6 +19,10 @@ namespace EmpireGame
         private Structure selectedStructure;
         private bool isSelectingBomberTarget;
         private Bomber bomberForMission;
+        private TilePosition? _pendingBombTarget;
+        private List<Unit> _availableEscortUnits = new List<Unit>();
+        private List<UIElement> _reticleElements = new List<UIElement>();
+        private TilePosition _lastReticleTile = new TilePosition(-1, -1);
 
         private bool isSelectingGeosyncLocation;
         private GeosynchronousSatellite geosyncToPlace;
@@ -1649,7 +1653,56 @@ namespace EmpireGame
 
         private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
         {
-            // Could show hover information here
+            if (!isSelectingBomberTarget || bomberForMission == null) return;
+
+            Point pos = e.GetPosition(MapCanvas);
+            var tilePos = new TilePosition((int)(pos.X / TILE_SIZE), (int)(pos.Y / TILE_SIZE));
+            if (!game.Map.IsValidPosition(tilePos)) return;
+            if (tilePos.X == _lastReticleTile.X && tilePos.Y == _lastReticleTile.Y) return;
+            _lastReticleTile = tilePos;
+
+            // Remove old reticle
+            foreach (var el in _reticleElements) MapCanvas.Children.Remove(el);
+            _reticleElements.Clear();
+
+            // Check range
+            bool hasTanker = IncludeTankerCheckbox.IsChecked == true;
+            int effectiveRange = hasTanker ? bomberForMission.MaxFuel : bomberForMission.MaxFuel / 2;
+            int dist = Math.Abs(tilePos.X - bomberForMission.Position.X) + Math.Abs(tilePos.Y - bomberForMission.Position.Y);
+            bool inRange = dist <= effectiveRange;
+            var ringColor = inRange
+                ? System.Windows.Media.Brushes.Orange
+                : System.Windows.Media.Brushes.Red;
+
+            double cx = tilePos.X * TILE_SIZE + TILE_SIZE / 2.0;
+            double cy = tilePos.Y * TILE_SIZE + TILE_SIZE / 2.0;
+            double r = TILE_SIZE * 0.9;
+
+            // Outer ring
+            var ring = new System.Windows.Shapes.Ellipse
+            {
+                Width = r * 2, Height = r * 2,
+                Stroke = ringColor, StrokeThickness = 2,
+                Fill = System.Windows.Media.Brushes.Transparent
+            };
+            Canvas.SetLeft(ring, cx - r); Canvas.SetTop(ring, cy - r);
+
+            // Crosshair lines
+            double arm = TILE_SIZE * 0.7;
+            var hLine = new System.Windows.Shapes.Line { X1 = cx - arm, Y1 = cy, X2 = cx + arm, Y2 = cy, Stroke = ringColor, StrokeThickness = 1.5 };
+            var vLine = new System.Windows.Shapes.Line { X1 = cx, Y1 = cy - arm, X2 = cx, Y2 = cy + arm, Stroke = ringColor, StrokeThickness = 1.5 };
+
+            // Range label
+            var label = new TextBlock
+            {
+                Text = inRange ? $"({tilePos.X},{tilePos.Y})" : "OUT OF RANGE",
+                Foreground = ringColor,
+                FontSize = 10, FontFamily = new System.Windows.Media.FontFamily("Consolas")
+            };
+            Canvas.SetLeft(label, cx - 28); Canvas.SetTop(label, cy + r + 2);
+
+            _reticleElements.AddRange(new UIElement[] { ring, hLine, vLine, label });
+            foreach (var el in _reticleElements) MapCanvas.Children.Add(el);
         }
 
         private void SelectUnit(Unit unit)
@@ -2479,116 +2532,77 @@ namespace EmpireGame
 
         private void BombingRunButton_Click(object sender, RoutedEventArgs e)
         {
+            // Reset panel state
+            _availableEscortUnits.Clear();
+            AvailableEscortsList.Items.Clear();
+            IncludeTankerCheckbox.IsChecked = false;
+            IncludeTankerCheckbox.IsEnabled = false;
+            AvailableTankerText.Text = "No tanker available";
+            _pendingBombTarget = null;
+            StartBombingRunButton.IsEnabled = false;
+            BombTargetText.Text = "— click map to select —";
+
             // Case 1: bomber already on the map (selected unit)
             if (selectedUnit is Bomber mapBomber)
             {
-                if (mapBomber.Fuel <= 0)
-                {
-                    MessageDialog.Warn(this, "Bomber has no fuel!", "Bombing Run");
-                    return;
-                }
-
-                isSelectingBomberTarget = true;
+                if (mapBomber.Fuel <= 0) { MessageDialog.Warn(this, "Bomber has no fuel!", "Bombing Run"); return; }
                 bomberForMission = mapBomber;
-                MapCanvas.Cursor = Cursors.Cross;
-                BomberMissionPanel.Visibility = Visibility.Visible;
-                BomberRangeText.Text = $"Bomber Range: {mapBomber.MaxFuel / 2} tiles (round trip)";
-                AvailableEscortsList.Items.Clear();
-                AddMessage("🎯 Click a target tile for the bombing run.", MessageType.Info);
-                return;
+                BomberInfoText.Text = $"Bomber @ ({mapBomber.Position.X},{mapBomber.Position.Y})";
+                BomberRangeText.Text = $"Range: {mapBomber.MaxFuel / 2} tiles  (w/ tanker: {mapBomber.MaxFuel})";
+
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        var p = new TilePosition(mapBomber.Position.X + dx, mapBomber.Position.Y + dy);
+                        if (!game.Map.IsValidPosition(p)) continue;
+                        foreach (var u in game.Map.GetTile(p).Units)
+                        {
+                            if (u is Fighter f && f.OwnerId == mapBomber.OwnerId && f != mapBomber)
+                            { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter @ ({p.X},{p.Y}) Fuel:{f.Fuel}"); }
+                            if (u is Tanker t && t.OwnerId == mapBomber.OwnerId)
+                            { AvailableTankerText.Text = $"Tanker @ ({p.X},{p.Y})"; IncludeTankerCheckbox.IsEnabled = true; }
+                        }
+                    }
             }
-
-            // Case 2: bomber in airport (selected from airport list)
-            Bomber? bomber = GetSelectedAircraft() as Bomber;
-            if (bomber == null)
-                return;
-
-            TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
-
-            if (adjacentPos.X == -1)
+            // Case 2: bomber in airport
+            else
             {
-                MessageDialog.Warn(this, "No airspace to take off into!", "Launch");
-                return;
+                Bomber bomber = GetSelectedAircraft() as Bomber;
+                if (bomber == null) return;
+
+                TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
+                if (adjacentPos.X == -1) { MessageDialog.Warn(this, "No airspace to take off into!", "Launch"); return; }
+
+                if (selectedStructure is Base bs) bs.Airport.Remove(bomber);
+                else if (selectedStructure is City cs) cs.Airport.Remove(bomber);
+
+                bomber.Position = adjacentPos;
+                bomber.HomeBaseId = -1;
+                bomber.Fuel = bomber.MaxFuel;
+                game.Map.GetTile(adjacentPos).Units.Add(bomber);
+
+                bomberForMission = bomber;
+                BomberInfoText.Text = $"Bomber from {selectedStructure.GetType().Name} @ ({adjacentPos.X},{adjacentPos.Y})";
+                BomberRangeText.Text = $"Range: {bomber.MaxFuel / 2} tiles  (w/ tanker: {bomber.MaxFuel})";
+
+                IEnumerable<AirUnit> hangar = selectedStructure is Base b2 ? b2.Airport
+                                            : selectedStructure is City c2 ? c2.Airport
+                                            : Enumerable.Empty<AirUnit>();
+                foreach (var u in hangar)
+                {
+                    if (u is Fighter f) { _availableEscortUnits.Add(f); AvailableEscortsList.Items.Add($"Fighter in hangar Fuel:{f.Fuel}"); }
+                    if (u is Tanker) { AvailableTankerText.Text = "Tanker in hangar"; IncludeTankerCheckbox.IsEnabled = true; }
+                }
+
+                game.CurrentPlayer.UpdateVision(game.Map);
+                RenderMap();
             }
 
-            // Remove from airport
-            if (selectedStructure is Base baseStructure)
-            {
-                baseStructure.Airport.Remove(bomber);
-            }
-            else if (selectedStructure is City city)
-            {
-                city.Airport.Remove(bomber);
-            }
-
-            // Place on map temporarily
-            bomber.Position = adjacentPos;
-            bomber.HomeBaseId = -1;
-            bomber.Fuel = bomber.MaxFuel;
-
-            Tile tile = game.Map.GetTile(adjacentPos);
-            tile.Units.Add(bomber);
-
-            // Now set up bombing run UI
+            EscortHeaderText.Text = $"✈ Fighter Escorts ({_availableEscortUnits.Count} available)";
             isSelectingBomberTarget = true;
-            bomberForMission = bomber;
             MapCanvas.Cursor = Cursors.Cross;
-
             BomberMissionPanel.Visibility = Visibility.Visible;
-            BomberRangeText.Text = $"Bomber Range: {bomber.MaxFuel / 2} tiles (round trip)";
-
-            // Populate available escorts from the airport
-            AvailableEscortsList.Items.Clear();
-            if (selectedStructure is Base baseStruct)
-            {
-                foreach (AirUnit aircraft in baseStruct.Airport)
-                {
-                    if (aircraft is Fighter)
-                    {
-                        AvailableEscortsList.Items.Add($"{aircraft.GetName()} - Fuel: {aircraft.Fuel}");
-                    }
-                }
-
-                // Check for tankers
-                List<AirUnit> tankers = baseStruct.Airport.Where(a => a is Tanker).ToList();
-                if (tankers.Count > 0)
-                {
-                    IncludeTankerCheckbox.IsEnabled = true;
-                    AvailableTankerText.Text = $"({tankers.Count} tanker(s) available)";
-                }
-                else
-                {
-                    IncludeTankerCheckbox.IsEnabled = false;
-                    AvailableTankerText.Text = "(No tankers available)";
-                }
-            }
-            else if (selectedStructure is City cityStruct)
-            {
-                foreach (AirUnit aircraft in cityStruct.Airport)
-                {
-                    if (aircraft is Fighter)
-                    {
-                        AvailableEscortsList.Items.Add($"{aircraft.GetName()} - Fuel: {aircraft.Fuel}");
-                    }
-                }
-
-                List<AirUnit> tankers = cityStruct.Airport.Where(a => a is Tanker).ToList();
-                if (tankers.Count > 0)
-                {
-                    IncludeTankerCheckbox.IsEnabled = true;
-                    AvailableTankerText.Text = $"({tankers.Count} tanker(s) available)";
-                }
-                else
-                {
-                    IncludeTankerCheckbox.IsEnabled = false;
-                    AvailableTankerText.Text = "(No tankers available)";
-                }
-            }
-
-            MessageDialog.Show(this, "Select a target on the map for the bombing run.", "Bombing Run");
-
-            game.CurrentPlayer.UpdateVision(game.Map);
-            RenderMap();
+            AddMessage("🎯 Click a target tile on the map, then press 'Start Bombing Run'.", MessageType.Info);
         }
 
         private TilePosition FindAdjacentEmptyTile(TilePosition centerPos)
@@ -3619,36 +3633,30 @@ namespace EmpireGame
 
         private void HandleBomberTargetSelection(TilePosition targetPos)
         {
-            // Calculate path and validate range
+            bool hasTanker = IncludeTankerCheckbox.IsChecked == true;
+            int effectiveRange = hasTanker ? bomberForMission.MaxFuel : bomberForMission.MaxFuel / 2;
+
             List<TilePosition> path = game.Map.FindPath(bomberForMission.Position, targetPos, bomberForMission);
 
             if (path.Count == 0)
             {
-                MessageDialog.Warn(this, "No valid path to target!", "Bombing Run");
+                BombTargetText.Text = "— no valid path —";
+                StartBombingRunButton.IsEnabled = false;
                 return;
             }
 
-            int totalDistance = path.Count * 2; // Round trip
-            if (totalDistance > bomberForMission.MaxFuel)
+            if (path.Count > effectiveRange)
             {
-                MessageDialog.Warn(this, "Target out of range!", "Bombing Run");
+                BombTargetText.Text = $"({targetPos.X},{targetPos.Y}) — OUT OF RANGE";
+                StartBombingRunButton.IsEnabled = false;
                 return;
             }
 
-            // Set up the bombing run — queue as automatic order so it executes with visuals
-            bomberForMission.TargetPosition = targetPos;
+            // Store as confirmed target
+            _pendingBombTarget = targetPos;
             bomberForMission.FlightPath = path;
-            bomberForMission.CurrentOrders.Type = OrderType.BombingRun;
-
-            game.AddAutomaticOrder(bomberForMission, targetPos, AutomaticOrderType.BombingRun);
-
-            AddMessage($"💣 Bombing run queued to ({targetPos.X}, {targetPos.Y}). Executes on end of turn.", MessageType.Info);
-
-            isSelectingBomberTarget = false;
-            bomberForMission = null;
-            MapCanvas.Cursor = Cursors.Arrow;
-            BomberMissionPanel.Visibility = Visibility.Collapsed;
-            RenderMap();
+            BombTargetText.Text = $"({targetPos.X},{targetPos.Y}) ✓  [{path.Count} tiles]";
+            StartBombingRunButton.IsEnabled = true;
         }
 
         // Button Click Handlers
@@ -3804,10 +3812,57 @@ namespace EmpireGame
             MessageDialog.Show(this, "Click on the map to select a bomber target.", "Bombing Run");
         }
 
+        private void StartBombingRunButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (bomberForMission == null || _pendingBombTarget == null) return;
+
+            var targetPos = _pendingBombTarget.Value;
+            bomberForMission.TargetPosition = targetPos;
+            bomberForMission.CurrentOrders.Type = OrderType.BombingRun;
+
+            var order = new AutomaticOrder(bomberForMission, targetPos, AutomaticOrderType.BombingRun);
+
+            // Add selected escorts
+            foreach (int idx in AvailableEscortsList.SelectedItems
+                         .Cast<object>()
+                         .Select(i => AvailableEscortsList.Items.IndexOf(i)))
+            {
+                if (idx >= 0 && idx < _availableEscortUnits.Count)
+                    order.Escorts.Add(_availableEscortUnits[idx]);
+            }
+
+            // Include tanker if selected
+            order.HasTanker = IncludeTankerCheckbox.IsChecked == true;
+
+            game.AddAutomaticOrder(order);
+
+            string escortInfo = order.Escorts.Count > 0 ? $" with {order.Escorts.Count} escort(s)" : "";
+            string tankerInfo = order.HasTanker ? " + tanker" : "";
+            AddMessage($"💣 Bombing run queued to ({targetPos.X},{targetPos.Y}){escortInfo}{tankerInfo}. Executes on end of turn.", MessageType.Info);
+
+            ClearReticle();
+            isSelectingBomberTarget = false;
+            _pendingBombTarget = null;
+            bomberForMission = null;
+            MapCanvas.Cursor = Cursors.Arrow;
+            BomberMissionPanel.Visibility = Visibility.Collapsed;
+            RenderMap();
+        }
+
+        private void ClearReticle()
+        {
+            foreach (var el in _reticleElements) MapCanvas.Children.Remove(el);
+            _reticleElements.Clear();
+            _lastReticleTile = new TilePosition(-1, -1);
+        }
+
         private void CancelMissionButton_Click(object sender, RoutedEventArgs e)
         {
+            ClearReticle();
             isSelectingBomberTarget = false;
+            _pendingBombTarget = null;
             bomberForMission = null;
+            MapCanvas.Cursor = Cursors.Arrow;
             BomberMissionPanel.Visibility = Visibility.Collapsed;
         }
 

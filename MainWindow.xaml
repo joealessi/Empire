@@ -117,18 +117,37 @@
 
             <!-- Bomber Mission Panel -->
             <Border Grid.Row="1" x:Name="BomberMissionPanel" Visibility="Collapsed"
-                   Background="#DD16213e" BorderBrush="Orange" BorderThickness="3"
+                   Background="#EE0d1b2e" BorderBrush="Orange" BorderThickness="2"
                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20"
-                   Padding="15" CornerRadius="5">
-                <StackPanel Width="250">
-                    <TextBlock Text="🎯 BOMBING MISSION" FontSize="16" FontWeight="Bold" Foreground="Orange" Margin="0,0,0,10"/>
-                    <TextBlock x:Name="BomberRangeText" Text="Range: 0 tiles" Foreground="White" Margin="0,0,0,10"/>
-                    <TextBlock Text="Available Escorts:" Foreground="White" Margin="0,0,0,5"/>
-                    <ListBox x:Name="AvailableEscortsList" Height="100" Margin="0,0,0,10" SelectionMode="Multiple"/>
-                    <CheckBox x:Name="IncludeTankerCheckbox" Content="Include Tanker" Foreground="White" Margin="0,0,0,5"/>
-                    <TextBlock x:Name="AvailableTankerText" Text="No tanker available" Foreground="Gray" Margin="0,0,0,10"/>
-                    <TextBlock Text="Click target on map" Foreground="Yellow" Margin="0,0,0,10"/>
-                    <Button Content="Cancel Mission" Click="CancelMissionButton_Click"/>
+                   Padding="14" CornerRadius="6">
+                <StackPanel Width="290">
+                    <TextBlock Text="💣 BOMBING MISSION" FontSize="15" FontWeight="Bold" Foreground="Orange" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="BomberInfoText" Text="Bomber" Foreground="LightGray" FontSize="12" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="BomberRangeText" Text="Range: 0 tiles" Foreground="White" FontSize="12" Margin="0,0,0,10"/>
+
+                    <Separator Background="#44FFFFFF" Margin="0,0,0,8"/>
+
+                    <TextBlock Text="🎯 Target" Foreground="White" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="BombTargetText" Text="— click map to select —" Foreground="Yellow" FontSize="12" Margin="0,0,0,10"/>
+
+                    <Separator Background="#44FFFFFF" Margin="0,0,0,8"/>
+
+                    <TextBlock x:Name="EscortHeaderText" Text="✈ Fighter Escorts (0 available)" Foreground="White" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <TextBlock Text="Select escorts to shield the bomber:" Foreground="LightGray" FontSize="11" Margin="0,0,0,4"/>
+                    <ListBox x:Name="AvailableEscortsList" Height="90" Margin="0,0,0,8" SelectionMode="Multiple"
+                             Background="#22FFFFFF" Foreground="White" BorderBrush="#44FFFFFF"/>
+
+                    <Separator Background="#44FFFFFF" Margin="0,0,0,8"/>
+
+                    <CheckBox x:Name="IncludeTankerCheckbox" Content="⛽ Include Tanker (doubles range)" Foreground="White" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="AvailableTankerText" Text="No tanker available" Foreground="Gray" FontSize="11" Margin="0,0,0,10"/>
+
+                    <Button x:Name="StartBombingRunButton" Content="🚀 Start Bombing Run" IsEnabled="False"
+                            Click="StartBombingRunButton_Click"
+                            Background="#CC224411" Foreground="LightGreen" BorderBrush="LightGreen"
+                            FontWeight="Bold" Padding="8,5" Margin="0,0,0,6"/>
+                    <Button Content="✖ Cancel Mission" Click="CancelMissionButton_Click"
+                            Background="#CC441111" Foreground="Salmon" BorderBrush="Salmon" Padding="8,5"/>
                 </StackPanel>
             </Border>
 

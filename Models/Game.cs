@@ -1250,12 +1250,15 @@ public class Game
         if (!(order.Unit is Bomber bomber))
             return (false, false);
 
+        // Tanker doubles effective round-trip range
+        int effectiveRange = order.HasTanker ? bomber.MaxFuel : bomber.MaxFuel / 2;
+
         // Build path on first call
         if (order.CurrentPath.Count == 0 || order.PathIndex >= order.CurrentPath.Count)
         {
             order.CurrentPath = Map.FindPath(bomber.Position, order.Destination, bomber);
             order.PathIndex = 1;
-            if (order.CurrentPath.Count == 0)
+            if (order.CurrentPath.Count == 0 || order.CurrentPath.Count > effectiveRange)
                 return (false, false);
         }
 
@@ -1281,18 +1284,39 @@ public class Game
             if (bomber.Position.Equals(order.Destination))
             {
                 var targetTile = Map.GetTile(order.Destination);
+                var liveEscorts = order.Escorts.Where(e => e.Life > 0).ToList();
 
-                // Bomb any enemy units on the tile
+                // Engage enemy units: escorts absorb hits first, then bomber
                 foreach (var defender in targetTile.Units.Where(u => u.OwnerId != bomber.OwnerId).ToList())
                 {
-                    var combatResult = CalculateCombat(bomber, defender, bomber.Position);
-                    PendingCombatReplays.Enqueue(combatResult);
-                    if (defender.Life <= 0)
+                    if (liveEscorts.Count > 0)
                     {
-                        targetTile.Units.Remove(defender);
-                        Players.FirstOrDefault(p => p.PlayerId == defender.OwnerId)?.Units.Remove(defender);
+                        var escort = liveEscorts[0];
+                        var escortResult = CalculateCombat(defender, escort, defender.Position);
+                        PendingCombatReplays.Enqueue(escortResult);
+                        if (escort.Life <= 0)
+                        {
+                            targetTile.Units.Remove(escort);
+                            Players.FirstOrDefault(p => p.PlayerId == escort.OwnerId)?.Units.Remove(escort);
+                            liveEscorts.RemoveAt(0);
+                        }
+                        if (defender.Life <= 0)
+                        {
+                            targetTile.Units.Remove(defender);
+                            Players.FirstOrDefault(p => p.PlayerId == defender.OwnerId)?.Units.Remove(defender);
+                        }
                     }
-                    if (bomber.Life <= 0) break;
+                    else
+                    {
+                        var combatResult = CalculateCombat(bomber, defender, bomber.Position);
+                        PendingCombatReplays.Enqueue(combatResult);
+                        if (defender.Life <= 0)
+                        {
+                            targetTile.Units.Remove(defender);
+                            Players.FirstOrDefault(p => p.PlayerId == defender.OwnerId)?.Units.Remove(defender);
+                        }
+                        if (bomber.Life <= 0) break;
+                    }
                 }
 
                 // Bomb enemy structure on the tile
@@ -1374,6 +1398,19 @@ public class Game
         // Add the new order
         var newOrder = new AutomaticOrder(unit, destination, orderType);
         AutomaticOrdersQueue.Enqueue(newOrder);
+    }
+
+    public void AddAutomaticOrder(AutomaticOrder order)
+    {
+        // Remove any existing automatic orders for this unit
+        var newQueue = new Queue<AutomaticOrder>();
+        foreach (var existing in AutomaticOrdersQueue)
+        {
+            if (existing.Unit.UnitId != order.Unit.UnitId)
+                newQueue.Enqueue(existing);
+        }
+        AutomaticOrdersQueue = newQueue;
+        AutomaticOrdersQueue.Enqueue(order);
     }
     //Combat
     public CombatResult CalculateCombat(Unit attacker, Unit defender, TilePosition attackerOriginalPosition)
