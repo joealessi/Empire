@@ -4841,6 +4841,28 @@ namespace EmpireGame
             RenderMap();
         }
 
+        private bool _civicUpgradesExpanded = false;
+
+        private void CivicUpgradesToggle_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _civicUpgradesExpanded = !_civicUpgradesExpanded;
+            CivicUpgradesToggleIcon.Text = _civicUpgradesExpanded ? "−" : "+";
+
+            var anim = new System.Windows.Media.Animation.DoubleAnimation(
+                _civicUpgradesExpanded ? 0 : 300,
+                _civicUpgradesExpanded ? 300 : 0,
+                TimeSpan.FromMilliseconds(220))
+            {
+                EasingFunction = new System.Windows.Media.Animation.CubicEase
+                {
+                    EasingMode = _civicUpgradesExpanded
+                        ? System.Windows.Media.Animation.EasingMode.EaseOut
+                        : System.Windows.Media.Animation.EasingMode.EaseIn
+                }
+            };
+            CivicUpgradesContainer.BeginAnimation(FrameworkElement.MaxHeightProperty, anim);
+        }
+
         private void UpgIndustry_Click(object sender, RoutedEventArgs e)
         {
             if (selectedStructure != null && CivicUpgrades.BuyIndustry(selectedStructure))
