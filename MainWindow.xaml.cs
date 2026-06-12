@@ -1738,6 +1738,7 @@ namespace EmpireGame
                 if (unit is Bomber)
                 {
                     CircularBombButton.Visibility = Visibility.Visible;
+                    CircularBombButton.IsEnabled = true;
                 }
             }
             else if (unit is Submarine submarine)
@@ -1933,6 +1934,8 @@ namespace EmpireGame
 
             UnitInfoPanel.Visibility = Visibility.Collapsed;
             StructureInfoPanel.Visibility = Visibility.Visible;
+
+            TileTerrainNameText.Text = $"{GetTerrainDisplayName(game.Map.GetTile(structure.Position).Terrain)} ({structure.Position.X}, {structure.Position.Y})";
 
             StructureNameText.Text = structure.GetName();
             if (structure is Base || structure is City || structure is Mine)
@@ -2476,11 +2479,30 @@ namespace EmpireGame
 
         private void BombingRunButton_Click(object sender, RoutedEventArgs e)
         {
+            // Case 1: bomber already on the map (selected unit)
+            if (selectedUnit is Bomber mapBomber)
+            {
+                if (mapBomber.Fuel <= 0)
+                {
+                    MessageDialog.Warn(this, "Bomber has no fuel!", "Bombing Run");
+                    return;
+                }
+
+                isSelectingBomberTarget = true;
+                bomberForMission = mapBomber;
+                MapCanvas.Cursor = Cursors.Cross;
+                BomberMissionPanel.Visibility = Visibility.Visible;
+                BomberRangeText.Text = $"Bomber Range: {mapBomber.MaxFuel / 2} tiles (round trip)";
+                AvailableEscortsList.Items.Clear();
+                AddMessage("🎯 Click a target tile for the bombing run.", MessageType.Info);
+                return;
+            }
+
+            // Case 2: bomber in airport (selected from airport list)
             Bomber? bomber = GetSelectedAircraft() as Bomber;
             if (bomber == null)
                 return;
 
-            // First deploy the bomber to an adjacent tile
             TilePosition adjacentPos = FindAdjacentEmptyTile(selectedStructure.Position);
 
             if (adjacentPos.X == -1)
@@ -2795,6 +2817,7 @@ namespace EmpireGame
 
             // Add Geosynchronous Satellite (no restrictions)
             AddUnit("Geosync Satellite", typeof(GeosynchronousSatellite));
+            AddUnit("ASAT Satellite", typeof(ASATSatellite));
 
             if (baseStructure != null && baseStructure.HasShipyard)
             {
@@ -2829,7 +2852,7 @@ namespace EmpireGame
             Tile tile = game.Map.GetTile(tilePos);
 
             // Display terrain information
-            string terrainName = GetTerrainDisplayName(tile.Terrain);
+            string terrainName = $"{GetTerrainDisplayName(tile.Terrain)} ({tilePos.X}, {tilePos.Y})";
             TileTerrainNameText.Text = terrainName;
 
             // Movement cost for land units (most common reference)
@@ -3024,19 +3047,33 @@ namespace EmpireGame
                 // Check if artillery has already attacked this turn
                 if (unit is Artillery artilleryUnit)
                 {
-                    if (artilleryUnit.HasAttackedThisTurn)
+                    int attackDistance = Math.Abs(unit.Position.X - destination.X) +
+                                         Math.Abs(unit.Position.Y - destination.Y);
+                    if (attackDistance > 1)
+                    {
+                        // Ranged attack: requires full movement points (unit hasn't moved)
+                        if (unit.MovementPoints < unit.MaxMovementPoints)
+                        {
+                            AddMessage("Artillery must not have moved to fire at range!", MessageType.Warning);
+                            return;
+                        }
+                    }
+                    else if (artilleryUnit.HasAttackedThisTurn)
                     {
                         AddMessage("Artillery can only attack once per turn!", MessageType.Warning);
                         return;
                     }
                 }
 
-                // Check if unit has enough movement points to attack
-                movementCost = destinationTile.GetMovementCost(unit);
-                if (unit.MovementPoints < movementCost)
+                // Check if unit has enough movement points to attack (non-artillery or melee)
+                if (unit is not Artillery || Math.Abs(unit.Position.X - destination.X) + Math.Abs(unit.Position.Y - destination.Y) <= 1)
                 {
-                    AddMessage($"Not enough movement points to attack! Need {movementCost}, have {unit.MovementPoints:F1}", MessageType.Warning);
-                    return;
+                    movementCost = destinationTile.GetMovementCost(unit);
+                    if (unit.MovementPoints < movementCost)
+                    {
+                        AddMessage($"Not enough movement points to attack! Need {movementCost}, have {unit.MovementPoints:F1}", MessageType.Warning);
+                        return;
+                    }
                 }
 
                 // COMBAT!
@@ -3052,14 +3089,18 @@ namespace EmpireGame
                 // Calculate combat result
                 CombatResult combatResult = game.CalculateCombat(unit, enemyUnit, originalPosition);
 
-                // Mark artillery as having attacked
+                // Mark artillery as having attacked; drain all movement points for ranged fire
                 if (unit is Artillery artilleryAttacker)
                 {
                     artilleryAttacker.HasAttackedThisTurn = true;
+                    int atkDist = Math.Abs(originalPosition.X - destination.X) +
+                                  Math.Abs(originalPosition.Y - destination.Y);
+                    if (atkDist > 1)
+                        artilleryAttacker.MovementPoints = 0;
                 }
 
                 // Show combat window
-                CombatWindow combatWindow = new CombatWindow(combatResult);
+                CombatWindow combatWindow = new CombatWindow(combatResult, game.Players);
                 combatWindow.Owner = this;
                 bool? result = combatWindow.ShowDialog();
 
@@ -3594,17 +3635,20 @@ namespace EmpireGame
                 return;
             }
 
-            // Set up the bombing run
+            // Set up the bombing run — queue as automatic order so it executes with visuals
             bomberForMission.TargetPosition = targetPos;
             bomberForMission.FlightPath = path;
             bomberForMission.CurrentOrders.Type = OrderType.BombingRun;
 
-            MessageDialog.Show(this, $"Bombing mission set to ({targetPos.X}, {targetPos.Y}).", "Bombing Run", MessageDialog.IconSuccess);
+            game.AddAutomaticOrder(bomberForMission, targetPos, AutomaticOrderType.BombingRun);
+
+            AddMessage($"💣 Bombing run queued to ({targetPos.X}, {targetPos.Y}). Executes on end of turn.", MessageType.Info);
 
             isSelectingBomberTarget = false;
             bomberForMission = null;
             MapCanvas.Cursor = Cursors.Arrow;
             BomberMissionPanel.Visibility = Visibility.Collapsed;
+            RenderMap();
         }
 
         // Button Click Handlers
@@ -3880,12 +3924,20 @@ namespace EmpireGame
                 await ProcessAutomaticOrdersWithVisuals();
             }
 
+            // Animate and process ASAT intercepts
+            while (game.PendingASATKills.Count > 0)
+            {
+                var (asatPos, targetPos, asatOwnerId, targetOwnerId) = game.PendingASATKills.Dequeue();
+                RenderMap();
+                await AnimateASATKill(asatPos, targetPos, asatOwnerId, targetOwnerId);
+            }
+
             // Show combat replays for any AI attacks against the human player
             while (game.PendingCombatReplays.Count > 0)
             {
                 CombatResult pendingCombat = game.PendingCombatReplays.Dequeue();
                 RenderMap();
-                CombatWindow combatWindow = new CombatWindow(pendingCombat);
+                CombatWindow combatWindow = new CombatWindow(pendingCombat, game.Players);
                 combatWindow.Owner = this;
                 combatWindow.ShowDialog();
             }
@@ -4570,6 +4622,20 @@ namespace EmpireGame
             ZoomLevelText.Text = $"{TILE_SIZE}x{TILE_SIZE}";
         }
 
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+#if DEBUG
+            if (e.Key == Key.D && e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+            {
+                DebugConsolePanel.Visibility = Visibility.Visible;
+                DebugCommandInput.Text = string.Empty;
+                DebugResultText.Text = "add <unit> to <x>,<y>  |  Esc to close";
+                DebugCommandInput.Focus();
+                e.Handled = true;
+            }
+#endif
+        }
+
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.OemPlus || e.Key == Key.Add)
@@ -4591,6 +4657,292 @@ namespace EmpireGame
                 RenderMap();
                 AddMessage($"Zoom: {TILE_SIZE}x{TILE_SIZE}", MessageType.Info);
             }
+        }
+
+        private void DebugCommandInput_KeyDown(object sender, KeyEventArgs e)
+        {
+#if DEBUG
+            if (e.Key == Key.Enter)
+            {
+                string result = ExecuteDebugCommand(DebugCommandInput.Text.Trim());
+                DebugResultText.Text = result;
+                DebugCommandInput.Text = string.Empty;
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                DebugConsolePanel.Visibility = Visibility.Collapsed;
+                e.Handled = true;
+            }
+#endif
+        }
+
+#if DEBUG
+        private string ExecuteDebugCommand(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return "No command entered.";
+
+            // Parse: launch satellite <type> from <x>,<y>
+            var satMatch = System.Text.RegularExpressions.Regex.Match(
+                input, @"^launch\s+satellite\s+(\w+)\s+from\s+(\d+)\s*,\s*(\d+)$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (satMatch.Success)
+                return ExecuteDebugLaunchSatellite(satMatch.Groups[1].Value,
+                    int.Parse(satMatch.Groups[2].Value), int.Parse(satMatch.Groups[3].Value));
+
+            // Parse: add <unit> to <x>,<y>
+            var match = System.Text.RegularExpressions.Regex.Match(
+                input, @"^add\s+(\w+)\s+to\s+(\d+)\s*,\s*(\d+)$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (!match.Success)
+                return "❌ Unknown command. Try: add fighter to 4,8  |  launch satellite polar from 4,8";
+
+            string unitName = match.Groups[1].Value;
+            int x = int.Parse(match.Groups[2].Value);
+            int y = int.Parse(match.Groups[3].Value);
+
+            var unitTypeMap = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "army",         typeof(Army) },
+                { "tank",         typeof(Tank) },
+                { "artillery",    typeof(Artillery) },
+                { "antiaircraft", typeof(AntiAircraft) },
+                { "aa",           typeof(AntiAircraft) },
+                { "spy",          typeof(Spy) },
+                { "sapper",       typeof(Sapper) },
+                { "miner",        typeof(Miner) },
+                { "fighter",      typeof(Fighter) },
+                { "bomber",       typeof(Bomber) },
+                { "tanker",       typeof(Tanker) },
+                { "carrier",      typeof(Carrier) },
+                { "battleship",   typeof(Battleship) },
+                { "destroyer",    typeof(Destroyer) },
+                { "submarine",    typeof(Submarine) },
+                { "sub",          typeof(Submarine) },
+                { "patrolboat",   typeof(PatrolBoat) },
+                { "patrol",       typeof(PatrolBoat) },
+                { "transport",    typeof(Transport) },
+                { "asat",         typeof(ASATSatellite) },
+            };
+
+            if (!unitTypeMap.TryGetValue(unitName, out Type unitType))
+                return $"❌ Unknown unit '{unitName}'. Valid: army, tank, artillery, aa, spy, sapper, fighter, bomber, tanker, carrier, battleship, destroyer, sub, patrolboat, transport, asat";
+
+            var pos = new TilePosition(x, y);
+            if (!game.Map.IsValidPosition(pos))
+                return $"❌ ({x},{y}) is out of map bounds.";
+
+            Player human = game.Players[0];
+            Tile tile = game.Map.GetTile(pos);
+
+            // Create unit via Game so it gets a proper ID and upgrades applied
+            var unit = (Unit)Activator.CreateInstance(unitType);
+            unit.UnitId = game.Players.SelectMany(p => p.Units).Max(u => u.UnitId) + 1;
+            unit.Position = pos;
+            unit.OwnerId = human.PlayerId;
+            game.ApplyMilitaryUpgrades(unit, human.PlayerId);
+
+            human.Units.Add(unit);
+
+            Structure structure = tile.Structure;
+            string placement;
+
+            if (structure != null && structure.OwnerId == human.PlayerId)
+            {
+                if (unit is AirUnit airUnit)
+                {
+                    if (structure is Base baseS) { baseS.Airport.Add(airUnit); placement = $"{structure.GetName()} airport"; }
+                    else if (structure is City cityS) { cityS.Airport.Add(airUnit); placement = $"{structure.GetName()} airport"; }
+                    else { tile.Units.Add(unit); placement = "map tile (no airport)"; }
+                }
+                else if (unit is SeaUnit seaUnit)
+                {
+                    if (structure is Base baseS && baseS.HasShipyard) { baseS.Shipyard.Add(seaUnit); placement = $"{structure.GetName()} shipyard"; }
+                    else { tile.Units.Add(unit); placement = "map tile (no shipyard)"; }
+                }
+                else if (unit is Tank || unit is Artillery || unit is AntiAircraft)
+                {
+                    if (structure is Base baseS) { baseS.MotorPool.Add(unit); placement = $"{structure.GetName()} motor pool"; }
+                    else if (structure is City cityS) { cityS.MotorPool.Add(unit); placement = $"{structure.GetName()} motor pool"; }
+                    else { tile.Units.Add(unit); placement = "map tile"; }
+                }
+                else if (unit is LandUnit landUnit)
+                {
+                    if (structure is Base baseS) { baseS.Barracks.Add(landUnit); placement = $"{structure.GetName()} barracks"; }
+                    else if (structure is City cityS) { cityS.Barracks.Add(landUnit); placement = $"{structure.GetName()} barracks"; }
+                    else { tile.Units.Add(unit); placement = "map tile"; }
+                }
+                else { tile.Units.Add(unit); placement = "map tile"; }
+            }
+            else
+            {
+                tile.Units.Add(unit);
+                tile.OwnerId = human.PlayerId;
+                placement = "map tile";
+            }
+
+            human.UpdateVision(game.Map);
+            RenderMap();
+            return $"✅ {unitType.Name} added at ({x},{y}) → {placement}";
+        }
+
+        private string ExecuteDebugLaunchSatellite(string typeName, int x, int y)
+        {
+            var pos = new TilePosition(x, y);
+            if (!game.Map.IsValidPosition(pos))
+                return $"❌ ({x},{y}) is out of map bounds.";
+
+            Tile tile = game.Map.GetTile(pos);
+            if (tile.Structure is not City)
+                return $"❌ ({x},{y}) must be a city to launch a satellite.";
+
+            var orbitMap = new Dictionary<string, OrbitType>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "asat",         OrbitType.Polar },
+                { "polar",        OrbitType.Polar },
+                { "horizontal",   OrbitType.Horizontal },
+                { "vertical",     OrbitType.Vertical },
+                { "rightdiagonal",OrbitType.RightDiagonal },
+                { "right",        OrbitType.RightDiagonal },
+                { "leftdiagonal", OrbitType.LeftDiagonal },
+                { "left",         OrbitType.LeftDiagonal },
+                { "orbiting",     OrbitType.Polar },
+                { "geosync",      OrbitType.Geosynchronous },
+                { "geo",          OrbitType.Geosynchronous },
+            };
+
+            if (!orbitMap.TryGetValue(typeName, out OrbitType orbitType))
+                return $"❌ Unknown satellite type '{typeName}'. Valid: asat, polar, horizontal, vertical, right, left, geosync";
+
+            Player human = game.Players[0];
+            int newId = human.Units.Count > 0 ? human.Units.Max(u => u.UnitId) + 1 : 1;
+
+            if (typeName.Equals("asat", StringComparison.OrdinalIgnoreCase))
+            {
+                var sat = new ASATSatellite { UnitId = newId, OwnerId = human.PlayerId };
+                game.ApplyMilitaryUpgrades(sat, human.PlayerId);
+                var adjacent = game.FindAdjacentEmptyTile(pos);
+                if (adjacent.X == -1) return "❌ No adjacent empty tile found near that city.";
+                sat.Position = adjacent;
+                game.Map.GetTile(adjacent).Units.Add(sat);
+                human.Units.Add(sat);
+                human.UpdateVision(game.Map);
+                RenderMap();
+                return $"✅ ASATSatellite launched from ({x},{y}) → placed at ({adjacent.X},{adjacent.Y})";
+            }
+            else if (orbitType == OrbitType.Geosynchronous)
+            {
+                var sat = new GeosynchronousSatellite { UnitId = newId, OwnerId = human.PlayerId };
+                game.ApplyMilitaryUpgrades(sat, human.PlayerId);
+                // Find adjacent empty tile to place it
+                var adjacent = game.FindAdjacentEmptyTile(pos);
+                if (adjacent.X == -1) return "❌ No adjacent empty tile found near that city.";
+                sat.Position = adjacent;
+                game.Map.GetTile(adjacent).Units.Add(sat);
+                human.Units.Add(sat);
+                human.UpdateVision(game.Map);
+                RenderMap();
+                return $"✅ GeosynchronousSatellite launched from ({x},{y}) → placed at ({adjacent.X},{adjacent.Y})";
+            }
+            else
+            {
+                if (!human.CanDeployOrbitingSatellite(orbitType))
+                    return $"❌ A {orbitType} orbit satellite is already deployed.";
+
+                var sat = new OrbitingSatellite { UnitId = newId, OwnerId = human.PlayerId, Orbit = orbitType };
+                game.ApplyMilitaryUpgrades(sat, human.PlayerId);
+                var adjacent = game.FindAdjacentEmptyTile(pos);
+                if (adjacent.X == -1) return "❌ No adjacent empty tile found near that city.";
+                sat.Position = adjacent;
+                game.Map.GetTile(adjacent).Units.Add(sat);
+                human.Units.Add(sat);
+                human.RegisterOrbitingSatellite(orbitType);
+                human.UpdateVision(game.Map);
+                RenderMap();
+                return $"✅ OrbitingSatellite ({orbitType}) launched from ({x},{y}) → placed at ({adjacent.X},{adjacent.Y})";
+            }
+        }
+
+#endif
+
+        private async Task AnimateASATKill(TilePosition asatPos, TilePosition targetPos, int asatOwnerId, int targetOwnerId)
+        {
+            double ax = asatPos.X * TILE_SIZE + TILE_SIZE / 2.0;
+            double ay = asatPos.Y * TILE_SIZE + TILE_SIZE / 2.0;
+            double tx = targetPos.X * TILE_SIZE + TILE_SIZE / 2.0;
+            double ty = targetPos.Y * TILE_SIZE + TILE_SIZE / 2.0;
+
+            var trail = new System.Windows.Shapes.Line
+            {
+                X1 = ax,
+                Y1 = ay,
+                X2 = tx,
+                Y2 = ty,
+                Stroke = System.Windows.Media.Brushes.White,
+                StrokeThickness = 2,
+                StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 2 },
+                Opacity = 1.0
+            };
+            MapCanvas.Children.Add(trail);
+            await Task.Delay(400);
+
+            var trailFade = new System.Windows.Media.Animation.DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(400));
+            trail.BeginAnimation(UIElement.OpacityProperty, trailFade);
+
+            await ShowSatelliteExplosion(tx, ty, 60, System.Windows.Media.Color.FromRgb(255, 80, 0));
+            await Task.Delay(150);
+            await ShowSatelliteExplosion(ax, ay, 40, System.Windows.Media.Color.FromRgb(255, 220, 0));
+
+            MapCanvas.Children.Remove(trail);
+
+            string attackerName = game.Players.FirstOrDefault(p => p.PlayerId == asatOwnerId)?.Name ?? "Unknown";
+            string targetName = game.Players.FirstOrDefault(p => p.PlayerId == targetOwnerId)?.Name ?? "Unknown";
+            AddMessage($"🛰️💥 {attackerName}'s ASAT destroyed {targetName}'s satellite over ({targetPos.X},{targetPos.Y})! Both annihilated.", MessageType.Warning);
+        }
+
+        private async Task ShowSatelliteExplosion(double cx, double cy, double maxRadius, System.Windows.Media.Color color)
+        {
+            var ring = new System.Windows.Shapes.Ellipse
+            {
+                Width = 8,
+                Height = 8,
+                Stroke = new System.Windows.Media.SolidColorBrush(color),
+                StrokeThickness = 3,
+                Fill = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromArgb(100, color.R, color.G, color.B)),
+                Opacity = 1.0
+            };
+            Canvas.SetLeft(ring, cx - 4);
+            Canvas.SetTop(ring, cy - 4);
+            MapCanvas.Children.Add(ring);
+
+            var tcs = new TaskCompletionSource<bool>();
+            var start = DateTime.UtcNow;
+            const double durationMs = 700;
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(16)
+            };
+            timer.Tick += (s, e) =>
+            {
+                double t = (DateTime.UtcNow - start).TotalMilliseconds / durationMs;
+                if (t >= 1.0)
+                {
+                    timer.Stop();
+                    MapCanvas.Children.Remove(ring);
+                    tcs.TrySetResult(true);
+                    return;
+                }
+                double r = maxRadius * t;
+                ring.Width = r * 2;
+                ring.Height = r * 2;
+                Canvas.SetLeft(ring, cx - r);
+                Canvas.SetTop(ring, cy - r);
+                ring.Opacity = 1.0 - t;
+            };
+            timer.Start();
+            await tcs.Task;
         }
 
         private void ZoomOut()

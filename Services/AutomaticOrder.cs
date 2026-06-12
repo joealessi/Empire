@@ -2,7 +2,8 @@
 {
     None,
     ReturnToBase,
-    Patrol
+    Patrol,
+    BombingRun
 }
 
 public class AutomaticOrder

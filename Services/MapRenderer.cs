@@ -583,9 +583,9 @@ namespace EmpireGame
 
             // Check if this is a satellite (satellites don't have player-specific colors)
             string unitTypeName = unit.GetType().Name;
-            if (unitTypeName == "OrbitingSatellite" || unitTypeName == "GeosynchronousSatellite")
+            if (unitTypeName == "OrbitingSatellite" || unitTypeName == "GeosynchronousSatellite" || unitTypeName == "ASATSatellite")
             {
-                BitmapSource satelliteSprite = unitTypeName == "OrbitingSatellite" ? orbitingSatelliteSprite : geosynchronousSatelliteSprite;
+                BitmapSource satelliteSprite = unitTypeName == "GeosynchronousSatellite" ? geosynchronousSatelliteSprite : orbitingSatelliteSprite;
 
                 if (satelliteSprite != null)
                 {

@@ -86,15 +86,16 @@ public class Player
         foreach (var pos in keysToUpdate)
         {
             if (FogOfWar[pos] == VisibilityLevel.Visible)
-            {
                 FogOfWar[pos] = VisibilityLevel.Explored;
-            }
         }
 
         // Update vision from all units
         foreach (var unit in Units)
         {
-            UpdateVisionFromPosition(map, unit.Position, GetUnitVisionRange(unit));
+            if (unit is OrbitingSatellite || unit is GeosynchronousSatellite)
+                UpdateSatelliteVision(map, unit.Position);
+            else
+                UpdateVisionFromPosition(map, unit.Position, GetUnitVisionRange(unit));
         }
 
         // Update vision from all structures
@@ -102,6 +103,19 @@ public class Player
         {
             UpdateVisionFromPosition(map, structure.Position, structure.VisionRange);
         }
+    }
+
+    // Satellites reveal a 20-tile square centered on their position, ignoring LoS.
+    private void UpdateSatelliteVision(Map map, TilePosition center)
+    {
+        const int half = 10;
+        for (int dx = -half; dx <= half; dx++)
+            for (int dy = -half; dy <= half; dy++)
+            {
+                var pos = new TilePosition(center.X + dx, center.Y + dy);
+                if (map.IsValidPosition(pos))
+                    FogOfWar[pos] = VisibilityLevel.Visible;
+            }
     }
 
     private void UpdateVisionFromPosition(Map map, TilePosition position, int range)

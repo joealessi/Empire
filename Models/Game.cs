@@ -15,6 +15,7 @@ public class Game
     public Queue<(int playerId, Structure structure)> CompletedBases { get; set; }
     public Queue<(int playerId, TilePosition position)> CompletedBridges { get; set; }
     public Queue<CombatResult> PendingCombatReplays { get; set; }
+    public Queue<(TilePosition asatPos, TilePosition targetPos, int asatOwnerId, int targetOwnerId)> PendingASATKills { get; }
 
     public bool HasSurrendered { get; set; }
 
@@ -43,6 +44,7 @@ public class Game
         CompletedBases = new Queue<(int, Structure)>();
         CompletedBridges = new Queue<(int, TilePosition)>();
         PendingCombatReplays = new Queue<CombatResult>();
+        PendingASATKills = new Queue<(TilePosition, TilePosition, int, int)>();
     }
 
     // AI resource-income multiplier from the difficulty setting (1.0 = no advantage).
@@ -128,6 +130,21 @@ public class Game
                 }
             }
         }
+
+        // Move all orbiting and ASAT satellites once per full round
+        foreach (var player in Players)
+        {
+            foreach (var unit in player.Units.ToList())
+            {
+                if (unit is OrbitingSatellite orbitSat && orbitSat.Position.X >= 0)
+                    MoveOrbitingSatellite(orbitSat, player);
+                else if (unit is ASATSatellite asatSat && asatSat.Position.X >= 0)
+                    MoveASATSatellite(asatSat, player);
+            }
+        }
+
+        // Check for ASAT intercepts after all satellite movement
+        CheckASATIntercepts();
     }
 
     private void RemoveDeadUnits(Player player)
@@ -138,9 +155,15 @@ public class Game
         // Remove dead units
         foreach (var unit in unitsToRemove)
         {
+            if (unit is OrbitingSatellite orbitingSatellite)
+                player.UnregisterOrbitingSatellite(orbitingSatellite.Orbit);
+
             // Remove from tile
-            var tile = Map.GetTile(unit.Position);
-            tile.Units.Remove(unit);
+            if (unit.Position.X >= 0 && unit.Position.Y >= 0)
+            {
+                var tile = Map.GetTile(unit.Position);
+                tile.Units.Remove(unit);
+            }
 
             // Remove from player's unit list
             player.Units.Remove(unit);
@@ -179,6 +202,53 @@ public class Game
 
         // Add delay for visual tracking (if needed in MainWindow)
         System.Threading.Thread.Sleep(100);
+    }
+
+    private void MoveASATSatellite(ASATSatellite satellite, Player player)
+    {
+        var currentTile = Map.GetTile(satellite.Position);
+        currentTile.Units.Remove(satellite);
+        var nextPos = satellite.GetNextOrbitPosition(Map);
+        satellite.Position = nextPos;
+        Map.GetTile(nextPos).Units.Add(satellite);
+        player.UpdateVision(Map);
+    }
+
+    private void CheckASATIntercepts()
+    {
+        var kills = new List<(ASATSatellite asat, Unit target)>();
+
+        foreach (var attackerPlayer in Players)
+        {
+            foreach (var asat in attackerPlayer.Units.OfType<ASATSatellite>().Where(s => s.Position.X >= 0).ToList())
+            {
+                if (asat.Life <= 0) continue;
+                foreach (var targetPlayer in Players)
+                {
+                    if (targetPlayer.PlayerId == attackerPlayer.PlayerId) continue;
+                    foreach (var enemySat in targetPlayer.Units.Where(u => u is Satellite && u.Position.X >= 0).ToList())
+                    {
+                        if (enemySat.Life <= 0) continue;
+                        int dist = Math.Abs(asat.Position.X - enemySat.Position.X) +
+                                   Math.Abs(asat.Position.Y - enemySat.Position.Y);
+                        if (dist <= ASATSatellite.InterceptRange)
+                        {
+                            kills.Add((asat, enemySat));
+                            asat.Life = 0;
+                            enemySat.Life = 0;
+                            break;
+                        }
+                    }
+                    if (asat.Life <= 0) break;
+                }
+            }
+        }
+
+        foreach (var (asat, target) in kills)
+            PendingASATKills.Enqueue((asat.Position, target.Position, asat.OwnerId, target.OwnerId));
+
+        foreach (var player in Players)
+            RemoveDeadUnits(player);
     }
 
     private void CheckSentryUnits(Player player)
@@ -227,6 +297,7 @@ public class Game
             Spy => 3,
             Army => 1,
             OrbitingSatellite orbitSat => orbitSat.VisionRadius,
+            ASATSatellite asat => asat.VisionRadius,
             GeosynchronousSatellite geoSat => geoSat.VisionRadius,
             _ => 2
         };
@@ -463,6 +534,10 @@ public class Game
                 // Set to invalid position so it's not rendered yet
                 geosyncSat.Position = new TilePosition(-1, -1);
             }
+            else if (unit is ASATSatellite)
+            {
+                ProductionMessages.Enqueue($"🛰️ ASAT Satellite launched into polar orbit!");
+            }
 
             // Place unit in appropriate storage (check capacity)
             bool placed = false;
@@ -476,6 +551,16 @@ public class Game
                     orbitingSat.Position = adjacentPos;
                     var tile = Map.GetTile(adjacentPos);
                     tile.Units.Add(orbitingSat);
+                    placed = true;
+                }
+            }
+            else if (unit is ASATSatellite asatNew)
+            {
+                var adjacentPos = FindAdjacentEmptyTile(baseStructure.Position);
+                if (adjacentPos.X != -1)
+                {
+                    asatNew.Position = adjacentPos;
+                    Map.GetTile(adjacentPos).Units.Add(asatNew);
                     placed = true;
                 }
             }
@@ -518,7 +603,7 @@ public class Game
             }
 
             // Mark storage units as off-map so they can't be accidentally moved
-            if (placed && !(unit is OrbitingSatellite))
+            if (placed && !(unit is OrbitingSatellite) && !(unit is ASATSatellite))
                 unit.Position = new TilePosition(-1, -1);
 
             // If couldn't place in storage, put on adjacent tile
@@ -582,6 +667,10 @@ public class Game
                 // Set to invalid position so it's not rendered yet
                 geosyncSat.Position = new TilePosition(-1, -1);
             }
+            else if (unit is ASATSatellite)
+            {
+                ProductionMessages.Enqueue($"🛰️ ASAT Satellite launched into polar orbit!");
+            }
 
             // Place unit in appropriate storage (check capacity)
             bool placed = false;
@@ -595,6 +684,16 @@ public class Game
                     orbitingSat.Position = adjacentPos;
                     var tile = Map.GetTile(adjacentPos);
                     tile.Units.Add(orbitingSat);
+                    placed = true;
+                }
+            }
+            else if (unit is ASATSatellite asatNew)
+            {
+                var adjacentPos = FindAdjacentEmptyTile(city.Position);
+                if (adjacentPos.X != -1)
+                {
+                    asatNew.Position = adjacentPos;
+                    Map.GetTile(adjacentPos).Units.Add(asatNew);
                     placed = true;
                 }
             }
@@ -629,7 +728,7 @@ public class Game
             }
 
             // Mark storage units as off-map so they can't be accidentally moved
-            if (placed && !(unit is OrbitingSatellite))
+            if (placed && !(unit is OrbitingSatellite) && !(unit is ASATSatellite))
                 unit.Position = new TilePosition(-1, -1);
 
             // If couldn't place in storage, put on adjacent tile
@@ -805,6 +904,12 @@ public class Game
         if (order.OrderType == AutomaticOrderType.Patrol)
         {
             return await ProcessPatrolOrder(order, owner, updateVisionCallback, renderCallback);
+        }
+
+        // Handle bombing run orders
+        if (order.OrderType == AutomaticOrderType.BombingRun)
+        {
+            return await ProcessBombingRunOrder(order, owner, updateVisionCallback, renderCallback);
         }
 
         // Regular movement orders (ReturnToBase, etc.)
@@ -1137,6 +1242,87 @@ public class Game
         }
 
         return false;
+    }
+
+    private async Task<(bool shouldContinue, bool enemySpotted)> ProcessBombingRunOrder(
+        AutomaticOrder order, Player owner, Action<Unit> updateVisionCallback, Func<Task> renderCallback)
+    {
+        if (!(order.Unit is Bomber bomber))
+            return (false, false);
+
+        // Build path on first call
+        if (order.CurrentPath.Count == 0 || order.PathIndex >= order.CurrentPath.Count)
+        {
+            order.CurrentPath = Map.FindPath(bomber.Position, order.Destination, bomber);
+            order.PathIndex = 1;
+            if (order.CurrentPath.Count == 0)
+                return (false, false);
+        }
+
+        // Move toward target, consuming movement points
+        while (order.PathIndex < order.CurrentPath.Count && bomber.MovementPoints >= 0.5)
+        {
+            var nextPos = order.CurrentPath[order.PathIndex];
+            var nextTile = Map.GetTile(nextPos);
+            double cost = nextTile.GetMovementCost(bomber);
+
+            if (cost > bomber.MovementPoints) break;
+
+            Map.GetTile(bomber.Position).Units.Remove(bomber);
+            bomber.Position = nextPos;
+            nextTile.Units.Add(bomber);
+            bomber.MovementPoints -= cost;
+            order.PathIndex++;
+
+            updateVisionCallback?.Invoke(bomber);
+            if (renderCallback != null) await renderCallback();
+
+            // If we've reached the target — bomb it
+            if (bomber.Position.Equals(order.Destination))
+            {
+                var targetTile = Map.GetTile(order.Destination);
+
+                // Bomb any enemy units on the tile
+                foreach (var defender in targetTile.Units.Where(u => u.OwnerId != bomber.OwnerId).ToList())
+                {
+                    var combatResult = CalculateCombat(bomber, defender, bomber.Position);
+                    PendingCombatReplays.Enqueue(combatResult);
+                    if (defender.Life <= 0)
+                    {
+                        targetTile.Units.Remove(defender);
+                        Players.FirstOrDefault(p => p.PlayerId == defender.OwnerId)?.Units.Remove(defender);
+                    }
+                    if (bomber.Life <= 0) break;
+                }
+
+                // Bomb enemy structure on the tile
+                if (bomber.Life > 0 && targetTile.Structure != null && targetTile.Structure.OwnerId != bomber.OwnerId)
+                {
+                    var structResult = AttackStructure(bomber, targetTile.Structure);
+                    PendingCombatReplays.Enqueue(structResult);
+                    ProductionMessages.Enqueue(structResult.StructureDestroyed
+                        ? $"💥 Bombing run destroyed a structure at ({order.Destination.X},{order.Destination.Y})!"
+                        : $"💣 Bombing run hit structure at ({order.Destination.X},{order.Destination.Y})! Life: {targetTile.Structure.Life}/{targetTile.Structure.MaxLife}");
+                }
+
+                bomber.CurrentOrders.Type = OrderType.None;
+
+                // Queue RTB to nearest friendly base/city
+                if (bomber.Life > 0)
+                {
+                    var homeBase = owner.Structures
+                        .Where(s => s is Base || s is City)
+                        .OrderBy(s => Math.Abs(s.Position.X - bomber.Position.X) + Math.Abs(s.Position.Y - bomber.Position.Y))
+                        .FirstOrDefault();
+                    if (homeBase != null)
+                        AddAutomaticOrder(bomber, homeBase.Position, AutomaticOrderType.ReturnToBase);
+                }
+
+                return (false, false);
+            }
+        }
+
+        return (order.PathIndex < order.CurrentPath.Count, false);
     }
 
     private void HandleAircraftLanding(Unit unit)

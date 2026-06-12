@@ -85,16 +85,6 @@ namespace Empire.Properties {
         /// <summary>
         ///   Looks up a localized resource of type BitmapImage.
         /// </summary>
-        internal static BitmapImage gold_32 {
-            get {
-                object obj = ResourceManager.GetObject("gold_32", resourceCulture);
-                return ((BitmapImage)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type BitmapImage.
-        /// </summary>
         internal static BitmapImage oil_16 {
             get {
                 object obj = ResourceManager.GetObject("oil_16", resourceCulture);
@@ -105,29 +95,9 @@ namespace Empire.Properties {
         /// <summary>
         ///   Looks up a localized resource of type BitmapImage.
         /// </summary>
-        internal static BitmapImage oil_32 {
-            get {
-                object obj = ResourceManager.GetObject("oil_32", resourceCulture);
-                return ((BitmapImage)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type BitmapImage.
-        /// </summary>
         internal static BitmapImage steel_16 {
             get {
                 object obj = ResourceManager.GetObject("steel_16", resourceCulture);
-                return ((BitmapImage)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type BitmapImage.
-        /// </summary>
-        internal static BitmapImage steel_32 {
-            get {
-                object obj = ResourceManager.GetObject("steel_32", resourceCulture);
                 return ((BitmapImage)(obj));
             }
         }

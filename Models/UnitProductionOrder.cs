@@ -57,6 +57,7 @@ public class UnitProductionOrder
             { typeof(Battleship),              C(9, 5, 3) },
             { typeof(Transport),               C(3, 1, 2) },
             { typeof(OrbitingSatellite),       Price((ResourceType.Gold,5),(ResourceType.Steel,2),(ResourceType.Oil,1),(ResourceType.Uranium,1)) },
+            { typeof(ASATSatellite),           Price((ResourceType.Gold,8),(ResourceType.Steel,4),(ResourceType.Oil,2),(ResourceType.Uranium,2)) },
             { typeof(GeosynchronousSatellite), Price((ResourceType.Gold,9),(ResourceType.Steel,5),(ResourceType.Oil,3),(ResourceType.Uranium,1)) },
         };
 

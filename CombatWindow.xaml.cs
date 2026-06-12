@@ -15,6 +15,7 @@ namespace EmpireGame
     public partial class CombatWindow : Window
     {
         private CombatResult combatResult;
+        private List<Player> players;
         private int currentRoundIndex = 0;
         private bool skipAnimation = false;
         private bool allowEscape = true;
@@ -38,10 +39,11 @@ namespace EmpireGame
             Color.FromRgb(255, 180, 200)     // Player 7 - Pink
         };
 
-        public CombatWindow(CombatResult result)
+        public CombatWindow(CombatResult result, List<Player> players)
         {
             InitializeComponent();
             combatResult = result;
+            this.players = players;
             AttackerRetreated = false;
 
             // Reset units to their initial life values for display
@@ -108,10 +110,10 @@ namespace EmpireGame
 
         private string GetPlayerName(int playerId)
         {
-            string[] playerNames = { "Blue", "Red", "Green", "Yellow", "Orange", "Purple", "Cyan", "Pink" };
-            if (playerId >= 0 && playerId < playerNames.Length)
-                return playerNames[playerId];
-            return $"Player {playerId + 1}";
+            var player = players?.FirstOrDefault(p => p.PlayerId == playerId);
+            if (player != null) return player.Name;
+            string[] fallback = { "Blue", "Red", "Green", "Yellow", "Orange", "Purple", "Cyan", "Pink" };
+            return playerId >= 0 && playerId < fallback.Length ? fallback[playerId] : $"Player {playerId + 1}";
         }
 
         private Color GetPlayerColor(int playerId)

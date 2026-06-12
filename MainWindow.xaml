@@ -1,11 +1,13 @@
-﻿<Window x:Class="EmpireGame.MainWindow"
+<Window x:Class="EmpireGame.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:EmpireGame"
         Title="Empire Game" Height="900" Width="1600"
         WindowState="Maximized"
         FontFamily="Segoe UI"
-        Background="{StaticResource BgBrush}">
+        Background="{StaticResource BgBrush}"
+        KeyDown="Window_KeyDown"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
         <local:MessageTypeToColorConverter x:Key="MessageTypeToColorConverter"/>
@@ -976,5 +978,22 @@
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+        <!-- DEBUG CONSOLE OVERLAY (Esc Esc C after clicking message log) -->
+        <Border x:Name="DebugConsolePanel" Grid.ColumnSpan="4"
+                VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
+                Background="#DD111111" BorderBrush="#8800FF80" BorderThickness="0,1,0,0"
+                Padding="10,8" Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="🐛 DEBUG ›" Foreground="#00FF80" FontFamily="Consolas" FontSize="14"
+                           FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox x:Name="DebugCommandInput" Width="500" Background="#1A1A1A" Foreground="#00FF80"
+                         CaretBrush="#00FF80" BorderBrush="#00FF80" BorderThickness="1"
+                         FontFamily="Consolas" FontSize="14" Padding="4,2"
+                         KeyDown="DebugCommandInput_KeyDown"/>
+                <TextBlock x:Name="DebugResultText" Foreground="#FFD700" FontFamily="Consolas" FontSize="13"
+                           Margin="14,0,0,0" VerticalAlignment="Center" TextWrapping="NoWrap"/>
+            </StackPanel>
+        </Border>
+
     </Grid>
 </Window>
