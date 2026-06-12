@@ -3991,6 +3991,7 @@ namespace EmpireGame
             while (game.PendingCombatReplays.Count > 0)
             {
                 CombatResult pendingCombat = game.PendingCombatReplays.Dequeue();
+                if (pendingCombat.Defender == null) continue; // structure-only hit, no unit to animate
                 RenderMap();
                 CombatWindow combatWindow = new CombatWindow(pendingCombat, game.Players);
                 combatWindow.Owner = this;

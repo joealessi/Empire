@@ -48,20 +48,30 @@ namespace EmpireGame
 
             // Reset units to their initial life values for display
             combatResult.Attacker.Life = combatResult.AttackerInitialLife;
-            combatResult.Defender.Life = combatResult.DefenderInitialLife;
+            if (combatResult.Defender != null)
+                combatResult.Defender.Life = combatResult.DefenderInitialLife;
 
             // Load unit icons
             LoadUnitIcon(AttackerIcon, combatResult.Attacker);
-            LoadUnitIcon(DefenderIcon, combatResult.Defender);
+            if (combatResult.Defender != null)
+                LoadUnitIcon(DefenderIcon, combatResult.Defender);
 
             // Set up initial display with player identification
             AttackerName.Text = $"{GetPlayerName(combatResult.Attacker.OwnerId)} {combatResult.Attacker.GetName()}";
-            DefenderName.Text = $"{GetPlayerName(combatResult.Defender.OwnerId)} {combatResult.Defender.GetName()}";
-    
-            // Color code the names by player
+            if (combatResult.Defender != null)
+            {
+                DefenderName.Text = $"{GetPlayerName(combatResult.Defender.OwnerId)} {combatResult.Defender.GetName()}";
+                DefenderName.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Defender.OwnerId));
+            }
+            else if (combatResult.DefendingStructure != null)
+            {
+                DefenderName.Text = $"{GetPlayerName(combatResult.DefendingStructure.OwnerId)} {combatResult.DefendingStructure.GetType().Name}";
+                DefenderName.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.DefendingStructure.OwnerId));
+            }
+
+            // Color code attacker name
             AttackerName.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Attacker.OwnerId));
-            DefenderName.Foreground = new SolidColorBrush(GetPlayerColor(combatResult.Defender.OwnerId));
-    
+
             UpdateLifeDisplay(false); // Initial display without animation
 
             // Start combat animation
