@@ -744,122 +744,171 @@
                 <StackPanel Orientation="Vertical" Margin="0,20,0,0">
                     <!-- Next Unit Button -->
                     <Button x:Name="NextUnitButton" Content="Next Unit (Space)" Height="40" Margin="0,0,0,10"
-            Click="NextUnitButton_Click" Style="{StaticResource AccentButton}"/>
+                            Click="NextUnitButton_Click" Style="{StaticResource AccentButton}"/>
 
-                    <!-- New Game Button (shown at game over) -->
-                    <Button x:Name="NewGameButton" Content="▶  New Game" Height="40" Margin="0,0,0,10"
-                            Visibility="Collapsed" Click="NewGameButton_Click"
-                            Background="{StaticResource SuccessBrush}" Foreground="White"
-                            BorderBrush="{StaticResource SuccessBrush}" FontWeight="Bold" FontSize="14"/>
+                    <!-- Circular Game Controls Cluster -->
+                    <Canvas Width="200" Height="200" HorizontalAlignment="Center" Margin="0,6,0,0">
 
-                    <!-- Spacer to push buttons to bottom -->
-                    <Border Height="20"/>
-
-                    <!-- Toggle Supply Lines (smaller round button) -->
-                    <Button x:Name="ToggleSupplyLinesButton" Width="48" Height="48" HorizontalAlignment="Center"
-                            Click="ToggleSupplyLinesButton_Click" Background="Transparent" BorderBrush="Transparent"
-                            ToolTip="Show/Hide Supply Lines" Margin="0,0,0,8">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Grid>
-                                    <Ellipse x:Name="Bg" Fill="#2a3a5a" Stroke="#3d5b7b" StrokeThickness="2">
-                                        <Ellipse.Effect>
-                                            <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
-                                        </Ellipse.Effect>
-                                    </Ellipse>
-                                    <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
-                                    <TextBlock Text="🔗" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Highlight" Property="Fill" Value="White"/>
-                                        <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-
-                    <!-- End Turn and Surrender Buttons - Side by Side at Bottom -->
-                    <Grid HorizontalAlignment="Center" Margin="0,20,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="20"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- End Turn Button - Circular with Icon -->
-                        <Button Grid.Column="0" x:Name="EndTurnButton" Width="80" Height="80" 
-                Click="EndTurnButton_Click" Background="Transparent" BorderBrush="Transparent">
+                        <!-- 12 o'clock: New Game (hidden until game over) -->
+                        <Button x:Name="NewGameButton" Width="44" Height="44"
+                                Canvas.Left="78" Canvas.Top="5"
+                                Click="NewGameButton_Click" ToolTip="New Game"
+                                Visibility="Collapsed" Background="Transparent" BorderBrush="Transparent">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Grid>
-                                        <Ellipse Fill="#2a4a2a" Stroke="#3d6b3d" StrokeThickness="3">
-                                            <Ellipse.Effect>
-                                                <DropShadowEffect Color="Black" Direction="320" ShadowDepth="3" Opacity="0.5"/>
-                                            </Ellipse.Effect>
-                                        </Ellipse>
-                                        <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
-                                        <Image x:Name="EndTurnImage" Width="40" Height="40" 
-                               Source="/Resources/fast-forward.png" 
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Ellipse x:Name="Bg" Fill="#1a4a1a" Stroke="#2fb85b" StrokeThickness="2">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                                <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                <TextBlock Text="▶" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#2fb85b"/>
                                     </Grid>
                                     <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Highlight" Property="Fill" Value="White"/>
-                                            <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="Highlight" Property="Fill" Value="White"/>
-                                            <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
-                                        </Trigger>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter Property="Opacity" Value="0.5"/>
-                                        </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
 
-                        <!-- Surrender Button - Circular with Icon -->
-                        <Button Grid.Column="2" x:Name="SurrenderButton" Width="80" Height="80" 
-                Click="SurrenderButton_Click" Background="Transparent" BorderBrush="Transparent">
+                        <!-- 3 o'clock: Toggle Supply Lines -->
+                        <Button x:Name="ToggleSupplyLinesButton" Width="44" Height="44"
+                                Canvas.Left="151" Canvas.Top="78"
+                                Click="ToggleSupplyLinesButton_Click" ToolTip="Show/Hide Supply Lines"
+                                Background="Transparent" BorderBrush="Transparent">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Grid>
-                                        <Ellipse Fill="#4a1a1a" Stroke="#6b2a2a" StrokeThickness="3">
-                                            <Ellipse.Effect>
-                                                <DropShadowEffect Color="Black" Direction="320" ShadowDepth="3" Opacity="0.5"/>
-                                            </Ellipse.Effect>
-                                        </Ellipse>
-                                        <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
-                                        <Image Width="40" Height="40" 
-                               Source="/Resources/white-flag.png" 
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Ellipse x:Name="Bg" Fill="#2a3a5a" Stroke="#3d5b7b" StrokeThickness="2">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                                <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                <TextBlock Text="🔗" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Highlight" Property="Fill" Value="White"/>
-                                            <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="Highlight" Property="Fill" Value="White"/>
-                                            <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
-                                        </Trigger>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter Property="Opacity" Value="0.5"/>
-                                        </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                    </Grid>
 
-                    <!-- Exit Game Button - always visible -->
-                    <Button x:Name="ExitGameButton" Content="Exit Game" Height="36"
-                            Margin="0,14,0,0" Click="ExitGameButton_Click"
-                            Background="{StaticResource SurfaceAltBrush}" Foreground="{StaticResource TextMutedBrush}"
-                            BorderBrush="{StaticResource BorderBrush}" FontSize="12"/>
+                        <!-- 6 o'clock: Surrender -->
+                        <Button x:Name="SurrenderButton" Width="44" Height="44"
+                                Canvas.Left="78" Canvas.Top="151"
+                                Click="SurrenderButton_Click" ToolTip="Surrender"
+                                Background="Transparent" BorderBrush="Transparent">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Grid>
+                                <Ellipse x:Name="Bg" Fill="#4a1a1a" Stroke="#6b2a2a" StrokeThickness="2">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                                <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                <Image Source="/Resources/white-flag.png" Width="26" Height="26"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4"/>
+                                </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- 9 o'clock: Exit Game -->
+                        <Button x:Name="ExitGameButton" Width="44" Height="44"
+                                Canvas.Left="5" Canvas.Top="78"
+                                Click="ExitGameButton_Click" ToolTip="Exit Game"
+                                Background="Transparent" BorderBrush="Transparent">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Grid>
+                                <Ellipse x:Name="Bg" Fill="#2a2a2a" Stroke="#4a4a4a" StrokeThickness="2">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect Color="Black" Direction="320" ShadowDepth="2" Opacity="0.4"/>
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                                <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                <TextBlock Text="✖" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#93A1B5"/>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Center: End Turn -->
+                        <Button x:Name="EndTurnButton" Width="80" Height="80"
+                                Canvas.Left="60" Canvas.Top="60"
+                                Click="EndTurnButton_Click"
+                                Background="Transparent" BorderBrush="Transparent">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Grid>
+                                <Ellipse x:Name="Bg" Fill="#2a4a2a" Stroke="#3d6b3d" StrokeThickness="3">
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect Color="Black" Direction="320" ShadowDepth="3" Opacity="0.5"/>
+                                    </Ellipse.Effect>
+                                </Ellipse>
+                                <Ellipse x:Name="Highlight" Fill="Transparent" Opacity="0"/>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.2"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Highlight" Property="Fill" Value="White"/>
+                                    <Setter TargetName="Highlight" Property="Opacity" Value="0.4"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Image x:Name="endTurnImage" Width="40" Height="40"
+                                   Source="/Resources/fast-forward.png"/>
+                        </Button>
+
+                    </Canvas>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

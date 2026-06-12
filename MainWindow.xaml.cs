@@ -32,8 +32,6 @@ namespace EmpireGame
 
         private const int MAX_UNITS_PER_TILE = 3;
 
-        private Image endTurnImage;
-
         private MessageLog messageLog;
 
         private bool isSelectingPatrolWaypoints;
@@ -4335,7 +4333,6 @@ namespace EmpireGame
             EndTurnButton.IsEnabled = false;
             NextUnitButton.IsEnabled = false;
             SurrenderButton.IsEnabled = false;
-            SurrenderButton.Opacity = 0.5;
 
             // Clear selection
             ClearSelection();
@@ -4362,7 +4359,6 @@ namespace EmpireGame
             EndTurnButton.IsEnabled = true;
             NextUnitButton.IsEnabled = true;
             SurrenderButton.IsEnabled = true;
-            SurrenderButton.Opacity = 1.0;
 
             // Hide New Game button
             if (NewGameButton != null)
