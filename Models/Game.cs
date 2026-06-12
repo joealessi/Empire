@@ -1285,6 +1285,9 @@ public class Game
             {
                 var targetTile = Map.GetTile(order.Destination);
                 var liveEscorts = order.Escorts.Where(e => e.Life > 0).ToList();
+                string targetCoords = $"({order.Destination.X},{order.Destination.Y})";
+
+                ProductionMessages.Enqueue($"📻 {EmpireGame.Services.Chatter.BombingRunOnTarget(targetCoords)}");
 
                 // Engage enemy units: escorts absorb hits first, then bomber
                 foreach (var defender in targetTile.Units.Where(u => u.OwnerId != bomber.OwnerId).ToList())
@@ -1292,10 +1295,12 @@ public class Game
                     if (liveEscorts.Count > 0)
                     {
                         var escort = liveEscorts[0];
+                        ProductionMessages.Enqueue($"🛡 {EmpireGame.Services.Chatter.EscortShielding(escort.GetName())}");
                         var escortResult = CalculateCombat(defender, escort, defender.Position);
                         PendingCombatReplays.Enqueue(escortResult);
                         if (escort.Life <= 0)
                         {
+                            ProductionMessages.Enqueue($"💀 {EmpireGame.Services.Chatter.EscortDown(escort.GetName())}");
                             targetTile.Units.Remove(escort);
                             Players.FirstOrDefault(p => p.PlayerId == escort.OwnerId)?.Units.Remove(escort);
                             liveEscorts.RemoveAt(0);
@@ -1325,8 +1330,8 @@ public class Game
                     var structResult = AttackStructure(bomber, targetTile.Structure);
                     PendingCombatReplays.Enqueue(structResult);
                     ProductionMessages.Enqueue(structResult.StructureDestroyed
-                        ? $"💥 Bombing run destroyed a structure at ({order.Destination.X},{order.Destination.Y})!"
-                        : $"💣 Bombing run hit structure at ({order.Destination.X},{order.Destination.Y})! Life: {targetTile.Structure.Life}/{targetTile.Structure.MaxLife}");
+                        ? $"💥 {EmpireGame.Services.Chatter.StructureDestroyed(targetTile.Structure.GetType().Name)}"
+                        : $"💣 {EmpireGame.Services.Chatter.BombingRunOnTarget(targetCoords)} Structure at {targetCoords}: {targetTile.Structure.Life}/{targetTile.Structure.MaxLife} HP");
                 }
 
                 bomber.CurrentOrders.Type = OrderType.None;
@@ -1338,7 +1343,10 @@ public class Game
                     .FirstOrDefault();
 
                 if (bomber.Life > 0 && homeBase != null)
+                {
+                    ProductionMessages.Enqueue($"📻 {EmpireGame.Services.Chatter.BombingRunRTB()}");
                     AddAutomaticOrder(bomber, homeBase.Position, AutomaticOrderType.ReturnToBase);
+                }
 
                 // Return surviving escorts and tanker to the nearest friendly base tile
                 if (homeBase != null)

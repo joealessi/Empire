@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using EmpireGame.Services;
 
 namespace EmpireGame
 {
@@ -3632,7 +3633,7 @@ namespace EmpireGame
             geosyncToPlace.Position = tilePos;
             tile.Units.Add(geosyncToPlace);
 
-            AddMessage($"🛰️ Geosynchronous Satellite deployed at ({tilePos.X}, {tilePos.Y})!", MessageType.Success);
+            AddMessage($"🛰️ {Chatter.SatelliteLaunched("Geosynchronous Satellite")}", MessageType.Success);
 
             // Clear selection state
             isSelectingGeosyncLocation = false;
@@ -3871,7 +3872,9 @@ namespace EmpireGame
 
             string escortInfo = order.Escorts.Count > 0 ? $" with {order.Escorts.Count} escort(s)" : "";
             string tankerInfo = order.HasTanker ? " + tanker" : "";
-            AddMessage($"💣 Bombing run queued to ({targetPos.X},{targetPos.Y}){escortInfo}{tankerInfo}. Executes on end of turn.", MessageType.Info);
+            AddMessage($"💣 {Chatter.BombingRunQueued($"({targetPos.X},{targetPos.Y})")}", MessageType.Info);
+            if (order.Escorts.Count > 0)
+                AddMessage($"✈ {Chatter.EscortJoining(order.Escorts.Count)}", MessageType.Info);
 
             ClearReticle();
             isSelectingBomberTarget = false;
@@ -3930,7 +3933,7 @@ namespace EmpireGame
             }
 
             bomber.CurrentOrders.Type = OrderType.None;
-            AddMessage($"💣 Bombing run cancelled. Escorts returned.", MessageType.Info);
+            AddMessage($"📻 {Chatter.BombingRunCancelled()}", MessageType.Warning);
 
             SelectUnit(bomber);
             RenderMap();
@@ -4996,6 +4999,7 @@ namespace EmpireGame
                 human.RegisterOrbitingSatellite(orbitType);
                 human.UpdateVision(game.Map);
                 RenderMap();
+                AddMessage($"🛰️ {Chatter.SatelliteLaunched($"{orbitType} Satellite")}", MessageType.Success);
                 return $"✅ OrbitingSatellite ({orbitType}) launched from ({x},{y}) → placed at ({adjacent.X},{adjacent.Y})";
             }
         }
@@ -5034,7 +5038,8 @@ namespace EmpireGame
 
             string attackerName = game.Players.FirstOrDefault(p => p.PlayerId == asatOwnerId)?.Name ?? "Unknown";
             string targetName = game.Players.FirstOrDefault(p => p.PlayerId == targetOwnerId)?.Name ?? "Unknown";
-            AddMessage($"🛰️💥 {attackerName}'s ASAT destroyed {targetName}'s satellite over ({targetPos.X},{targetPos.Y})! Both annihilated.", MessageType.Warning);
+            AddMessage($"🛰️ {Chatter.AsatEngaging()}", MessageType.Warning);
+            AddMessage($"💥 {Chatter.AsatKill()} [{attackerName} vs {targetName} over ({targetPos.X},{targetPos.Y})]", MessageType.Warning);
         }
 
         private async Task ShowSatelliteExplosion(double cx, double cy, double maxRadius, System.Windows.Media.Color color)
