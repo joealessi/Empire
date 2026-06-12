@@ -18,7 +18,7 @@ public class ResourceDefinition
     public string DisplayName { get; }
     public bool IsMineable { get; }   // appears on tiles and can be mined
     public int MineHp { get; }        // HP of a mine built on this resource (mineable only)
-    public int YieldPerTurn { get; }  // amount produced per connected mine / owned tile
+    public double YieldPerTurn { get; }  // amount produced per connected mine / owned tile
     public string IconPath { get; }   // pack-relative image path, e.g. "/Resources/oil_16.png"
     public string ColorHex { get; }   // HUD text color
     public string Symbol { get; }     // short glyph for cost strings, e.g. "🛢️"
@@ -26,7 +26,7 @@ public class ResourceDefinition
     public IReadOnlyList<TerrainType> AllowedTerrain { get; } // where it may spawn
 
     public ResourceDefinition(ResourceType type, string displayName, bool isMineable,
-                              int mineHp, int yieldPerTurn, string iconPath, string colorHex, string symbol,
+                              int mineHp, double yieldPerTurn, string iconPath, string colorHex, string symbol,
                               ResourceScarcity scarcity, IReadOnlyList<TerrainType> allowedTerrain)
     {
         Type = type;
@@ -54,6 +54,8 @@ public static class ResourceRegistry
             scarcity: ResourceScarcity.Common, allowedTerrain: new[] { TerrainType.Hills, TerrainType.Mountain }),
         new ResourceDefinition(ResourceType.Oil,   "Oil",   isMineable: true,  mineHp: 3, yieldPerTurn: 1, "/Resources/oil_16.png",   "#FFA500", "🛢️",
             scarcity: ResourceScarcity.Common, allowedTerrain: new[] { TerrainType.Land, TerrainType.Plains, TerrainType.Forest, TerrainType.Hills, TerrainType.Mountain }),
+        new ResourceDefinition(ResourceType.Uranium, "Uranium", isMineable: true, mineHp: 5, yieldPerTurn: 0.25, "/Resources/uranium_16.png", "#A0FF40", "☢️",
+            scarcity: ResourceScarcity.Rare, allowedTerrain: new[] { TerrainType.Mountain, TerrainType.Hills }),
     };
 
     // Base number of tiles for a 50x50 map; placement scales this by map dimension.

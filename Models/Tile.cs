@@ -3,7 +3,8 @@
     None,
     Gold,
     Oil,
-    Steel
+    Steel,
+    Uranium
 }
 
 public class Tile

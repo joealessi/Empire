@@ -20,6 +20,10 @@ namespace EmpireGame
         // Resource icon bitmaps
         private BitmapSource oilIcon;
         private BitmapSource steelIcon;
+        private BitmapSource uraniumIcon;
+
+        // Set each render frame from the viewing player's tech state
+        private bool _viewerHasHighTech;
 
         // Unit sprite dictionaries (not player-specific)
         private Dictionary<string, BitmapSource> unitSprites = new Dictionary<string, BitmapSource>();
@@ -103,6 +107,7 @@ namespace EmpireGame
             {
                 oilIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/oil_16.png"));
                 steelIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/steel_16.png"));
+                uraniumIcon = new BitmapImage(new Uri("pack://application:,,,/Resources/uranium_16.png"));
             }
             catch (Exception ex)
             {
@@ -269,6 +274,7 @@ namespace EmpireGame
         {
             this.selectedUnit = selectedUnit;
             this.selectedStructure = selectedStructure;
+            _viewerHasHighTech = currentPlayer.HasHighTechnology;
 
             bitmap.Lock();
 
@@ -418,17 +424,25 @@ namespace EmpireGame
                 }
             }
 
-            // Render resource icons BEFORE units (so units render on top)
+            // Render resource icons BEFORE units (so units render on top).
+            // Uranium is hidden until the viewing player has High Technology.
             if (visibility == VisibilityLevel.Visible && tile.Resource != ResourceType.None)
             {
-                RenderResourceIcon(pBackBuffer, stride, tileX, tileY, tile.Resource);
+                bool showResource = tile.Resource != ResourceType.Uranium || _viewerHasHighTech;
+                if (showResource)
+                    RenderResourceIcon(pBackBuffer, stride, tileX, tileY, tile.Resource);
             }
 
             if (visibility == VisibilityLevel.Visible && tile.OwnerId >= 0 && tile.Resource != ResourceType.None)
             {
-                Color ownerColor = GetPlayerColor(tile.OwnerId);
-                // Draw a thicker border for owned resource tiles
-                DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, ownerColor);
+                bool showBorder = tile.Resource != ResourceType.Uranium || _viewerHasHighTech;
+                if (showBorder)
+                {
+                    Color ownerColor = GetPlayerColor(tile.OwnerId);
+                    DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, ownerColor);
+                }
+                else
+                    DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
             }
             else
                 DrawBorder(pBackBuffer, stride, tileX * tileSize, tileY * tileSize, tileSize, tileSize, Color.FromRgb(80, 80, 80));
@@ -441,7 +455,12 @@ namespace EmpireGame
 
         private unsafe void RenderResourceIcon(IntPtr pBackBuffer, int stride, int tileX, int tileY, ResourceType resource)
         {
-            BitmapSource icon = resource == ResourceType.Oil ? oilIcon : steelIcon;
+            BitmapSource icon = resource switch
+            {
+                ResourceType.Oil     => oilIcon,
+                ResourceType.Uranium => uraniumIcon,
+                _                    => steelIcon
+            };
 
             if (icon == null)
                 return;

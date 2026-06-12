@@ -141,7 +141,7 @@ namespace EmpireGame
         private static string GetUnitNotes(Unit unit) => unit switch
         {
             Artillery  a => $"Ranged attack (range {a.AttackRange}), no counter-attack",
-            Submarine  s => "Can submerge (invisible to enemies)",
+            Submarine  s => "Can submerge (invisible to enemies) — requires 1 ☢️",
             Bomber     b => $"Bombing runs, fuel {b.MaxFuel} tiles",
             Fighter    f => $"Intercepts air units, fuel {f.MaxFuel} tiles",
             Tanker     t => $"Refuels air units in flight, fuel {t.MaxFuel} tiles",
@@ -151,8 +151,8 @@ namespace EmpireGame
             Miner      _ => "Builds mines on resource tiles",
             Spy        _ => "Can infiltrate enemy structures",
             AntiAircraft _ => "Bonus attack vs air units",
-            OrbitingSatellite o   => $"Vision radius {o.VisionRadius}, orbiting",
-            GeosynchronousSatellite g => $"Vision radius {g.VisionRadius}, fixed position",
+            OrbitingSatellite o   => $"Vision radius {o.VisionRadius}, orbiting — requires 1 ☢️",
+            GeosynchronousSatellite g => $"Vision radius {g.VisionRadius}, fixed position — requires 1 ☢️",
             _          => ""
         };
 

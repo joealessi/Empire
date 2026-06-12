@@ -756,6 +756,7 @@
                                         <Button x:Name="UpgTreasuryButton" Margin="2" Click="UpgTreasury_Click"/>
                                         <Button x:Name="UpgMilitary1Button" Margin="2" Click="UpgMilitary1_Click"/>
                                         <Button x:Name="UpgMilitary2Button" Margin="2" Click="UpgMilitary2_Click"/>
+                                        <Button x:Name="UpgHighTechButton" Margin="2" Click="UpgHighTech_Click"/>
                                         <Button x:Name="UpgConscriptButton" Margin="2" Click="UpgConscript_Click"/>
                                         <Button x:Name="UpgRepairButton" Margin="2" Click="UpgRepair_Click"/>
                                     </WrapPanel>

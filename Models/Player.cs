@@ -30,6 +30,11 @@ public class Player
     public int TankHealthBonus { get; set; }
     public bool HasMilitary1 { get; set; }
     public bool HasMilitary2 { get; set; }
+    public bool HasHighTechnology { get; set; }
+
+    // Fractional resource accumulators — resources with fractional YieldPerTurn
+    // (e.g. uranium at 0.25/turn) accumulate here until >= 1, then commit to the stockpile.
+    public Dictionary<ResourceType, double> ResourceAccumulators { get; } = new Dictionary<ResourceType, double>();
 
     // AI behavior tracking
     public Dictionary<int, int> UnitsLostToPlayer { get; set; } = new Dictionary<int, int>();
@@ -138,15 +143,25 @@ public class Player
 
     public void CalculateResourceIncome(Map map, double multiplier = 1.0)
     {
-        foreach (var kv in GetResourceIncome(map))
-            AddResource(kv.Key, (int)Math.Round(kv.Value * multiplier));
+        var rates = GetResourceIncome(map);
+        foreach (var kv in rates)
+        {
+            double earned = kv.Value * multiplier;
+            if (earned == 0) continue;
+
+            // Accumulate fractional amounts; commit whole units to the stockpile each turn.
+            double acc = (ResourceAccumulators.TryGetValue(kv.Key, out var prev) ? prev : 0) + earned;
+            int toAdd = (int)Math.Floor(acc);
+            ResourceAccumulators[kv.Key] = acc - toAdd;
+            if (toAdd > 0) AddResource(kv.Key, toAdd);
+        }
     }
 
-    // Income per resource this turn, keyed by ResourceType. Gold comes from structures;
-    // mineable resources come from owned tiles (yields from the registry).
-    public Dictionary<ResourceType, int> GetResourceIncome(Map map)
+    // Income rates per resource this turn (may be fractional for resources like Uranium).
+    // Gold comes from structures; mineable resources come from owned connected mines.
+    public Dictionary<ResourceType, double> GetResourceIncome(Map map)
     {
-        var income = new Dictionary<ResourceType, int>();
+        var income = new Dictionary<ResourceType, double>();
         foreach (var rt in ResourceRegistry.Currencies)
             income[rt] = 0;
 

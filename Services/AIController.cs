@@ -63,8 +63,8 @@ namespace EmpireGame
                 case AIPlaystyle.Aggressive: priority = new[] { "mil1", "mil2", "industry", "conscript" }; break;
                 case AIPlaystyle.Defensive:  priority = new[] { "fortify", "watchtower", "mil1", "repair" }; break;
                 case AIPlaystyle.Buildup:    priority = new[] { "housing", "treasury", "industry" }; break;
-                case AIPlaystyle.Naval:      priority = new[] { "treasury", "industry" }; break;
-                case AIPlaystyle.Aerial:     priority = new[] { "industry", "watchtower" }; break;
+                case AIPlaystyle.Naval:      priority = new[] { "treasury", "industry", "hightech" }; break;
+                case AIPlaystyle.Aerial:     priority = new[] { "industry", "hightech", "watchtower" }; break;
                 default:                     priority = new[] { "industry", "housing", "mil1" }; break; // Balanced
             }
 
@@ -88,6 +88,9 @@ namespace EmpireGame
                 case "treasury":   return s.Population >= CivicUpgrades.CostTreasury + buffer && CivicUpgrades.BuyTreasury(s);
                 case "mil1":       return s.Population >= CivicUpgrades.CostMilitary1 + buffer && CivicUpgrades.BuyMilitary1(ai, s);
                 case "mil2":       return s.Population >= CivicUpgrades.CostMilitary2 + buffer && CivicUpgrades.BuyMilitary2(ai, s);
+                case "hightech":   return s.Population >= CivicUpgrades.CostHighTechnology + buffer &&
+                                          ai.GetResource(ResourceType.Oil) >= CivicUpgrades.OilCostHighTechnology &&
+                                          CivicUpgrades.BuyHighTechnology(ai, s);
                 case "repair":     return s.Life < s.MaxLife && s.Population >= CivicUpgrades.CostRepair + buffer && CivicUpgrades.Repair(s);
                 case "conscript":  return s.Population >= CivicUpgrades.CostConscript + buffer && CivicUpgrades.Conscript(game, ai, s) != null;
                 default: return false;

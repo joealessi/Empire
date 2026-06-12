@@ -133,6 +133,8 @@
     <None Remove="Resources\Empire_Icons\Red\Veteran\Tanker.png" />
     <None Remove="Resources\steel_16.png" />
     <None Remove="Resources\steel_32.png" />
+    <None Remove="Resources\uranium_16.png" />
+    <None Remove="Resources\uranium_32.png" />
     <None Remove="Resources\unavailable.png" />
     <None Remove="Resources\white-flag.png" />
   </ItemGroup>
@@ -505,6 +507,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\steel_32.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\uranium_16.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\uranium_32.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\unavailable.png">

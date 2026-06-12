@@ -52,12 +52,12 @@ public class UnitProductionOrder
             { typeof(Tanker),                  C(3, 1, 1) },
             { typeof(PatrolBoat),              C(2, 1, 0) },
             { typeof(Destroyer),               C(3, 2, 1) },
-            { typeof(Submarine),               C(6, 3, 2) },
+            { typeof(Submarine),               Price((ResourceType.Gold,6),(ResourceType.Steel,3),(ResourceType.Oil,2),(ResourceType.Uranium,1)) },
             { typeof(Carrier),                 C(8, 4, 3) },
             { typeof(Battleship),              C(9, 5, 3) },
             { typeof(Transport),               C(3, 1, 2) },
-            { typeof(OrbitingSatellite),       C(5, 2, 1) },
-            { typeof(GeosynchronousSatellite), C(9, 5, 3) },
+            { typeof(OrbitingSatellite),       Price((ResourceType.Gold,5),(ResourceType.Steel,2),(ResourceType.Oil,1),(ResourceType.Uranium,1)) },
+            { typeof(GeosynchronousSatellite), Price((ResourceType.Gold,9),(ResourceType.Steel,5),(ResourceType.Oil,3),(ResourceType.Uranium,1)) },
         };
 
     // Populace consumed to build a people-unit (0 for machines). Never drops a structure below 1.

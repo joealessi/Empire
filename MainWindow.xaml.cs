@@ -4437,10 +4437,13 @@ namespace EmpireGame
                     VerticalAlignment = VerticalAlignment.Center
                 });
 
-                int inc = income.TryGetValue(rt, out var v) ? v : 0;
+                double inc = income.TryGetValue(rt, out var v) ? v : 0;
+                string incText = inc > 0
+                    ? (inc == Math.Floor(inc) ? $"(+{(int)inc})" : $"(+{inc:0.##})")
+                    : "(+0)";
                 chip.Children.Add(new TextBlock
                 {
-                    Text = $"(+{inc})",
+                    Text = incText,
                     FontSize = 12,
                     Foreground = System.Windows.Media.Brushes.LightGreen,
                     VerticalAlignment = VerticalAlignment.Center
@@ -4805,7 +4808,8 @@ namespace EmpireGame
                           CostWatchtower = CivicUpgrades.CostWatchtower, CostHousing = CivicUpgrades.CostHousing,
                           CostTreasury = CivicUpgrades.CostTreasury, CostMilitary1 = CivicUpgrades.CostMilitary1,
                           CostMilitary2 = CivicUpgrades.CostMilitary2, CostConscript = CivicUpgrades.CostConscript,
-                          CostRepair = CivicUpgrades.CostRepair, SteelCostMilitary2 = CivicUpgrades.SteelCostMilitary2;
+                          CostRepair = CivicUpgrades.CostRepair, SteelCostMilitary2 = CivicUpgrades.SteelCostMilitary2,
+                          CostHighTechnology = CivicUpgrades.CostHighTechnology, OilCostHighTechnology = CivicUpgrades.OilCostHighTechnology;
 
         private void RefreshCivicUpgrades(Structure s)
         {
@@ -4830,6 +4834,13 @@ namespace EmpireGame
             UpgMilitary2Button.IsEnabled = own && !p.HasMilitary2 && p.HasMilitary1 &&
                                            p.GetResource(ResourceType.Steel) >= SteelCostMilitary2 &&
                                            (pop - CostMilitary2 >= 1);
+
+            UpgHighTechButton.Content = p.HasHighTechnology
+                ? "High Tech ✓"
+                : $"High Tech ({CostHighTechnology}👥+{OilCostHighTechnology}🛢️)";
+            UpgHighTechButton.IsEnabled = own && !p.HasHighTechnology &&
+                                          p.GetResource(ResourceType.Oil) >= OilCostHighTechnology &&
+                                          (pop - CostHighTechnology >= 1);
 
             UpgConscriptButton.Content = $"Conscript ({CostConscript}👥)";
             UpgConscriptButton.IsEnabled = own && (pop - CostConscript >= 1);
@@ -4910,6 +4921,15 @@ namespace EmpireGame
             { AddMessage("🎖️ Military II researched (+1 Tank health, all tanks).", MessageType.Success); AfterUpgrade(); }
         }
 
+        private void UpgHighTech_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedStructure != null && CivicUpgrades.BuyHighTechnology(game.CurrentPlayer, selectedStructure))
+            {
+                AddMessage("☢️ High Technology researched — uranium deposits are now visible on the map and can be mined.", MessageType.Success);
+                AfterUpgrade();
+            }
+        }
+
         private void UpgConscript_Click(object sender, RoutedEventArgs e)
         {
             if (selectedStructure != null && CivicUpgrades.Conscript(game, game.CurrentPlayer, selectedStructure) != null)
@@ -4930,7 +4950,12 @@ namespace EmpireGame
             Tile tile = game.Map.GetTile(miner.Position);
             if (!ResourceRegistry.IsMineable(tile.Resource))
             {
-                AddMessage("A Miner must stand on a steel/oil tile to build a mine.", MessageType.Warning);
+                AddMessage("A Miner must stand on a steel, oil, or uranium tile to build a mine.", MessageType.Warning);
+                return;
+            }
+            if (tile.Resource == ResourceType.Uranium && !game.CurrentPlayer.HasHighTechnology)
+            {
+                AddMessage("☢️ High Technology civic upgrade is required to mine uranium.", MessageType.Warning);
                 return;
             }
             if (tile.Structure != null)

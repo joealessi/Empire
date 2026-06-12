@@ -6,7 +6,8 @@ public static class CivicUpgrades
 {
     public const int CostIndustry = 15, CostFortify = 15, CostWatchtower = 12, CostHousing = 30,
                      CostTreasury = 30, CostMilitary1 = 40, CostMilitary2 = 40, CostConscript = 8,
-                     CostRepair = 12, SteelCostMilitary2 = 10;
+                     CostRepair = 12, SteelCostMilitary2 = 10,
+                     CostHighTechnology = 50, OilCostHighTechnology = 3;
 
     // Spend populace if it can stay >= 1.
     private static bool SpendPop(Structure s, int cost)
@@ -84,6 +85,17 @@ public static class CivicUpgrades
     {
         if (s.Life >= s.MaxLife || !SpendPop(s, CostRepair)) return false;
         s.Life = s.MaxLife;
+        return true;
+    }
+
+    // Unlocks uranium visibility and mining empire-wide.
+    public static bool BuyHighTechnology(Player p, Structure s)
+    {
+        if (p.HasHighTechnology) return false;
+        if (p.GetResource(ResourceType.Oil) < OilCostHighTechnology) return false;
+        if (!SpendPop(s, CostHighTechnology)) return false;
+        p.AddResource(ResourceType.Oil, -OilCostHighTechnology);
+        p.HasHighTechnology = true;
         return true;
     }
 
