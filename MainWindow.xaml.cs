@@ -2003,6 +2003,8 @@ namespace EmpireGame
             if (structure is Base || structure is City || structure is Mine)
                 StructureNameText.Text += $"   👥 {structure.Population:0.#}";
             StructureLifeText.Text = $"Life: {structure.Life}/{structure.MaxLife}";
+            if (structure.IsUnderFullSiege)
+                StructureLifeText.Text += "   🔴 UNDER FULL SIEGE — no resources earned!";
 
             // Color code life based on percentage
             double lifePercent = (double)structure.Life / structure.MaxLife;

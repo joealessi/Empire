@@ -194,20 +194,30 @@ public class Player
         foreach (var rt in ResourceRegistry.Currencies)
             income[rt] = 0;
 
-        // Cities generate 3 gold, bases 1 gold (+Treasury upgrade bonus)
+        // Cities generate 3 gold, bases 1 gold (+Treasury upgrade bonus) — not while under full siege
         foreach (var structure in Structures)
         {
+            if (structure.IsUnderFullSiege) continue;
             if (structure is City)
                 income[ResourceType.Gold] += 3 + structure.GoldBonus;
             else if (structure is Base)
                 income[ResourceType.Gold] += 1 + structure.GoldBonus;
         }
 
-        // Mineable resources come from connected mines this player owns.
+        // Mineable resources come from connected mines — not if the connected city/base is under full siege
         foreach (var structure in Structures)
         {
-            if (structure is Mine mine && mine.IsConnected)
-                income[mine.Resource] += ResourceRegistry.Get(mine.Resource).YieldPerTurn;
+            if (!(structure is Mine mine) || !mine.IsConnected) continue;
+
+            // Check if the city/base this mine feeds is under full siege
+            if (mine.SupplyPath != null && mine.SupplyPath.Count > 0)
+            {
+                var destPos = mine.SupplyPath[mine.SupplyPath.Count - 1];
+                var destTile = map.GetTile(destPos);
+                if (destTile?.Structure != null && destTile.Structure.IsUnderFullSiege) continue;
+            }
+
+            income[mine.Resource] += ResourceRegistry.Get(mine.Resource).YieldPerTurn;
         }
 
         return income;

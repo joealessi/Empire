@@ -71,6 +71,7 @@ public class Game
         // Clean up destroyed mines and recompute supply lines before income is applied.
         RemoveDestroyedMines();
         UpdateSupplyLines();
+        UpdateSiegeStatus();
 
         foreach (var player in Players)
         {
@@ -1773,6 +1774,40 @@ public class Game
             }
         }
         return new List<TilePosition>();
+    }
+
+    // A Full Siege is declared when all 4 cardinal tiles adjacent to a city/base
+    // are occupied by enemy units. The besieged structure earns no resources.
+    public void UpdateSiegeStatus()
+    {
+        var cardinals = new (int dx, int dy)[] { (0,-1),(0,1),(-1,0),(1,0) };
+
+        foreach (var player in Players)
+        {
+            foreach (var structure in player.Structures)
+            {
+                if (!(structure is Base || structure is City)) continue;
+
+                bool allBlocked = true;
+                foreach (var (dx, dy) in cardinals)
+                {
+                    var pos = new TilePosition(structure.Position.X + dx, structure.Position.Y + dy);
+                    if (!Map.IsValidPosition(pos)) continue; // off-map edge — don't count against siege
+
+                    var tile = Map.GetTile(pos);
+                    bool hasEnemy = tile.Units.Any(u => u.OwnerId != player.PlayerId && !(u is Satellite));
+                    if (!hasEnemy) { allBlocked = false; break; }
+                }
+
+                bool wasSieged = structure.IsUnderFullSiege;
+                structure.IsUnderFullSiege = allBlocked;
+
+                if (allBlocked && !wasSieged)
+                    ProductionMessages.Enqueue($"🔴 FULL SIEGE declared on {structure.GetName()}! No resources will be earned while surrounded.");
+                else if (!allBlocked && wasSieged)
+                    ProductionMessages.Enqueue($"🟢 Siege of {structure.GetName()} has been broken!");
+            }
+        }
     }
 
     // Recompute every mine's supply path + connectivity, and auto-stop any disrupting sapper
