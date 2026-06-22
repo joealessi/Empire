@@ -43,7 +43,7 @@
     
     public virtual int GetDefenseBonus()
     {
-        return this is City ? 75 : 50;
+        return 50; // fallback for structures without subclass override
     }
 
     public bool IsDestroyed()

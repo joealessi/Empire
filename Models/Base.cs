@@ -21,7 +21,7 @@
     
     public Base()
     {
-        MaxLife = 50;
+        MaxLife = 40;
         Life = MaxLife;
         VisionRange = 5;
         ProductionPointsPerTurn = 10;
@@ -38,14 +38,12 @@
     
     public override char GetSymbol() => 'B';
 
-    public int GetDefenseBonus()
+    public override int GetDefenseBonus()
     {
-        // Soldiers in barracks contribute to defense
+        // Barracks and motor-pool units garrison the base, raising its defense
         int bonus = 50;
-        foreach (var army in Barracks)
-        {
-            bonus += army.Power / 2;
-        }
+        int garrisonCount = Barracks.Count + MotorPool.Count;
+        bonus += garrisonCount * 3;
         return bonus;
     }
     

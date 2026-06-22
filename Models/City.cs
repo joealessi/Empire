@@ -17,7 +17,7 @@
     
     public City()
     {
-        MaxLife = 100;
+        MaxLife = 60;
         Life = MaxLife;
         VisionRange = 4;
         ProductionPointsPerTurn = 8;
@@ -31,14 +31,12 @@
 
     public override char GetSymbol() => 'C';
 
-    public int GetDefenseBonus()
+    public override int GetDefenseBonus()
     {
-        // Soldiers in barracks contribute to defense
+        // Barracks and motor-pool units garrison the city, raising its defense
         int bonus = 75;
-        foreach (var army in Barracks)
-        {
-            bonus += army.Power / 2;
-        }
+        int garrisonCount = Barracks.Count + MotorPool.Count;
+        bonus += garrisonCount * 3;
         return bonus;
     }
     
