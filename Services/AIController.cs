@@ -406,7 +406,9 @@ namespace EmpireGame
                     cap.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(aiPlayer);
                     aiPlayer.Structures.Add(cap);
                     standingTile.OwnerId = aiPlayer.PlayerId;
-                    messageCallback?.Invoke($"🏰 {aiPlayer.Name}'s {unit.GetName()} breached and captured {cap.GetName()}!", MessageType.Info);
+                    int minCount1 = game.TransferConnectedMines(cap, oldOwner, aiPlayer);
+                    string mineNote1 = minCount1 > 0 ? $" + {minCount1} mine(s)" : "";
+                    messageCallback?.Invoke($"🏰 {aiPlayer.Name}'s {unit.GetName()} breached and captured {cap.GetName()}{mineNote1}!", MessageType.Info);
                 }
                 return;
             }
@@ -1146,6 +1148,8 @@ namespace EmpireGame
                     capturedStructure.Life = capturedStructure.MaxLife;
                     capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(attackerOwner);
                     attackerOwner?.Structures.Add(capturedStructure);
+                    if (attackerOwner != null)
+                        game.TransferConnectedMines(capturedStructure, defenderOwner, attackerOwner);
                 }
 
                 defenderTile.Units.Remove(defender);
@@ -1260,12 +1264,14 @@ namespace EmpireGame
                     messageCallback?.Invoke($"⚠️ {oldOwnerName} lost {cap.GetName()}!", MessageType.Warning);
 
                     cap.OwnerId = unit.OwnerId;
-                    cap.Life    = cap.MaxLife; // restore HP on capture
+                    cap.Life    = cap.MaxLife;
 
                     var newOwner = game.Players.FirstOrDefault(p => p.PlayerId == unit.OwnerId);
                     cap.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(newOwner);
                     newOwner?.Structures.Add(cap);
-                    messageCallback?.Invoke($"🏰 {unitOwnerName}'s {unit.GetName()} captured {cap.GetName()}!", MessageType.Info);
+                    int minCount2 = game.TransferConnectedMines(cap, oldOwner, newOwner);
+                    string mineNote2 = minCount2 > 0 ? $" + {minCount2} mine(s)" : "";
+                    messageCallback?.Invoke($"🏰 {unitOwnerName}'s {unit.GetName()} captured {cap.GetName()}{mineNote2}!", MessageType.Info);
                 }
 
                 movementLeft -= cost;

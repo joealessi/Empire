@@ -2138,4 +2138,33 @@ public class Game
         }
     }
 
+    /// <summary>
+    /// Transfers any mines whose supply path was connected to <paramref name="capturedStructure"/>
+    /// from <paramref name="oldOwner"/> to <paramref name="newOwner"/>.
+    /// Returns the number of mines transferred.
+    /// </summary>
+    public int TransferConnectedMines(Structure capturedStructure, Player oldOwner, Player newOwner)
+    {
+        if (oldOwner == null || newOwner == null) return 0;
+
+        var minesToTransfer = oldOwner.Structures
+            .OfType<Mine>()
+            .Where(m => m.SupplyPath != null
+                     && m.SupplyPath.Count > 0
+                     && m.SupplyPath[m.SupplyPath.Count - 1].Equals(capturedStructure.Position))
+            .ToList();
+
+        foreach (var mine in minesToTransfer)
+        {
+            oldOwner.Structures.Remove(mine);
+            mine.OwnerId = newOwner.PlayerId;
+            newOwner.Structures.Add(mine);
+
+            // Transfer tile ownership too
+            var tile = Map.GetTile(mine.Position);
+            if (tile != null) tile.OwnerId = newOwner.PlayerId;
+        }
+
+        return minesToTransfer.Count;
+    }
 }

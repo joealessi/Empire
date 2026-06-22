@@ -3157,7 +3157,9 @@ namespace EmpireGame
                     cap.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
                     game.CurrentPlayer.Structures.Add(cap);
                     game.CurrentPlayer.RecordStructureCapture();
-                    AddMessage($"🏰 You captured {cap.GetName()}!", MessageType.Success);
+                    int minesGained = game.TransferConnectedMines(cap, capOldOwner, game.CurrentPlayer);
+                    string mineMsg = minesGained > 0 ? $" ({minesGained} connected mine(s) also transferred)" : "";
+                    AddMessage($"🏰 You captured {cap.GetName()}!{mineMsg}", MessageType.Success);
                 }
                 else
                 {
@@ -3327,7 +3329,9 @@ namespace EmpireGame
                                 capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
                                 game.CurrentPlayer.Structures.Add(capturedStructure);
                                 game.CurrentPlayer.RecordStructureCapture();
-                                AddMessage($"🏆 You captured and renamed it {capturedStructure.GetName()}!", MessageType.Success);
+                                int minesGained2 = game.TransferConnectedMines(capturedStructure, oldOwner, game.CurrentPlayer);
+                                string mineMsg2 = minesGained2 > 0 ? $" ({minesGained2} connected mine(s) also transferred)" : "";
+                                AddMessage($"🏆 You captured and renamed it {capturedStructure.GetName()}!{mineMsg2}", MessageType.Success);
                             }
                         }
                         else
@@ -3500,7 +3504,9 @@ namespace EmpireGame
                 capturedStructure.CustomName = EmpireGame.Services.CommanderCityNames.NextCityName(game.CurrentPlayer);
                 game.CurrentPlayer.Structures.Add(capturedStructure);
                 game.CurrentPlayer.RecordStructureCapture();
-                AddMessage($"🏰 You captured and renamed it {capturedStructure.GetName()}!", MessageType.Success);
+                int minesGained3 = game.TransferConnectedMines(capturedStructure, oldOwner, game.CurrentPlayer);
+                string mineMsg3 = minesGained3 > 0 ? $" ({minesGained3} connected mine(s) also transferred)" : "";
+                AddMessage($"🏰 You captured and renamed it {capturedStructure.GetName()}!{mineMsg3}", MessageType.Success);
             }
 
             SelectUnit(unit);
