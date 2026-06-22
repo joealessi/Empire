@@ -7,6 +7,7 @@
     public int MaxLife { get; set; }
     public int VisionRange { get; set; }
     public int TurnsSinceLastHeal { get; set; }
+    public int LastAttackedTurn { get; set; }
     public string CustomName { get; set; }
 
     // Populace living at this structure. Grows each turn (City +2, Base +1, Mine +0.5) and
@@ -26,6 +27,7 @@
     public Structure()
     {
         TurnsSinceLastHeal = 0;
+        LastAttackedTurn = -999; // never attacked — healing starts immediately
         Population = 1;
     }
     

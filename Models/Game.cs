@@ -1844,6 +1844,7 @@ public class Game
         {
             int damage = Math.Max(1, (round.AttackerScore - round.DefenderScore) / 10);
             structure.Life = Math.Max(0, structure.Life - damage);
+            structure.LastAttackedTurn = TurnNumber; // suppress healing for this turn and next
             round.AttackerWon = true;
         }
         else
@@ -2118,6 +2119,10 @@ public class Game
     {
         foreach (var structure in player.Structures)
         {
+            // No healing if attacked this turn or last turn
+            if (TurnNumber - structure.LastAttackedTurn <= 1)
+                continue;
+
             structure.TurnsSinceLastHeal++;
 
             if (structure is Base && structure.TurnsSinceLastHeal >= 2 && structure.Life < structure.MaxLife)
